@@ -65,6 +65,8 @@ class _VllmGia:
 
     def __init__(self, noi_dung: str = '  {"tool": "vat"}  ', ma: int = 200):
         self.requests: list[tuple[str, dict]] = []
+        # Số lần client ngắt trước khi server giả kịp trả lời — xem `_tra`.
+        self.ngat_giua_chung: int = 0
         gia = self
 
         class _H(BaseHTTPRequestHandler):
@@ -75,11 +77,25 @@ class _VllmGia:
 
             def _tra(self, ma_http: int, than: dict | None):
                 raw = json.dumps(than or {}).encode()
-                self.send_response(ma_http)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
+                try:
+                    self.send_response(ma_http)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(raw)))
+                    self.end_headers()
+                    self.wfile.write(raw)
+                except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                    # Client bỏ cuộc TRƯỚC khi ta kịp trả lời. Đây là hành vi
+                    # ĐƯỢC MONG ĐỢI của `test_vllm_cham_...`: Brain hết giờ ở 3s
+                    # trong khi handler ngủ 4s rồi mới ghi.
+                    #
+                    # Để nguyên thì trên Windows nó nổ `ConnectionAbortedError`
+                    # (WinError 10053), socketserver in traceback, luồng handler
+                    # chết — và test CHẠY SAU đỏ theo. Linux nuốt êm hơn nên lỗi
+                    # này không thấy trên Colab (03/11/2026).
+                    #
+                    # KHÔNG nuốt im (AGENTS §4.1 quy tắc 4): đếm lại để test nào
+                    # cần thì khẳng định được là đã có ngắt giữa chừng.
+                    gia.ngat_giua_chung += 1
 
             def do_GET(self):  # noqa: N802
                 gia.requests.append((self.path, {}))
