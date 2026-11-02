@@ -54,3 +54,18 @@ sample_data/*.xlsx
 # Backup cuc bo — KHONG track trong git (moi ban backup nhan doi moi bi mat lo commit;
 # chinh _backups da nhan mat khau Neon thanh 12 ban trong su co 27/07/2026)
 /_backups/
+
+# ---------------------------------------------------------------------------
+# Artefact SINH RA lúc chạy — không bao giờ commit (dọn 03/11/2026)
+# ---------------------------------------------------------------------------
+# Chroma dựng lại được từ src/data/docs bằng đường nạp tài liệu. Bản sqlite
+# 13,6 MB trong git là bản chụp của một lần nạp, không phải nguồn.
+/data/vector_db/
+
+# Nhật ký đo lường từng lượt. metrics.py tự tạo lại; commit nó là commit lịch
+# sử hội thoại của khách.
+/src/data/ai_metrics_log.jsonl
+
+# Hai file không mã nào đọc, còn sót từ thời v2.
+/src/data/chart_data.jsonl
+/src/data/learning_queue.jsonl
