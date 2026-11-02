@@ -184,3 +184,53 @@ def test_cau_tieng_viet_binh_thuong_khong_bi_chan():
     assert kiem_suy_bien("") is None
     assert kiem_suy_bien("ok") is None
 
+
+
+# ---------------------------------------------------------------------------
+# Thang bậc tiếng Việt — "10,25 triệu" và "10250000" là MỘT con số
+#
+# Lỗi thật, tái hiện trước khi sửa: context có `10250000`, model viết "10.25
+# triệu đồng", bộ kiểm bỏ dấu thành "1025" rồi so chuỗi, không khớp, CHẶN OAN
+# một câu trả lời đúng. Hại hơn hẳn lọt số bịa: khách hỏi, hệ thống có số
+# đúng trong tay, rồi trả về câu từ chối.
+# ---------------------------------------------------------------------------
+
+CTX_TRIEU = "Tổng cước tháng 10: 10250000 VND. Chi phí nhiên liệu: 3450000 VND."
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Tổng cước tháng 10 là 10,25 triệu đồng.",
+        "Tổng cước tháng 10 là 10.25 triệu đồng.",
+        "Tổng cước tháng 10 khoảng 10,25 tr.",
+        "Tổng cước tháng 10 là 10250000 đồng.",  # dạng thô vẫn phải qua
+    ],
+)
+def test_thang_bac_khong_bi_chan_oan(cau):
+    v = guard_answer(cau, CTX_TRIEU)
+    assert v.ok, f"chặn oan: {v.offending!r} — {cau!r}"
+
+
+def test_thang_bac_van_chan_so_bia():
+    """Nới lỏng cách ĐỌC số, không nới lỏng việc số đó phải có trong dữ liệu."""
+    v = guard_answer("Tổng cước tháng 10 là 88,88 triệu đồng.", CTX_TRIEU)
+    assert v.blocked and v.reason == "bịa số"
+
+
+def test_numbers_in_sinh_ca_dang_tho_lan_dang_nhan():
+    ra = numbers_in("10,25 triệu")
+    assert "1025" in ra, "dạng thô phải còn, nếu không là SIẾT chứ không phải nới"
+    assert "10250000" in ra, "cách đọc thập phân"
+    assert "1025000000" in ra, "cách đọc dấu-phân-tách-nghìn"
+
+
+def test_nghin_va_ty():
+    assert "5000" in numbers_in("5 nghìn")
+    assert "2000000000" in numbers_in("2 tỷ")
+    assert "2500000000" in numbers_in("2,5 tỉ")
+
+
+def test_chu_thang_bac_don_doc_khong_lam_no():
+    """"triệu" không đi kèm số thì không có gì để nhân."""
+    assert numbers_in("hàng triệu đồng") == set()

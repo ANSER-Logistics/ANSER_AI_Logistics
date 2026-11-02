@@ -30,7 +30,6 @@ from dataclasses import dataclass
 
 logger = logging.getLogger("projecta.grounding")
 
-_NUM_RE = re.compile(r"\d[\d.,]*\d|\d")
 
 # Từ CẤM trong nội dung soạn cho KHÁCH CUỐI (P2: biên là bí mật kinh doanh).
 # So word-boundary CÓ DẤU — bỏ dấu sẽ khiến "lãi" khớp nhầm "lại".
@@ -43,25 +42,108 @@ _CUSTOMER_FORBIDDEN_RE = re.compile(
 # Loại chúng đi sẽ chặn oan gần hết câu trả lời bình thường.
 MIN_DIGITS = 4
 
+# Hậu tố thang bậc tiếng Việt.
+#
+# VÌ SAO CÓ KHỐI NÀY
+# ------------------
+# Bản trước bỏ dấu phân tách rồi so CHUỖI. Nên context ghi `10250000`, model
+# viết "10,25 triệu đồng" — cùng một con số — mà phép kiểm thấy "1025" ≠
+# "10250000" và CHẶN OAN câu trả lời đúng, thay bằng câu từ chối. Đây là lỗi
+# gây hại trực tiếp: khách hỏi, hệ thống có số đúng, rồi tự bịt miệng mình.
+# (BAO_CAO_BR05 §3.3 xếp nó là "mã khung đo"; docstring đầu file này nói ngược
+#  lại — offline_training import ngược vào đây nên lỗi sống trong production.)
+_THANG = {
+    "nghìn": 1_000,
+    "ngàn": 1_000,
+    "k": 1_000,
+    "triệu": 1_000_000,
+    "tr": 1_000_000,
+    "tỷ": 1_000_000_000,
+    "tỉ": 1_000_000_000,
+}
+# Bắt mọi con số, kèm hậu tố thang bậc nếu có. Hậu tố đứng SAU số, cách bằng
+# khoảng trắng hoặc dính liền ("2tr", "2 triệu").
+#
+# `(?![^\W\d_])` = hậu tố không được dính thêm chữ cái. Nếu không có nó thì
+# "tr" trong "trieu" (viết không dấu) cũng khớp. KHÔNG dùng `\b` ở cuối toàn
+# biểu thức: với "3.450.000đ", "0" và "đ" đều là ký tự chữ nên không có ranh
+# giới, regex lùi dần và chỉ bắt được "3.450" -> "3450". Đã làm hỏng
+# `test_bo_dau_phan_tach_nghin` đúng một lần.
+_SO_KEM_THANG = re.compile(
+    r"(\d[\d.,]*\d|\d)(?:\s*(nghìn|ngàn|triệu|tỷ|tỉ|tr|k)(?![^\W\d_]))?",
+    re.IGNORECASE,
+)
+
+
+def _hai_cach_doc(tho: str) -> set[float]:
+    """
+    '10.25' đọc được HAI cách và tiếng Việt dùng lẫn lộn cả hai.
+
+    - dấu phân tách nghìn  -> 1025
+    - dấu thập phân        -> 10.25
+
+    Trả cả hai. Phép kiểm chỉ cần MỘT cách khớp context là cho qua — nới lỏng
+    có chủ ý, vì chặn oan tốn hơn lọt một con số trùng hình dạng.
+    """
+    ra: set[float] = set()
+    chi_so = tho.replace(".", "").replace(",", "")
+    if chi_so.isdigit():
+        ra.add(float(chi_so))
+    if tho.count(".") + tho.count(",") == 1:
+        try:
+            ra.add(float(tho.replace(",", ".")))
+        except ValueError:
+            pass
+    return ra
+
+
+def _nhan_thang(tho: str, hau_to: str | None) -> set[str]:
+    """{'10.25', 'triệu'} -> {'10250000', '1025000000'}. Không hậu tố -> rỗng."""
+    if not hau_to:
+        return set()
+    nhan = _THANG[hau_to.lower()]
+    ra: set[str] = set()
+    for gia_tri in _hai_cach_doc(tho):
+        tong = gia_tri * nhan
+        if tong == int(tong):
+            ra.add(str(int(tong)))
+    return ra
+
 
 def numbers_in(text: str) -> set[str]:
-    """Tập các con số đã bỏ dấu phân tách nghìn: '3.450.000đ' -> '3450000'."""
-    return {
-        m.group(0).replace(".", "").replace(",", "")
-        for m in _NUM_RE.finditer(text or "")
-    }
+    """
+    Tập con số đã chuẩn hoá: '3.450.000đ' -> '3450000'.
+
+    Kèm cả giá trị đã nhân thang bậc, nên '10,25 triệu' sinh thêm '10250000'.
+    Context và answer cùng đi qua hàm này ⇒ khớp được theo cả hai chiều.
+    """
+    ra: set[str] = set()
+    for m in _SO_KEM_THANG.finditer(text or ""):
+        tho, hau_to = m.group(1), m.group(2)
+        ra.add(tho.replace(".", "").replace(",", ""))
+        ra |= _nhan_thang(tho, hau_to)
+    return ra
 
 
 def narration_numbers_ok(answer: str, context: str, min_digits: int = MIN_DIGITS):
     """
     Mọi con số >= `min_digits` chữ số trong `answer` PHẢI có trong `context`.
 
+    Một con số được cho qua nếu BẤT KỲ cách đọc nào của nó có trong context —
+    dạng thô, hoặc dạng đã nhân thang bậc. Tập cách đọc luôn chứa dạng thô, nên
+    phép kiểm này chỉ NỚI so với bản trước, không bao giờ siết thêm: không có
+    câu nào đang qua mà sau thay đổi lại bị chặn.
+
     Trả `(ok, con_số_vi_phạm | None)`.
     """
     ctx_numbers = numbers_in(context)
-    for token in numbers_in(answer):
-        if len(token) >= min_digits and token not in ctx_numbers:
-            return False, token
+    for m in _SO_KEM_THANG.finditer(answer or ""):
+        tho, hau_to = m.group(1), m.group(2)
+        chinh = tho.replace(".", "").replace(",", "")
+        if len(chinh) < min_digits:
+            continue
+        if not ({chinh} | _nhan_thang(tho, hau_to)) & ctx_numbers:
+            return False, chinh
     return True, None
 
 
