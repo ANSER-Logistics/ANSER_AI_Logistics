@@ -147,6 +147,59 @@ def narration_numbers_ok(answer: str, context: str, min_digits: int = MIN_DIGITS
     return True, None
 
 
+# ---------------------------------------------------------------------------
+# Chốt SỐ TỰ SUY RA (03/11/2026, R1)
+# ---------------------------------------------------------------------------
+# `narration_numbers_ok` bỏ qua số dưới 4 chữ số, vì chặn hết thì "có 3 chuyến"
+# hay "ngày 15" cũng bị chặn oan. Cái giá của ngưỡng đó: **"gấp khoảng 1,2 lần"
+# đi lọt** — model tự chia hai con số rồi tuyên bố kết quả. Đúng thứ R1 cấm:
+# LLM không bao giờ tính toán.
+#
+# Ngưỡng độ dài là công cụ cùn vì nó gộp hai thứ khác hẳn nhau:
+#
+#   "có 3 chuyến"        — đếm, trích thẳng từ dữ liệu. Hợp lệ.
+#   "gấp 1,2 lần"        — tỷ lệ, suy ra bằng phép chia. Phải do tool tính.
+#
+# Mẫu so sánh phân biệt được hai thứ đó, nên nó SẮC HƠN ngưỡng, không phải
+# nghiêm hơn. Để khớp, câu phải có ĐỒNG THỜI một từ so sánh VÀ một đơn vị tỷ lệ
+# (`%` hoặc `lần`). "tăng 3 chuyến" không khớp; "ngày 15" không khớp.
+#
+# Và nó chỉ chặn khi con số KHÔNG có trong context. Nếu tool đã tính ra 12% và
+# đặt vào dữ liệu thì model được phép nhắc lại — đó là diễn giải, không phải
+# tính toán.
+_SO_SUY_RA = re.compile(
+    r"(gấp|bằng|cao hơn|thấp hơn|nhiều hơn|ít hơn|tăng|giảm|chiếm|tương đương)"
+    r"\s*(?:khoảng|gần|hơn|chừng|tầm|độ)?\s*"
+    r"(\d[\d.,]*\d|\d)\s*(%|phần trăm|lần)",
+    re.IGNORECASE,
+)
+
+LOI_TU_CHOI_SUY_RA = (
+    "Tôi chưa trả lời được câu này một cách chắc chắn.\n\n"
+    "Bản nháp vừa tạo có cụm \"{cum}\" — một tỷ lệ không có trong dữ liệu, nghĩa "
+    "là nó do model tự tính chứ không phải do hệ thống tính ra. Tôi chặn lại "
+    "thay vì đưa ra một tỷ lệ nghe hợp lý mà có thể sai. "
+    "Bạn xem số liệu gốc bên dưới, hoặc hỏi lại cụ thể hơn."
+)
+
+
+def derived_ratios_ok(answer: str, context: str):
+    """
+    Mọi tỷ lệ so sánh trong `answer` PHẢI có sẵn trong `context`.
+
+    Bắt loại câu mà model tự làm phép chia rồi tuyên bố kết quả — thứ
+    `narration_numbers_ok` bỏ sót vì tỷ lệ thường ngắn hơn 4 chữ số.
+
+    Trả `(ok, cụm_vi_phạm | None)`.
+    """
+    ctx_numbers = numbers_in(context)
+    for m in _SO_SUY_RA.finditer(answer or ""):
+        tho = m.group(2)
+        if not ({tho.replace(".", "").replace(",", "")} | _nhan_thang(tho, None)) & ctx_numbers:
+            return False, " ".join(m.group(0).split())
+    return True, None
+
+
 def customer_leak(answer: str) -> list[str]:
     """Các từ lộ thông tin nội bộ tìm thấy trong nội dung gửi khách cuối."""
     return _CUSTOMER_FORBIDDEN_RE.findall(answer or "")
@@ -238,6 +291,12 @@ def guard_answer(answer: str, context: str, *, for_customer: bool = False) -> Gu
         return GuardVerdict(False, _LOI_TU_CHOI_SO.format(so=bad),
                             reason="bịa số", offending=str(bad))
 
+    ok, cum = derived_ratios_ok(answer, context)
+    if not ok:
+        logger.warning("Chặn câu trả lời: tỷ lệ model tự suy ra %r", cum)
+        return GuardVerdict(False, LOI_TU_CHOI_SUY_RA.format(cum=cum),
+                            reason="tự suy ra tỷ lệ", offending=str(cum))
+
     if for_customer and (leaks := customer_leak(answer)):
         logger.warning("Chặn câu trả lời gửi khách: lộ %s", leaks)
         return GuardVerdict(False, _LOI_TU_CHOI_LO.format(tu=", ".join(sorted(set(leaks)))),
@@ -248,8 +307,10 @@ def guard_answer(answer: str, context: str, *, for_customer: bool = False) -> Gu
 
 __all__ = [
     "LOI_SUY_BIEN",
+    "LOI_TU_CHOI_SUY_RA",
     "GuardVerdict",
     "customer_leak",
+    "derived_ratios_ok",
     "guard_answer",
     "kiem_suy_bien",
     "narration_numbers_ok",
