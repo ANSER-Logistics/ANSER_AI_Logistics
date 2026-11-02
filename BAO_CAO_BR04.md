@@ -243,7 +243,7 @@ Runtime **GPU L4** (T4 16GB không đủ). Mỗi ô một bước; ô nào in `x
 
 ```python
 # 1. Mã nguồn. Bản clone mới (repo private thì chèn token đọc):
-#    !git clone -b feat/workflow-format-and-deterministic-core https://github.com/PCBoiz/ANSER_AI.git /content/ANSER_AI
+#    !git clone -b feat/workflow-format-and-deterministic-core https://github.com/PCBoiz/ANSER_AI_Logistics.git /content/ANSER_AI
 %cd /content/ANSER_AI
 !git pull -q && git log --oneline -1
 ```
