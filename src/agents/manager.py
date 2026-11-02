@@ -28,6 +28,7 @@ CONSULT_SYSTEM — xem `_get_prompt()`.
 """
 
 import logging
+import os
 import re
 
 import numpy as np
@@ -163,6 +164,53 @@ class SemanticRouter:
         Không có embedder thì router lùi về LỚP 1 (luật từ khoá) — vẫn tất định,
         vẫn test được, và tự nhận là mình đang chạy hạn chế qua `method`.
         """
+        # ENV=LOCAL: KHÔNG nạp model thật, kể cả khi máy có cài thư viện.
+        #
+        # AGENTS.md §3.1 định nghĩa LOCAL là "mock response, không nạp model
+        # thật". Nhưng nhánh dưới chỉ lùi về chế độ từ khoá khi `import` HỎNG,
+        # nên trên máy dev CÓ cài `sentence_transformers` nó vẫn kéo MiniLM
+        # xuống — đúng thứ LOCAL sinh ra để tránh.
+        #
+        # `tu_nap_embedder=False` đã có sẵn cho việc này, nhưng chỉ những test
+        # tự truyền cờ mới được bảo vệ. Đường dây thật không truyền:
+        # `RuntimeState.ensure_text_runtime()` -> `ManagerAgent` ->
+        # `SemanticRouter(embedder=None)` -> tự nạp. Nên mọi test chạm tới
+        # runtime vẫn nạp model, dù đang ở ENV=LOCAL.
+        #
+        # Hậu quả đo được 03/11/2026, trên chính ca mà docstring `__init__`
+        # dưới đây đã nghi: chạy
+        # `test_env_server_vision_tat_theo_thiet_ke_khong_lam_degraded` 30 lượt
+        # thì tiến trình pytest chết bằng `Segmentation fault`, và trong lượt
+        # chạy cả bộ thì chết bằng `OSError: The paging file is too small`
+        # ngay tại `transformers/modeling_utils.py`. Không phải assert sai —
+        # tiến trình bị kết liễu. Giải thích được vì sao nó đỏ cả khi nhanh lẫn
+        # khi chậm: phụ thuộc bộ nhớ còn trống, không phụ thuộc thời gian.
+        #
+        # ENV=SERVER cũng chặn, vì lý do khác và nghiêm hơn.
+        #
+        # `engine.chon_backend` viết rõ: "SERVER nghĩa là Brain không nạp model
+        # nào". Embedder là một model. Đo 03/11/2026 cho thấy ở ENV=SERVER,
+        # `SemanticRouter()` gọi thẳng HuggingFace qua mạng để tải MiniLM —
+        # tức chế độ được tuyên bố là "không nạp gì" lại có một lượt tải model
+        # lúc khởi động, phụ thuộc huggingface.co còn sống và máy còn RAM.
+        #
+        # Không im lặng xuống hạng: router tự khai `method="chỉ từ khoá"`, nên
+        # chỗ gọi đọc được là mình đang chạy hạn chế. Cùng khuôn với vision ở
+        # ENV=SERVER — tắt CÓ TUYÊN BỐ, không phải tắt vì nạp hỏng.
+        #
+        # Muốn có đường ngữ nghĩa ở SERVER thì truyền embedder vào sẵn
+        # (`SemanticRouter(embedder=...)`), như KnowledgeBase vẫn làm. Quyết
+        # định nạp model ở đâu thuộc về chỗ dựng runtime, không thuộc về router.
+        if (env := os.getenv("ENV", "LOCAL").upper()) in {"LOCAL", "SERVER"}:
+            logger.info(
+                "ENV=%s: SemanticRouter KHÔNG tự nạp embedder -> chế độ từ khoá. "
+                "LOCAL: AGENTS §3.1 (không nạp model thật). "
+                "SERVER: Brain không nạp model nào (chon_backend). "
+                "Cần đường ngữ nghĩa thì truyền embedder sẵn vào router.",
+                env,
+            )
+            return None
+
         try:
             import torch
             from sentence_transformers import SentenceTransformer
