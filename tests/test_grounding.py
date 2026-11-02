@@ -16,6 +16,7 @@ import pytest
 from src.core.grounding import (
     GuardVerdict,
     customer_leak,
+    derived_ratios_ok,
     guard_answer,
     narration_numbers_ok,
     numbers_in,
@@ -65,9 +66,21 @@ def test_con_so_KHONG_co_trong_du_lieu_thi_CHAN():
 
 
 def test_so_ngan_khong_bi_chan_oan():
-    """Phần trăm, số chuyến, ngày trong tháng — chặn hết là chặn oan gần hết."""
-    v = guard_answer("Có 3 chuyến, tăng 12% so với 5 kỳ trước.", CTX)
-    assert v.ok
+    """
+    Số chuyến, ngày trong tháng — chặn hết là chặn oan gần hết.
+
+    ĐÃ ĐỔI 03/11/2026. Bản trước dùng câu "Có 3 chuyến, tăng 12% so với 5 kỳ
+    trước." và đòi `v.ok`. Vế "tăng 12%" trong đó là tỷ lệ model TỰ TÍNH từ hai
+    con số thô — đúng thứ R1 cấm, và nó đi lọt chỉ vì "12" ngắn hơn
+    `MIN_DIGITS`. Tức test cũ đang đóng dấu hợp lệ cho một vi phạm R1.
+
+    Chốt `derived_ratios_ok` nay bắt nó. Phần còn lại của câu — "3 chuyến",
+    "5 kỳ", "ngày 15" — vẫn qua, vì đó là số đếm trích từ dữ liệu chứ không
+    phải tỷ lệ suy ra. Xem `test_ty_le_do_tool_tinh_thi_qua`: cùng một cụm
+    "tăng 20%" qua được khi tool đã đặt 20 vào dữ liệu.
+    """
+    v = guard_answer("Có 3 chuyến, chốt sổ ngày 15, so với 5 kỳ trước.", CTX)
+    assert v.ok, f"chặn oan: {v.reason} / {v.offending!r}"
 
 
 def test_dau_phan_tach_nghin_khong_lam_chan_oan():
@@ -234,3 +247,78 @@ def test_nghin_va_ty():
 def test_chu_thang_bac_don_doc_khong_lam_no():
     """"triệu" không đi kèm số thì không có gì để nhân."""
     assert numbers_in("hàng triệu đồng") == set()
+
+
+# ---------------------------------------------------------------------------
+# Tỷ lệ model TỰ SUY RA — R1: LLM không bao giờ tính toán
+#
+# `narration_numbers_ok` bỏ qua số dưới 4 chữ số để khỏi chặn oan "3 chuyến",
+# "ngày 15". Cái giá: "gấp khoảng 1,2 lần" đi lọt — model tự chia rồi tuyên bố
+# kết quả. Mẫu so sánh phân biệt được hai thứ đó, nên nó SẮC hơn ngưỡng độ dài
+# chứ không phải nghiêm hơn.
+# ---------------------------------------------------------------------------
+
+CTX_TY_LE = '{"doanh_thu": 45000000, "ky_truoc": 37500000, "so_chuyen": 3}'
+CTX_CO_TY_LE = (
+    '{"doanh_thu": 45000000, "ky_truoc": 37500000, '
+    '"tang_truong_pct": 20, "so_chuyen": 3}'
+)
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Doanh thu gấp khoảng 1,2 lần kỳ trước.",
+        "Doanh thu tăng 20% so với kỳ trước.",
+        "Chi phí giảm 15% so với tháng trước.",
+        "Khoản này chiếm 35% tổng chi.",
+        "Cước tháng này cao hơn 8% so với tháng trước.",
+    ],
+)
+def test_ty_le_model_tu_tinh_thi_bi_chan(cau):
+    v = guard_answer(cau, CTX_TY_LE)
+    assert v.blocked, f"lọt tỷ lệ tự tính: {cau!r}"
+    assert v.reason == "tự suy ra tỷ lệ"
+
+
+def test_ty_le_do_tool_tinh_thi_qua():
+    """
+    Cùng một câu, hai số phận — và đó mới đúng là R1.
+
+    Model nhắc lại tỷ lệ do code tính: diễn giải, hợp lệ.
+    Model tự chia hai số thô rồi tuyên bố: tính toán, bị chặn.
+    """
+    cau = "Doanh thu tăng 20% so với kỳ trước."
+    assert guard_answer(cau, CTX_CO_TY_LE).ok
+    assert guard_answer(cau, CTX_TY_LE).blocked
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Có 3 chuyến trong kỳ.",
+        "Chốt sổ ngày 15.",
+        "Tăng 3 chuyến so với kỳ trước.",       # có từ so sánh, KHÔNG có đơn vị tỷ lệ
+        "Doanh thu 45.000.000 đồng.",
+        "So với 5 kỳ trước thì ổn định.",
+    ],
+)
+def test_so_dem_va_ngay_khong_bi_chan_oan(cau):
+    """Đòi ĐỒNG THỜI từ so sánh VÀ đơn vị tỷ lệ (% hoặc lần) — nên các câu này qua."""
+    v = guard_answer(cau, CTX_TY_LE)
+    assert v.ok, f"chặn oan: {v.reason} / {v.offending!r} — {cau!r}"
+
+
+def test_loi_tu_choi_noi_ro_cum_nao_bi_chan():
+    v = guard_answer("Doanh thu gấp khoảng 1,2 lần kỳ trước.", CTX_TY_LE)
+    assert "gấp khoảng 1,2 lần" in v.safe_answer
+    assert "model tự tính" in v.safe_answer
+
+
+def test_derived_ratios_ok_dung_doc_lap_duoc():
+    ok, cum = derived_ratios_ok("Tăng 20% so với kỳ trước.", CTX_TY_LE)
+    # Trả NGUYÊN VĂN cụm model viết, giữ hoa/thường — để lời từ chối trích đúng
+    # cái người dùng sẽ thấy, không phải một phiên bản đã chuẩn hoá.
+    assert not ok and cum == "Tăng 20%"
+    ok, cum = derived_ratios_ok("Tăng 20% so với kỳ trước.", CTX_CO_TY_LE)
+    assert ok and cum is None
