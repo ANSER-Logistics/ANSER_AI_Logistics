@@ -109,8 +109,8 @@ Trên máy dev hiện tại, bản thật nằm ở `C:\Users\sonkh\AppData\Loca
 ### 2.2. Lấy mã nguồn
 
 ```bash
-git clone https://github.com/PCBoiz/ANSER_AI.git
-cd ANSER_AI
+git clone https://github.com/PCBoiz/ANSER_AI_Logistics.git
+cd ANSER_AI_Logistics
 git checkout feat/workflow-format-and-deterministic-core
 ```
 
