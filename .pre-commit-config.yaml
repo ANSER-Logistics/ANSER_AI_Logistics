@@ -1,0 +1,62 @@
+# .pre-commit-config.yaml — cổng chất lượng chạy trên MÁY DEV.
+#
+#     pip install -r requirements-dev.txt
+#     pre-commit install
+#
+# VÌ SAO CÓ FILE NÀY
+# ------------------
+# BIEN_BAN_CHU_KY_01 mục 6: GitHub Actions của repo có 136 lượt và 0 lượt xanh,
+# mọi job dừng ở "your account is locked due to a billing issue". Nghĩa là
+# KHÔNG cổng tự động nào đang hoạt động, và mọi câu "CI xanh" trong tài liệu cũ
+# không có lượt chạy nào chứng minh.
+#
+# File này là phương án (c) mà biên bản nêu. Nó KHÔNG thay được CI: nó chỉ chạy
+# trên máy người nào đã `pre-commit install`, và bỏ qua được bằng `--no-verify`.
+# Giá trị của nó là bắt lỗi hình thức trước khi lên nhánh, trong lúc chờ chủ
+# repo gỡ khoá billing.
+#
+# `pre-commit` đã nằm trong requirements-dev.txt từ trước, chỉ là chưa ai dựng
+# config lẫn cài hook.
+#
+# shortcut: không chạy pytest ở hook vì 1163 test mất khoảng hai phút, quá chậm
+#           cho mỗi lần commit. Chạy tay `ENV=LOCAL pytest -q` trước khi đẩy.
+#           Nâng cấp khi CI chạy lại được, hoặc khi có bộ test nhanh tách riêng.
+
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  # Dùng hook cục bộ chứ không dùng `repos: https://github.com/astral-sh/ruff-pre-commit`:
+  # bản ruff ở đó do file này ghim, còn bản CI dùng là bản trong requirements-dev.
+  # Hai nguồn khác nhau thì máy dev và CI chấm theo hai luật khác nhau — đúng
+  # loại lệch mà R4 cấm. Gọi ruff/mypy của chính môi trường đang dùng.
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check src tests offline_training
+        entry: ruff check
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: [src, tests, offline_training]
+
+      - id: mypy
+        name: mypy (đúng danh sách CI)
+        entry: mypy
+        language: system
+        pass_filenames: false
+        always_run: true
+        args:
+          - src/core/memory.py
+          - src/core/context.py
+          - offline_training/providers.py
+          - offline_training/chay_thu_live.py
+          - offline_training/bat_lai_brain.py
+
+      # Quét secret trước khi commit. R2b nói credential đã lộ là credential đã
+      # chết, nên chặn ở đây rẻ hơn mọi thứ làm sau.
+      - id: quet-secret
+        name: quét secret trong file sắp commit
+        entry: python offline_training/quet_secret_pre_commit.py
+        language: system
+        pass_filenames: true
