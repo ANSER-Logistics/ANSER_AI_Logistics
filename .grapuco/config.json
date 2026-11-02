@@ -1,0 +1,22 @@
+{
+  "repoId": "0414569b-151b-4f99-a7de-bd4fb1f2653a",
+  "repoName": "AI_ANSER",
+  "server": "https://api.grapuco.com",
+  "language": "python",
+  "features": {
+    "embeddings": true,
+    "dataFlowAnalysis": true
+  },
+  "ignore": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".git",
+    ".grapuco",
+    "__pycache__",
+    "vendor",
+    "target",
+    "build"
+  ],
+  "lastPush": "2026-11-02T21:35:07.551Z"
+}
