@@ -130,6 +130,15 @@ async def health():
         "text_backend": getattr(engine, "text_backend", None),
         "vision_backend": getattr(engine, "vision_backend", None),
     }
+    # Lược đồ DB có khớp không. Mọi phương thức của MemoryManager đều bắt lỗi
+    # rồi trả rỗng, nên thiếu bảng trông hệt như "chưa có dữ liệu" — người dùng
+    # đọc được "chưa có cửa hàng" trong khi sự thật là lược đồ sai. Một dòng ở
+    # đây biến lỗi câm thành lỗi nhìn ra ngay, cùng lý lẽ với `auth_enabled`.
+    # Kết quả được MemoryManager nhớ lại nên không thêm truy vấn mỗi lần gọi.
+    memory_schema_error = None
+    if (mem := getattr(runtime, "memory", None)) is not None:
+        memory_schema_error = mem.kiem_luoc_do()
+
     server_down = False
     server = getattr(engine, "server", None)
     if server is not None:
@@ -147,8 +156,12 @@ async def health():
             # lời gọi vision đầu tiên (QA 26/10). `vision_error` vẫn trả về để
             # người gọi biết lý do; `vision_backend` cho biết đây là chủ ý.
             # PHAN_VIEC §6.2 tách "tắt theo thiết kế" khỏi "hỏng".
+            # Lược đồ DB sai TÍNH vào `degraded`: khác vision-tắt-theo-thiết-kế,
+            # đây không phải chủ ý của ai cả. Lịch sử hội thoại không lưu được
+            # là hỏng thật, chỉ là hỏng không có triệu chứng.
             "degraded": bool(
                 runtime.engine_error or runtime.kb_error or server_down
+                or memory_schema_error
                 or (runtime.vision_error and backend["vision_backend"] != "none")
             ),
             **backend,
@@ -158,6 +171,7 @@ async def health():
             "engine_error": runtime.engine_error,
             "kb_error": runtime.kb_error,
             "vision_error": runtime.vision_error,
+            "memory_schema_error": memory_schema_error,
             # Trạng thái xác thực phải NHÌN THẤY ĐƯỢC từ ngoài.
             #
             # `require_api_token` bỏ qua mọi kiểm tra khi API_AUTH_TOKEN rỗng —
