@@ -6,7 +6,9 @@ Thư mục này giữ phần "văn bản" đó ở dạng dùng lại được.
 | File | Dùng làm gì |
 |---|---|
 | `../DE_XUAT_BODY_01.md` | Lý lẽ đầy đủ — dành cho người muốn hiểu vì sao |
-| `01-issue-body.md` | Bản rút gọn, dán thẳng vào issue bên repo Body |
+| `../VIET-CHO-AI-DOC.md` | **Luật viết.** Đọc trước khi soạn bất cứ thứ gì gửi sang Body |
+
+> `01-issue-body.md` đã xoá 04/11/2026. Nó là bản nháp cho một issue, nhưng việc đó cuối cùng đi bằng PR #22 — nên bản nháp thành bản sao thứ hai của cùng một nội dung, và bản sao thứ hai là bản không ai nhớ cập nhật. Nội dung sống ở chính PR. Lấy lại bằng `git show 1747a8f:docs/de-xuat-body/01-issue-body.md`.
 
 ## Mở issue thế nào
 
