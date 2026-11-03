@@ -1,0 +1,36 @@
+# .github/CODEOWNERS — ai bắt buộc phải duyệt khi PR chạm vào đâu.
+#
+# CHƯA CÓ TÁC DỤNG cho tới khi bật "Require review from Code Owners" trong
+# ruleset của nhánh mặc định (docs/GITHUB_ORG_DE_XUAT.md bước 7).
+#
+# Dòng khớp CUỐI CÙNG thắng — ngược với .gitignore. Nên mẫu chung đặt trước,
+# mẫu cụ thể đặt sau.
+#
+# Team được nhắc ở đây PHẢI có quyền Write trở lên trên repo, nếu không GitHub
+# bỏ qua dòng đó mà không báo lỗi.
+
+# Mặc định: mọi thứ trong Brain thuộc team brain.
+*                               @ANSER-Logistics/brain
+
+# Năm ràng buộc bất biến. Đổi chúng là đổi luật chơi của cả dự án.
+/AGENTS.md                      @ANSER-Logistics/brain
+/ARCHITECTURE.md                @ANSER-Logistics/brain
+
+# R4 — ba nơi này phải luôn khớp nhau (AGENTS.md §4). Sửa một nơi mà quên hai
+# nơi kia là lỗi, và loại lỗi đó không có triệu chứng cho tới lúc sinh workflow
+# sai ở máy khách.
+/src/core/prompts.py            @ANSER-Logistics/brain
+/src/core/agent_middleware.py   @ANSER-Logistics/brain
+/src/api/routes/chat.py         @ANSER-Logistics/brain
+
+# R1 — tầng tất định. Sai ở đây là sai sổ sách của khách, và loại sai đó không
+# lộ ra cho tới lúc quyết toán.
+/src/core/grounding.py          @ANSER-Logistics/brain
+/src/core/mcp_server.py         @ANSER-Logistics/brain
+/src/core/saas_api.py           @ANSER-Logistics/brain
+/src/core/reporting.py          @ANSER-Logistics/brain
+
+# Cổng chất lượng. Nới lỏng chúng phải là một quyết định có người nhìn.
+/.github/workflows/             @ANSER-Logistics/brain
+/.pre-commit-config.yaml        @ANSER-Logistics/brain
+/.github/CODEOWNERS             @ANSER-Logistics/brain
