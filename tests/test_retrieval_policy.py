@@ -7,11 +7,14 @@ hướng "chặn nhầm" thì mất một câu trả lời; sai theo hướng "c
 chủ doanh nghiệp ra quyết định dựa trên thông tin của công ty khác.
 """
 
+import pytest
+
 from src.core.retrieval_policy import (
     KHONG_CO_TAI_LIEU,
     decide_web_fallback,
     is_internal_question,
     is_public_knowledge_question,
+    loc_truy_van_web,
 )
 
 # --------------------------------------------------------------------------
@@ -88,3 +91,77 @@ def test_cau_thu_nhan_khong_biet_la_hang_so():
     """
     assert "chưa tìm thấy" in KHONG_CO_TAI_LIEU
     assert "Tài liệu" in KHONG_CO_TAI_LIEU      # chỉ đúng chỗ cần tải lên
+
+
+# ===========================================================================
+# R2 — truy vấn rời khỏi hệ thống không được mang dữ liệu khách
+#
+# `decide_web_fallback` xét CHỦ ĐỀ, không xét thứ gửi đi. Đo 04/11/2026: năm
+# trên bảy câu thử mang dữ liệu khách lọt qua cổng, trong đó có doanh thu,
+# bảng giá cước, tỷ lệ biên lợi nhuận và công nợ — R2 liệt kê đích danh cả bốn.
+#
+# `loc_truy_van_web` là lớp thứ hai: bỏ con số trước khi gửi.
+# ===========================================================================
+
+
+
+@pytest.mark.parametrize(
+    "cau, phai_biet_mat",
+    [
+        ("thuế suất VAT bao nhiêu nếu doanh thu 4,2 tỷ một năm", "4,2"),
+        ("thuế GTGT áp cho cước 18.500.000đ tuyến Hà Nội Hải Phòng", "18.500.000"),
+        ("thuế TNDN tính thế nào khi biên lợi nhuận 23%", "23"),
+        ("thủ tục kiện đòi nợ khách đang nợ 340 triệu", "340"),
+        ("hoá đơn điện tử khi doanh thu 500000 VNĐ mỗi ngày", "500000"),
+    ],
+)
+def test_con_so_khong_roi_khoi_he_thong(cau, phai_biet_mat):
+    """Doanh thu, giá cước, biên lợi nhuận, công nợ — R2 gọi tên cả bốn."""
+    ra = loc_truy_van_web(cau)
+    assert phai_biet_mat not in ra, f"còn sót {phai_biet_mat!r} trong {ra!r}"
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        # Số hiệu văn bản pháp quy: công khai, VÀ là thứ làm truy vấn tìm đúng
+        # văn bản. Lọc nó đi là đổi một lỗi R2 lấy một câu trả lời sai.
+        "thuế suất VAT theo nghị định 72/2024/NĐ-CP là bao nhiêu",
+        "thông tư 123/2020/TT-BTC quy định gì về hoá đơn điện tử",
+        # Không có số thì không có gì để lọc.
+        "thuế suất VAT cho dầu nhờn là bao nhiêu",
+        "thủ tục đăng ký hộ kinh doanh gồm những gì",
+    ],
+)
+def test_khong_loc_qua_tay(cau):
+    """Lọc quá tay thì kết quả tìm kiếm kém đi — đổi lỗi này lấy lỗi khác."""
+    assert loc_truy_van_web(cau) == cau
+
+
+def test_don_sach_don_vi_tien_con_tro_lai():
+    """Bỏ số mà để lại chữ 'đồng' thì câu truy vấn thành vô nghĩa."""
+    ra = loc_truy_van_web("thuế GTGT cho khoản 5.000.000 đồng")
+    assert "5.000.000" not in ra
+    assert "đồng" not in ra
+    assert "thuế GTGT" in ra
+
+
+def test_chuoi_rong_khong_no():
+    assert loc_truy_van_web("") == ""
+    assert loc_truy_van_web(None) == ""
+
+
+def test_duong_gui_that_dung_bo_loc():
+    """
+    Lọc phải nằm TRONG `web_search_fallback`, không nằm ở chỗ gọi.
+
+    Đặt ở chỗ gọi thì chỗ gọi thứ hai thêm vào sau này sẽ quên — và quên ở đây
+    nghĩa là dữ liệu khách rời khỏi hệ thống, im lặng.
+    """
+    import inspect
+
+    from src.api.dependencies import web_search_fallback
+
+    nguon = inspect.getsource(web_search_fallback)
+    assert "loc_truy_van_web" in nguon, "web_search_fallback phải tự lọc"
+    assert "ddgs.text(truy_van" in nguon, "phải gửi bản ĐÃ LỌC, không phải bản gốc"

@@ -329,12 +329,33 @@ def extract_user_content(full_text: str) -> str:
 
 
 def web_search_fallback(query: str, max_results: int = 3) -> str:
-    logger.info("Web fallback search started", extra={"query": query[:120]})
+    """
+    Tra DuckDuckGo. Truy vấn đi qua `loc_truy_van_web` TRƯỚC KHI rời hệ thống.
+
+    `decide_web_fallback` đã quyết định có tra web không, nhưng nó xét CHỦ ĐỀ,
+    không xét nội dung gửi đi. AGENTS.md R2 cho đúng một ngoại lệ: "nguồn công
+    khai, chỉ đọc, KHÔNG KÈM THAM SỐ CHỨA DỮ LIỆU KHÁCH" — cổng chủ đề chỉ thoả
+    được vế đầu.
+
+    Lọc ở ĐÂY chứ không ở chỗ gọi: còn chỗ gọi nào khác thêm vào sau này thì
+    không phải nhớ lọc lại. Một lối ra, một lớp lọc.
+    """
+    from src.core.retrieval_policy import loc_truy_van_web
+
+    truy_van = loc_truy_van_web(query)
+    if truy_van != query:
+        logger.info(
+            "Đã lọc số liệu khỏi truy vấn web trước khi gửi (R2)",
+            extra={"query": truy_van[:120]},
+        )
+    # Log truy vấn ĐÃ LỌC, không log bản gốc: bản gốc chứa đúng thứ vừa lọc ra,
+    # và log cũng là một nơi dữ liệu nằm lại.
+    logger.info("Web fallback search started", extra={"query": truy_van[:120]})
     try:
         from ddgs import DDGS
 
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results, region="vn-vi"))
+            results = list(ddgs.text(truy_van, max_results=max_results, region="vn-vi"))
         if not results:
             return ""
         formatted_results = ""
