@@ -872,40 +872,76 @@ def tach_tool_tu_json_cut(raw: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def quyet_ma_thoat(
-    gate_fail: list,
-    khong_do_duoc: list,
-    mau_qua_it: list,
-    *,
-    no_gate: bool,
-    doi_du_tap_do: bool,
-) -> int:
+# Ba mức kết luận. Tên chứ không phải số, vì phần CHỮ in ra màn hình và MÃ
+# THOÁT cho máy đọc phải nói cùng một chuyện — lấy từ một chỗ thì không lệch
+# được (R4).
+MUC_DAT = "ĐẠT"
+MUC_CHUA_DAT = "CHƯA ĐẠT"
+MUC_KHONG_DU_DU_LIEU = "KHÔNG ĐỦ DỮ LIỆU"
+
+# Nhãn in ra. "Không đủ dữ liệu" KHÔNG dùng ✅.
+#
+# Bản trước in "✅ Qua mọi ngưỡng ĐO ĐƯỢC — nhưng xem hai mục ⚠ ở trên". Câu đó
+# đúng chữ, nhưng người lướt qua chỉ thấy dấu tích xanh rồi đi tiếp. Chính file
+# này đã viết ra nguyên tắc đó ở một chỗ khác, rồi vi phạm ở đây.
+_NHAN = {
+    MUC_DAT: "✅ ĐẠT — qua mọi ngưỡng, và đo đủ",
+    MUC_CHUA_DAT: "❌ CHƯA ĐẠT — đo được, và dưới ngưỡng",
+    MUC_KHONG_DU_DU_LIEU: (
+        "⚠️  KHÔNG ĐỦ DỮ LIỆU — phần đo được thì qua, nhưng còn phần chưa đo. "
+        "Đây KHÔNG phải 'đạt'."
+    ),
+}
+
+
+def xep_muc(gate_fail: list, khong_do_duoc: list, mau_qua_it: list) -> str:
     """
-    Mã thoát của cả lượt đo. Hàm thuần — không in, không đọc file, không `sys.exit`.
+    Kết luận của lượt đo. Hàm thuần — không in, không đọc cờ dòng lệnh.
 
-    Tách ra khỏi `main()` để KIỂM ĐƯỢC. Nằm trong `main()` thì muốn thử một
-    nhánh phải dựng cả một lượt benchmark có model thật, nên không ai thử, nên
-    nó âm thầm sai.
+    KHÔNG nhận `no_gate`: cờ đó nói "đừng chặn", không nói "nó đạt". Một lượt
+    dưới ngưỡng vẫn là CHƯA ĐẠT dù có `--no-gate` hay không; cờ chỉ đổi việc
+    ta LÀM GÌ với kết luận đó, không đổi kết luận.
 
-    Ba mã, ba nghĩa khác nhau — và phân biệt được chúng mới là điểm của việc này:
+    Tách "sự thật là gì" khỏi "làm gì với nó" là chỗ dễ lẫn nhất: gộp lại thì
+    bật một cờ ở CI có thể âm thầm biến một lượt trượt thành một dòng xanh.
 
-      0  đo đủ, qua mọi ngưỡng
-      1  ĐO ĐƯỢC, và DƯỚI ngưỡng         -> model chưa đạt
-      2  KHÔNG đo được một phần          -> không kết luận được, khác hẳn "đạt"
-
-    Vì sao mã 2 không phải mã mặc định: `ci.yml` chưa gọi file này, nên không ai
-    đang dựa vào hành vi hiện tại. Đổi mặc định là đổi hợp đồng của một công cụ
-    mà mình không biết hết người dùng. Ai nối vào CI thì bật `--doi-du-tap-do`.
-
-    `no_gate` chỉ tha cho việc DƯỚI NGƯỠNG — nó không tha cho việc thiếu dữ
-    liệu, vì hai chuyện đó khác nhau: một cái là "đo rồi, chưa đạt", cái kia là
-    "chưa đo".
+    Thứ tự ưu tiên: CHƯA ĐẠT thắng KHÔNG ĐỦ DỮ LIỆU. "Đo được phần này và nó
+    trượt" là tin chắc chắn hơn "phần kia chưa đo", nên báo cái chắc chắn trước.
     """
-    if gate_fail and not no_gate:
+    if gate_fail:
+        return MUC_CHUA_DAT
+    if khong_do_duoc or mau_qua_it:
+        return MUC_KHONG_DU_DU_LIEU
+    return MUC_DAT
+
+
+def nhan_cua_muc(muc: str) -> str:
+    """Dòng chữ in ra cho mỗi mức."""
+    return _NHAN[muc]
+
+
+def ma_thoat_cua(muc: str, *, no_gate: bool, doi_du_tap_do: bool) -> int:
+    """
+    Mã thoát cho máy đọc. Suy ra TỪ MỨC, không tính lại từ đầu.
+
+      0  ĐẠT — hoặc một mức xấu hơn đã được cờ tha
+      1  CHƯA ĐẠT
+      2  KHÔNG ĐỦ DỮ LIỆU, khi bật `--doi-du-tap-do`
+
+    `--no-gate` tha CHƯA ĐẠT (dùng lúc đo baseline model gốc — biết trước là
+    dưới ngưỡng). Nó KHÔNG tha KHÔNG ĐỦ DỮ LIỆU: để nó tha cả hai thì bật
+    `--no-gate` trong CI là tắt sạch cổng mà không ai nhận ra.
+
+    `--doi-du-tap-do` mặc định TẮT. `ci.yml` chưa gọi file này nên không ai
+    đang dựa vào hành vi hiện tại; đổi mặc định là đổi hợp đồng của một công cụ
+    mà mình không biết hết người dùng.
+    """
+    if muc == MUC_CHUA_DAT and not no_gate:
         return 1
-    if doi_du_tap_do and (khong_do_duoc or mau_qua_it):
+    if muc == MUC_KHONG_DU_DU_LIEU and doi_du_tap_do:
         return 2
     return 0
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1291,46 +1327,30 @@ def main() -> None:
     if canh_bao_khung_do or khong_do_duoc or mau_qua_it:
         print("-" * 60)
 
-    ma = quyet_ma_thoat(
-        gate_fail, khong_do_duoc, mau_qua_it,
-        no_gate=args.no_gate, doi_du_tap_do=args.doi_du_tap_do,
-    )
+    # Mức là SỰ THẬT; mã thoát là việc ta LÀM GÌ với sự thật đó. Cả hai lấy từ
+    # một chỗ nên không lệch được (R4) — bản trước có ba mã thoát nhưng phần
+    # chữ chỉ có hai nhãn, và ca "chưa đo đủ" hiện dấu ✅.
+    muc = xep_muc(gate_fail, khong_do_duoc, mau_qua_it)
+    ma = ma_thoat_cua(muc, no_gate=args.no_gate,
+                      doi_du_tap_do=args.doi_du_tap_do)
 
-    if ma == 1:
-        print("❌ DƯỚI NGƯỠNG:")
+    print(nhan_cua_muc(muc))
+
+    if muc == MUC_CHUA_DAT:
         for reason in gate_fail:
             print(f"   {reason}")
-        sys.exit(1)
-    if gate_fail:
-        print("⚠ Dưới ngưỡng (--no-gate nên không chặn):")
-        for reason in gate_fail:
-            print(f"   {reason}")
-    elif khong_do_duoc or mau_qua_it:
-        print("✅ Qua mọi ngưỡng ĐO ĐƯỢC — nhưng xem hai mục ⚠ ở trên trước khi "
-              "kết luận là model đạt")
-    else:
-        print("✅ Qua mọi ngưỡng")
+        if args.no_gate:
+            print("   (--no-gate nên không chặn, nhưng kết luận vẫn là CHƯA ĐẠT)")
 
-    # Mã thoát phải nói CÙNG MỘT CHUYỆN với phần chữ ở trên.
-    #
-    # Phần chữ đã rất cẩn thận: "KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model
-    # đạt)", và câu kết luận có điều kiện. Nhưng mã thoát vẫn là 0. Người đọc
-    # màn hình thì hiểu đúng; một job CI đọc `$?` thì không — nó thấy 0 và đi
-    # tiếp.
-    #
-    # Soát 04/11/2026: 3 trong 4 tập đo không có
-    # (eval_extraction / eval_narration / eval_agent — cả ba cần
-    # DEEPSEEK_API_KEY để sinh lại). Nên cổng này hiện chỉ đo được một phần tư,
-    # mà vẫn thoát 0.
-    #
-    # Cờ RIÊNG chứ không đổi hành vi mặc định: `ci.yml` chưa gọi file này, nên
-    # không ai đang dựa vào mã thoát hiện tại. Đổi mặc định là đổi hợp đồng của
-    # một công cụ mà mình không biết hết người dùng. Ai nối vào CI thì bật cờ.
-    if ma == 2:
-        print()
-        print("❌ --doi-du-tap-do: có phần KHÔNG ĐO ĐƯỢC, nên không kết luận "
-              "là đạt.")
-        sys.exit(2)
+    if muc == MUC_KHONG_DU_DU_LIEU and not args.doi_du_tap_do:
+        print("   (thoát 0 vì chưa bật --doi-du-tap-do. Nối vào CI thì bật cờ "
+              "đó, nếu không job sẽ xanh trong lúc chưa đo được gì.)")
+
+    # Soát 04/11/2026: 3 trong 4 tập đo không có — `eval_extraction`,
+    # `eval_narration`, `eval_agent`, cả ba cần DEEPSEEK_API_KEY để sinh lại.
+    # Nên cổng này hiện chỉ đo được một phần tư. Xem AGENTS.md §8.
+    if ma:
+        sys.exit(ma)
 
 
 if __name__ == "__main__":
