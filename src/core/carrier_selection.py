@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, TypedDict
 
 # ---------------------------------------------------------------------------
 # Trọng số mặc định
@@ -221,6 +221,24 @@ def _raw_criteria(
     }
 
 
+class _DongTieuChi(TypedDict):
+    """Một dòng giải trình cho MỘT tiêu chí của MỘT hãng.
+
+    Khai tường minh vì dict này trộn `str` với `float`: không khai thì bộ kiểm
+    kiểu suy ra giá trị là `str | float | None` và `contribution` — thứ dùng
+    làm khoá sắp xếp — mất luôn tính so sánh được. `raw_value` là `Optional`
+    vì tiêu chí thiếu dữ liệu giữ nguyên `None` (R1: thiếu thì nói thiếu,
+    không điền 0).
+    """
+
+    criterion: str
+    label: str
+    raw_value: Optional[float]
+    normalized: float
+    weight: float
+    contribution: float
+
+
 def _score_criteria(
     raw: dict[str, Optional[float]],
     all_prices: list[float],
@@ -331,7 +349,8 @@ def select_carrier(
         raw = per_carrier_raw[carrier.id]
         scored = _score_criteria(raw, all_prices)
 
-        breakdown, total = [], 0.0
+        breakdown: list[_DongTieuChi] = []
+        total = 0.0
         for name in usable:
             norm = scored[name] or 0.0
             contribution = norm * effective[name]

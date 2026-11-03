@@ -101,7 +101,12 @@ class MCPServer:
                 "lines": [],
             }
 
-        calculated_total = 0
+        # Khai `float` mà gán `0` (KHÔNG phải `0.0`): nhánh `prices_include_vat`
+        # cộng vào đây một `float`, nên khai `int` thì bộ kiểm kiểu báo lỗi; còn
+        # đổi hằng số thành `0.0` sẽ đẩy `calculated_total` ra JSON thành số thực
+        # (3450000.0 thay vì 3450000) — đổi thứ Body đang đọc, không phải việc của
+        # một lần sửa kiểu.
+        calculated_total: float = 0
         line_breakdown = []
 
         for item in items:
