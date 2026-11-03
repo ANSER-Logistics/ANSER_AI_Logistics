@@ -3,7 +3,7 @@
 > Cập nhật 04/11/2026. Người đọc: Sơn, và ai cần thao tác trên org.
 > Việc ở đây làm trên trình duyệt, không cần biết lập trình.
 
-Org đã lập, hai repo đã vào. **Còn ba việc chưa xong**, mục 2.
+Org đã lập, hai repo đã vào. **Còn bốn việc chưa xong**, mục 2.
 
 Muốn biết vì sao lập org thì xem [mục 6](#6-vì-sao-lập-org-đã-quyết-xong) ở cuối — đó là chuyện đã quyết, để lại làm lịch sử.
 
@@ -23,7 +23,7 @@ Muốn biết vì sao lập org thì xem [mục 6](#6-vì-sao-lập-org-đã-quy
 
 ---
 
-## 2. Ba việc chưa xong
+## 2. Bốn việc chưa xong
 
 ### 2.1. Mở khoá GitHub Actions
 
@@ -48,7 +48,32 @@ Trang `Billing → Overview` hiện `$0` và không có khoản phải trả —
 
 **Chưa chắc chắn:** về lý thì gói Free + repo public không cần thẻ nào cả, nên gỡ thẻ ra là hết lỗi. Nhưng tài liệu chính thức chỉ nói phải có **một lượt xác thực thành công** thì mới tự mở khoá. Đừng gỡ thẻ với kỳ vọng nó chữa được.
 
-### 2.2. Bật cổng bảo vệ nhánh chính
+### 2.2. Đưa file CODEOWNERS lên nhánh chính
+
+**CODEOWNERS là gì:** một file liệt kê *đường dẫn nào thuộc về ai*. Khi có ai đó mở PR chạm vào đường dẫn khớp, GitHub tự thêm người hoặc nhóm đó làm người duyệt bắt buộc.
+
+**Nó dùng để làm gì ở đây:** AGENTS.md §1 của Brain viết *"Body KHÔNG ĐƯỢC SỬA"*. Hôm nay đó là một câu trong file — ai quên là vi phạm, và không có gì chặn lại. CODEOWNERS biến nó thành thứ GitHub thi hành.
+
+**Hiện trạng — cả hai repo đều chưa có file này trên nhánh chính:**
+
+| Repo | File ở đâu | Có tác dụng chưa |
+|---|---|---|
+| Brain | nhánh `feat/workflow-format-and-deterministic-core` | ❌ chưa — nhánh mặc định là `main` |
+| Body | đang nằm trong [PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) | ❌ chưa — chưa gộp |
+
+**GitHub chỉ đọc CODEOWNERS từ nhánh mặc định.** File nằm trên nhánh khác thì không tính. Đây là chỗ hay nhầm nhất.
+
+**Việc cần làm:** gộp nhánh Brain vào `main`, và đội Body quyết PR #25.
+
+**Ba điều nữa hay nhầm:**
+
+1. **Dòng khớp cuối cùng thắng** — ngược với `.gitignore`. Nên mẫu chung đặt trước, mẫu cụ thể đặt sau.
+2. **Nhóm được nhắc phải có quyền Write trở lên** trên repo đó. Không thì GitHub bỏ qua dòng ấy **mà không báo lỗi** — file trông vẫn đúng, chỉ là không chạy.
+3. **File này một mình không làm gì cả.** Nó chỉ là gợi ý người duyệt cho tới khi bật "Require review from Code Owners" ở mục 2.3.
+
+**Kiểm xem có chạy không:** mở một PR nháp sửa một dòng trong `AGENTS.md`. Ô "Reviewers" phải tự điền nhóm `brain`. Không tự điền thì sai ở quyền nhóm hoặc sai cú pháp — `Settings → Code owners` liệt kê lỗi cú pháp.
+
+### 2.3. Bật cổng bảo vệ nhánh chính
 
 Hai repo đều chưa có. Hiện một lệnh `git push` là code vào thẳng nhánh chính, không ai nhìn.
 
@@ -76,22 +101,28 @@ Rồi tích trong phần **Rules**:
 
 **Đội một người thì sao?** `Required approvals: 1` nghĩa là không ai tự duyệt PR của chính mình. Thành làm Brain một mình nên mọi PR sẽ cần anh duyệt. Thấy vướng thì để `0` mà vẫn bật "Require a pull request" — vẫn chặn đẩy thẳng, vẫn có chỗ đọc thay đổi, chỉ không bắt buộc người thứ hai.
 
-### 2.3. Bảng công việc chung
+### 2.4. Dựng cột cho bảng công việc
 
-Chưa dựng được: công cụ dòng lệnh thiếu quyền `project`, và lệnh xin thêm quyền phải mở trình duyệt nên agent không chạy được.
+Bảng đã tạo: [ANSER - Brain va Body](https://github.com/orgs/ANSER-Logistics/projects/5). Trên đó đã có 5 mục, lấy từ **cả hai repo**:
 
-Chạy hai lệnh này trong PowerShell:
+| | |
+|---|---|
+| `ANSER_AI_Logistics#2` | S6 — Brain cần nguồn dòng bán/chi phí |
+| `ANSER-logistics-body#23` · `#24` | hai việc bên Body mà S6 đang chờ |
+| `ANSER-logistics-body#22` · `#25` | hai PR Brain gửi sang |
 
-```powershell
-gh auth refresh -s project,read:project
-gh project create --owner ANSER-Logistics --title "ANSER - Brain va Body"
-```
+**Một bảng trải được hai repo.** Tài liệu bản trước để ngỏ câu hỏi này vì không tìm được tài liệu chính thức nào xác nhận. Giờ thử rồi: được.
 
-Xong thì báo lại, phần còn lại agent làm được: thêm cả hai repo vào bảng, dựng cột, bật chế độ cây.
+**Còn phải làm bằng tay** — GitHub chưa cho đặt cột qua dòng lệnh:
 
-Hoặc làm tay: `github.com/orgs/ANSER-Logistics/projects` → `New project` → `Board`.
+1. Mở bảng → `Settings` → `Manage access` → thêm cả hai nhóm `brain` và `body`.
+2. Đặt tên các cột trong trường `Status`.
 
-Cột gợi ý: `Chờ quyết` · `Sẵn sàng` · `Đang làm` · `Chờ duyệt` · `Xong`. Cột `Chờ quyết` hay bị thiếu nhất, mà phần lớn việc đứng là đứng ở đó.
+Cột gợi ý: `Chờ quyết` · `Sẵn sàng` · `Đang làm` · `Chờ duyệt` · `Xong`.
+
+Cột `Chờ quyết` hay bị thiếu nhất, mà phần lớn việc đứng là đứng ở đó — không phải vì khó, mà vì chưa ai quyết.
+
+3. Bật chế độ cây: `View` → `Hierarchy`. Lúc đó `#23` và `#24` hiện lồng dưới `#2` thay vì nằm rời.
 
 ---
 
@@ -128,13 +159,20 @@ Cả hai là đề xuất. Đội Body đọc rồi tự quyết gộp hay đón
 
 ## 4. Việc nào của ai
 
-| Việc | Ai làm |
-|---|---|
-| 2.1 — mở khoá Actions | **Sơn** |
-| 2.2 — bật cổng bảo vệ nhánh (repo Brain) | **Sơn** |
-| 2.2 — bật cổng bảo vệ nhánh (repo Body) | **Dgsonn** |
-| 2.3 — hai lệnh cấp quyền bảng | **Sơn**, rồi agent làm tiếp |
-| Đọc và quyết hai PR ở mục 3 | **đội Body** |
+| Việc | Ai làm | Chặn bởi |
+|---|---|---|
+| 2.1 — mở khoá Actions | **Sơn** | — |
+| 2.2 — gộp nhánh Brain vào `main` để CODEOWNERS có tác dụng | **Sơn** | — |
+| 2.2 — quyết [PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) (CODEOWNERS cho Body) | **đội Body** | — |
+| 2.3 — bật cổng bảo vệ nhánh, repo Brain | **Sơn** | 2.2 |
+| 2.3 — bật cổng bảo vệ nhánh, repo Body | **Dgsonn** | 2.2 |
+| 2.4 — đặt tên cột + bật chế độ cây | **Sơn** | — |
+| Quyết [PR #22](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/22) (sửa panel) | **đội Body** | — |
+
+Hai chỗ có thứ tự bắt buộc:
+
+- **2.2 phải trước 2.3.** Bật "Require review from Code Owners" khi chưa có file CODEOWNERS trên nhánh mặc định thì luật đó không biết hỏi ai.
+- **2.1 phải trước khi bật "Require status checks".** Xem ghi chú ở mục 2.3.
 
 Việc 2.1 làm được ngay hôm nay và nó quyết định phần còn lại đáng làm tới đâu.
 
