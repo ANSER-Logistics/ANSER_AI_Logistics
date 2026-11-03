@@ -4,9 +4,9 @@
 
 Hồ sơ này bàn giao Brain cho người tiếp quản. Nó gồm bốn thứ: trạng thái đã kiểm lại bằng máy, bảy việc kèm cổng nghiệm thu, những gì người tiếp quản cần được cấp, và chín quyết định chủ dự án đã chốt ngày 22/10.
 
-**Mảng vận tải ở lại repo này.** Chủ dự án chốt ngày 22/10/2026: không tách repo riêng. Nên lớp nền dùng chung giữ nguyên một bản, và [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md) §B.5 về việc mang gì theo khi tách **không còn áp dụng**. Danh sách việc của mảng đó tóm ở V7.
+**Mảng vận tải ở lại repo này.** Chủ dự án chốt ngày 22/10/2026: không tách repo riêng. Nên lớp nền dùng chung giữ nguyên một bản, và [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) §B.5 về việc mang gì theo khi tách **không còn áp dụng**. Danh sách việc của mảng đó tóm ở V7.
 
-> **Đọc theo thứ tự.** Người tiếp quản chưa biết gì về dự án thì bắt đầu ở [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md), chạy được hệ thống trên máy mình, rồi quay lại đây. Người đã quen repo thì đọc thẳng mục 2 và 3.
+> **Đọc theo thứ tự.** Người tiếp quản chưa biết gì về dự án thì bắt đầu ở [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md), chạy được hệ thống trên máy mình, rồi quay lại đây. Người đã quen repo thì đọc thẳng mục 2 và 3.
 
 Bản in để gửi đi: [`docs/ban-in/GIAO_VIEC_BRAIN.pdf`](docs/ban-in/GIAO_VIEC_BRAIN.pdf), 12 trang. Sửa file `.md` này rồi chạy `powershell -File docs/dung-ban-in.ps1` để dựng lại trong cùng PR.
 
@@ -62,7 +62,7 @@ Mật khẩu trong bảng trên đã che. Chúng là chuỗi bịa, không phả
 
 ### 1.3. Một mục trong ARCHITECTURE.md đã lỗi thời theo chiều có lợi
 
-[ARCHITECTURE.md §13b.3](ARCHITECTURE.md) liệt kê "bốn lỗ hổng của `knowledge.py` phải vá trước khi nạp dữ liệu thật". Đọc mã ngày 22/10 thì **cả bốn đã vá**:
+[ARCHITECTURE.md §13b.3](../../ARCHITECTURE.md) liệt kê "bốn lỗ hổng của `knowledge.py` phải vá trước khi nạp dữ liệu thật". Đọc mã ngày 22/10 thì **cả bốn đã vá**:
 
 | Lỗ hổng theo tài liệu | Trạng thái thật trong `src/core/knowledge.py` |
 |---|---|
@@ -77,7 +77,7 @@ Người tiếp quản đọc §13b.3 rồi đi vá lại là mất vài ngày c
 
 ## 2. Bảy việc
 
-![Sơ đồ thứ tự bảy việc: V1 vá nền làm trước, mở khoá cho V2 nối vLLM server, V3 schema map, V4 bộ đo RAG và V5 phiên đo Colab; V6 chạy song song từ ngày đầu; V7 vận tải chặn bởi khách](docs/hinh/05-thu-tu-viec.svg)
+![Sơ đồ thứ tự bảy việc: V1 vá nền làm trước, mở khoá cho V2 nối vLLM server, V3 schema map, V4 bộ đo RAG và V5 phiên đo Colab; V6 chạy song song từ ngày đầu; V7 vận tải chặn bởi khách](../hinh/05-thu-tu-viec.svg)
 
 ---
 
@@ -87,13 +87,13 @@ Người tiếp quản đọc §13b.3 rồi đi vá lại là mất vài ngày c
 
 | # | Lệch gì | Ở đâu | Hậu quả |
 |---|---|---|---|
-| 1 | `TEXT_MODEL_ID` mặc định là đường dẫn Google Drive trỏ vào model v2 đã nghỉ hưu | [`config.py:55`](src/core/config.py#L55) | Vi phạm R5, và trái §5.3 vốn chốt model nền là `Qwen/Qwen3-8B`. Ai triển khai theo mặc định sẽ nạp đúng bản mà phiên đo 15/08 kết luận "không dùng lại", bản bịa số 8 trên 27 ca ở narration |
-| 2 | AGENTS.md và ARCHITECTURE.md mô tả Body là Flask, Redis + RQ, `workflow_engine.py` | [AGENTS.md §1](AGENTS.md), [ARCHITECTURE.md §6](ARCHITECTURE.md) | Body thật là Next.js. Hai file nguồn sự thật đang mô tả một hệ không còn tồn tại |
-| 3 | §1 và §2.2 trỏ vào bốn module không tồn tại: `core/tools.py`, `agents/researcher.py`, `integrations.py`, `external_data.py` | [ARCHITECTURE.md:34](ARCHITECTURE.md), [:86](ARCHITECTURE.md), [:96](ARCHITECTURE.md) | `core/tools.py` được nêu làm ví dụ minh hoạ R1, ràng buộc số một, và file đó đã bị xoá |
-| 4 | Mô tả "Project A", entrypoint `src/server.py`, cổng chất lượng chạy trên `core/tools.py` | [`src/README.md`](src/README.md) | Người mới làm theo README sẽ gãy ở bước chạy server và bước lint |
-| 5 | Docstring "tối ưu cho Google Colab Pro, GPU L4"; log `"Booting COLAB engine — target GPU L4 22.5GB"` | [`config.py:7`](src/core/config.py#L7), [`engine.py:188`](src/core/engine.py#L188) | Trái §4.4 vốn đã loại Colab khỏi lộ trình production |
+| 1 | `TEXT_MODEL_ID` mặc định là đường dẫn Google Drive trỏ vào model v2 đã nghỉ hưu | [`config.py:55`](../../src/core/config.py#L55) | Vi phạm R5, và trái §5.3 vốn chốt model nền là `Qwen/Qwen3-8B`. Ai triển khai theo mặc định sẽ nạp đúng bản mà phiên đo 15/08 kết luận "không dùng lại", bản bịa số 8 trên 27 ca ở narration |
+| 2 | AGENTS.md và ARCHITECTURE.md mô tả Body là Flask, Redis + RQ, `workflow_engine.py` | [AGENTS.md §1](../../AGENTS.md), [ARCHITECTURE.md §6](../../ARCHITECTURE.md) | Body thật là Next.js. Hai file nguồn sự thật đang mô tả một hệ không còn tồn tại |
+| 3 | §1 và §2.2 trỏ vào bốn module không tồn tại: `core/tools.py`, `agents/researcher.py`, `integrations.py`, `external_data.py` | [ARCHITECTURE.md:34](../../ARCHITECTURE.md), [:86](../../ARCHITECTURE.md), [:96](../../ARCHITECTURE.md) | `core/tools.py` được nêu làm ví dụ minh hoạ R1, ràng buộc số một, và file đó đã bị xoá |
+| 4 | Mô tả "Project A", entrypoint `src/server.py`, cổng chất lượng chạy trên `core/tools.py` | [`src/README.md`](../../src/README.md) | Người mới làm theo README sẽ gãy ở bước chạy server và bước lint |
+| 5 | Docstring "tối ưu cho Google Colab Pro, GPU L4"; log `"Booting COLAB engine — target GPU L4 22.5GB"` | [`config.py:7`](../../src/core/config.py#L7), [`engine.py:188`](../../src/core/engine.py#L188) | Trái §4.4 vốn đã loại Colab khỏi lộ trình production |
 | 6 | Cảnh báo "config.py đang để 4096" | [`deploy/.env.example`](deploy/.env.example) | Mặc định nay là 8192. Một cảnh báo sai lệch còn tệ hơn không có cảnh báo, vì lần sau không ai tin nó |
-| 7 | §13b.3 liệt kê bốn lỗ hổng RAG như thể chưa vá | [ARCHITECTURE.md §13b.3](ARCHITECTURE.md) | Xem 1.3. Người tiếp quản đi vá lại thứ đã xong |
+| 7 | §13b.3 liệt kê bốn lỗ hổng RAG như thể chưa vá | [ARCHITECTURE.md §13b.3](../../ARCHITECTURE.md) | Xem 1.3. Người tiếp quản đi vá lại thứ đã xong |
 
 **Cập nhật 26/10/2026:** mục 1 đã xong ở BR-03. `TEXT_MODEL_ID` không còn mặc định, chọn rỗng thay vì `Qwen/Qwen3-8B` để thiếu biến là báo lỗi rõ chứ không lặng lẽ tải 16GB từ Hub; `grep -rn "content/drive" src/` nay rỗng. Mục 5 xong một nửa: log "Booting COLAB engine" đã gỡ, docstring `config.py` vẫn còn.
 
@@ -139,7 +139,7 @@ grep -rn "VLLMServerClient" --include=*.py src/ tests/
   tests/test_serving.py     (6 chỗ)
 ```
 
-[`engine.py:9`](src/core/engine.py#L9) import từ `serving` đúng một thứ, `guard_from_env`. Đường sinh text vẫn là:
+[`engine.py:9`](../../src/core/engine.py#L9) import từ `serving` đúng một thứ, `guard_from_env`. Đường sinh text vẫn là:
 
 ```python
 # engine.py:195   API chạy lô NGOẠI TUYẾN, nạp model trong tiến trình
@@ -153,7 +153,7 @@ Nút thắt mà ARCHITECTURE §5.4 mô tả còn nguyên: continuous batching c�
 
 **Ba hệ quả làm `deploy/docker-compose.yml` không chạy nổi nhánh `/chat`:**
 
-1. Compose đặt `ENV: SERVER` cho service `brain`, nhưng mã chỉ rẽ nhánh ở `== "LOCAL"` ([`engine.py:181`](src/core/engine.py#L181)). Mọi giá trị khác `LOCAL` đều đi vào nhánh nạp model lên CUDA trong tiến trình, ngược hẳn thiết kế "brain CPU only" vẽ ở đầu file compose.
+1. Compose đặt `ENV: SERVER` cho service `brain`, nhưng mã chỉ rẽ nhánh ở `== "LOCAL"` ([`engine.py:181`](../../src/core/engine.py#L181)). Mọi giá trị khác `LOCAL` đều đi vào nhánh nạp model lên CUDA trong tiến trình, ngược hẳn thiết kế "brain CPU only" vẽ ở đầu file compose.
 2. Khối `environment:` của `brain` không đặt `TEXT_MODEL_ID`, chỉ có `TEXT_MODEL_DIR` cho service `vllm-text`. Nên `Config` lùi về mặc định ở V1 mục 1, tức đường dẫn Drive. Kết quả: `engine_error`, `/health` báo `degraded`, `POST /chat` trả 503.
 3. `deploy/Dockerfile` ghi "KHÔNG có CUDA, image ~1GB" rồi `pip install -r requirements.txt`, mà file đó ghim `vllm>=0.10.2,<0.12` và `torch>=2.4.0`. Image sẽ kéo về vllm và wheel CUDA, phản lại chú thích của chính nó.
 
@@ -234,10 +234,10 @@ Nghĩa là hai thứ Brain đang nói "chưa nối được" **nay nối đượ
 1. Sửa bốn định danh trong `SCHEMA MAP`, không rải ra chỗ khác.
 2. Quyết cách xử `warehouse_id IS NULL` và ghi lý do ngay tại chỗ.
 3. Viết `SaasAPI.get_report_lines` đọc `sales_invoice_items`, trả đúng hình dạng `rp.SaleLine` và `rp.ExpenseLine` mà `_build_report_context` đang chờ.
-4. Cập nhật cả ba nơi theo R4: `prompts.py::DB_SCHEMA`, [`offline_training/db_schema.txt`](offline_training/db_schema.txt), SQL trong `saas_api.py`. Việc này đóng luôn bug ARCHITECTURE §11.5 mục 1.
+4. ~~Cập nhật cả ba nơi theo R4: `prompts.py::DB_SCHEMA`, `offline_training/db_schema.txt`, SQL trong `saas_api.py`.~~ **Đã xong 04/11/2026, nhưng không theo cách ghi ở đây** — chỉ dẫn này sai hướng. Kiến trúc đã chốt Brain không giữ bản sao lược đồ nào (`agent_middleware.get_db_schema`), nên đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm. `DB_SCHEMA` và `db_schema.txt` đã xoá; `SCHEMA MAP` đã sửa theo lược đồ thật của Body (5/10 định danh sai). Xem AGENTS.md §4.
 5. Thêm phép thử hợp đồng vào `tests/test_body_contract.py`: đọc `schema.ts` (hoặc một bản chụp đã commit) rồi đối chiếu từng định danh trong `SCHEMA MAP`. ERD còn đổi, nên thứ cần là một phép thử **kêu to lúc nó đổi**, không phải một lần sửa đúng.
 
-**Cổng nghiệm thu.** Nhánh DATA_INTERNAL trả số thật cho cả ba kỳ `hôm nay`, `tuần này`, `tháng này`, và **vẫn nói thẳng "chưa lấy được"** cho "tháng trước", đúng kịch bản 5.4 của [CHAY_THU_NOI_BO.md](CHAY_THU_NOI_BO.md). Vế sau quan trọng ngang vế trước. Thêm: câu "quý này lãi hay lỗ" đi hết vòng agentic và ra số thật thay vì câu "chưa nối được dữ liệu bán hàng".
+**Cổng nghiệm thu.** Nhánh DATA_INTERNAL trả số thật cho cả ba kỳ `hôm nay`, `tuần này`, `tháng này`, và **vẫn nói thẳng "chưa lấy được"** cho "tháng trước", đúng kịch bản 5.4 của [CHAY_THU_NOI_BO.md](../ky-thuat/CHAY_THU_NOI_BO.md). Vế sau quan trọng ngang vế trước. Thêm: câu "quý này lãi hay lỗ" đi hết vòng agentic và ra số thật thay vì câu "chưa nối được dữ liệu bán hàng".
 
 **Công:** 2 đến 3 ngày, tăng so với ước tính cũ vì có thêm `get_report_lines`. **Chi phí:** 0đ/tháng. **Chặn bởi:** không còn gì. Lược đồ đã có trong hồ sơ này.
 
@@ -247,7 +247,7 @@ Nghĩa là hai thứ Brain đang nói "chưa nối được" **nay nối đượ
 
 `src/core/knowledge.py` có 571 dòng và 70 test đơn vị, và không một chỉ số recall, MRR hay faithfulness nào. Bốn lỗ hổng chức năng đã vá hết, xem 1.3, nên việc còn lại thuần là đo.
 
-Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md §E.3](BAN_GIAO_VAN_TAI.md), theo đúng nó trừ một chỗ:
+Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md §E.3](../khach-hang/BAN_GIAO_VAN_TAI.md), theo đúng nó trừ một chỗ:
 
 > **E.3 bước 2 vi phạm R2 nếu áp nguyên văn.** Nó đề nghị "với mỗi đoạn, sinh 2 đến 3 câu hỏi, dùng DeepSeek", và danh sách tài liệu nguồn ngay phía trên là "hợp đồng, bảng giá cước, chính sách công nợ". Đó là dữ liệu khách hàng, và bảng giá cước là một trong hai thứ nhạy cảm nhất hệ thống.
 >
@@ -265,7 +265,7 @@ Ba việc cải tiến giữ nguyên thứ tự của E.3: chỉnh cách chia đ
 
 ### V5. Phiên đo lại trên Colab
 
-Đóng việc treo số 1 và số 2 của [TIEN_TRINH_BRAIN.md §3](TIEN_TRINH_BRAIN.md). Runbook đầy đủ: [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md). Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive tại `ANSER_AI_Logistics/generated`. Chạy lại ô 13 đến 15 là gọi DeepSeek lần nữa để nhận đúng thứ đang có: mất tiền, mất 35 phút, đổi lại không gì cả.
+Đóng việc treo số 1 và số 2 của [TIEN_TRINH_BRAIN.md §3](../ky-thuat/TIEN_TRINH_BRAIN.md). Runbook đầy đủ: [PHIEN_DO_COLAB.md](../ky-thuat/PHIEN_DO_COLAB.md). Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive tại `ANSER_AI_Logistics/generated`. Chạy lại ô 13 đến 15 là gọi DeepSeek lần nữa để nhận đúng thứ đang có: mất tiền, mất 35 phút, đổi lại không gì cả.
 
 Hai thứ cần nhìn sau phiên này:
 
@@ -288,8 +288,8 @@ Hai thứ cần nhìn sau phiên này:
 
 | Việc | Ai gỡ | Vì sao không hoãn được |
 |---|---|---|
-| **Một kế toán có nghề rà [HOANG_PHAT_SOAT_SO_1108.md](HOANG_PHAT_SOAT_SO_1108.md) một vòng** | chủ dự án tìm người | Bộ đo trả lời được "mã có làm đúng thứ ta định không", và không trả lời được "cách hiểu nghiệp vụ của ta có đúng không". Ba chỗ đang tự khẳng định: bảng tra thuế 8% và 10%, định nghĩa "sửa hồi tố", ngưỡng tập trung 20% và 50%. Sai bảng thuế thì khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt |
-| **Xin nốt dữ liệu còn thiếu** theo [HOANG_PHAT_DU_LIEU_CAN_XIN.md](HOANG_PHAT_DU_LIEU_CAN_XIN.md) | chủ dự án và khách | Sổ chi tiết công nợ mở khoá tuổi nợ 30/60/90, thứ khách cần nhất trong bức tranh phải thu 3,96 tỷ. Không có ngày hoá đơn thì số dư hiện có không nói được ai quá hạn |
+| **Một kế toán có nghề rà [HOANG_PHAT_SOAT_SO_1108.md](../khach-hang/HOANG_PHAT_SOAT_SO_1108.md) một vòng** | chủ dự án tìm người | Bộ đo trả lời được "mã có làm đúng thứ ta định không", và không trả lời được "cách hiểu nghiệp vụ của ta có đúng không". Ba chỗ đang tự khẳng định: bảng tra thuế 8% và 10%, định nghĩa "sửa hồi tố", ngưỡng tập trung 20% và 50%. Sai bảng thuế thì khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt |
+| **Xin nốt dữ liệu còn thiếu** theo [HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md) | chủ dự án và khách | Sổ chi tiết công nợ mở khoá tuổi nợ 30/60/90, thứ khách cần nhất trong bức tranh phải thu 3,96 tỷ. Không có ngày hoá đơn thì số dư hiện có không nói được ai quá hạn |
 
 Việc đầu mất một buổi và rẻ hơn mọi việc còn lại trong hồ sơ này.
 
@@ -303,7 +303,7 @@ Chủ dự án chốt ngày 22/10: **không tách repo.** Hai hệ quả tức t
 
 **Hệ quả phải nhớ:** mảng vận tải có **82 test** và **chưa một con số nào được xác nhận bằng dữ liệu thật**. Mã đã lắp xong, máy chưa nổ. Đừng để con số test làm mình tin nhầm.
 
-Bàn giao chi tiết ở [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md), đọc Phần C và D. Tóm tắt thứ tự:
+Bàn giao chi tiết ở [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md), đọc Phần C và D. Tóm tắt thứ tự:
 
 | # | Việc | Vì sao xếp ở đó |
 |---|---|---|
@@ -347,10 +347,10 @@ Chưa cần ở vòng này: tài khoản thuê GPU, token Cloudflare Tunnel, quy
 
 Một buổi, và kết thúc buổi là biết mình đã tiếp quản được hay chưa.
 
-1. Đọc [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md) mục 1 và 2. Dựng môi trường, `ENV=LOCAL pytest -q` ra 1003 passed.
+1. Đọc [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md) mục 1 và 2. Dựng môi trường, `ENV=LOCAL pytest -q` ra 1003 passed.
 2. Bật uvicorn, `GET /health` trả `auth_enabled: false`. Đặt `API_AUTH_TOKEN` rồi xác nhận nó đổi thành `true`, và `GET /tools` không kèm token trả 401.
 3. Sinh `ton_kho_mau.xlsx`, nạp qua `/tools/inventory-import`, đối chiếu 8 phát hiện trên 7 mã. Mở file Excel và kiểm tay một phát hiện bằng `evidence` của nó.
-4. Đọc [AGENTS.md](AGENTS.md) phần R1 đến R5, và mục 9 của sổ tay.
+4. Đọc [AGENTS.md](../../AGENTS.md) phần R1 đến R5, và mục 9 của sổ tay.
 5. Chạy ba lệnh kiểm ở mục 1 của hồ sơ này và xác nhận bạn ra cùng số.
 
 Không ra được 1003 passed trong vòng một giờ thì đó là lỗi của tài liệu. Ghi lại ba thứ, câu lệnh đã gõ, thứ nhận được, thứ mong đợi, rồi sửa mục 2.9 của sổ tay.
@@ -359,7 +359,7 @@ Không ra được 1003 passed trong vòng một giờ thì đó là lỗi của
 
 ## 5. Bốn câu hỏi hỏi trước mọi commit
 
-Lấy từ [AGENTS.md §5.2](AGENTS.md). Mỗi câu đứng sau một sự cố đã xảy ra:
+Lấy từ [AGENTS.md §5.2](../../AGENTS.md). Mỗi câu đứng sau một sự cố đã xảy ra:
 
 1. Nếu model trả về rác, có bản ghi sổ sách nào sai theo không? (R1)
 2. Payload này có chứa dữ liệu khách hàng, và nó đi tới đâu? (R2)
@@ -386,7 +386,7 @@ Và hai nguyên tắc đọc số:
 | Chạy `src/evaluate_system.py` trên dữ liệu khách | Nó gọi DeepSeek làm judge, xem `evaluate_system.py:32`. Chỉ chạy trên dữ liệu tổng hợp hoặc mẫu. Ưu tiên thay bằng judge local |
 | Đưa file MISA gốc vào repo | Chứa tên khách, mã số thuế, số nợ. Dùng bản ẩn danh, đã kiểm là cho kết quả y hệt |
 | Gộp nhánh làm việc vào `main` | `main` là bản trước khi có lõi tất định |
-| Sửa repo Body | [AGENTS.md §1](AGENTS.md): chỉ được đề xuất bằng văn bản rồi dừng lại chờ người quyết định |
+| Sửa repo Body | [AGENTS.md §1](../../AGENTS.md): chỉ được đề xuất bằng văn bản rồi dừng lại chờ người quyết định |
 | Nâng `--workers` của uvicorn | `TASK_REGISTRY` còn là dict trong RAM |
 | Dùng Colab phục vụ traffic thật | Điều khoản Colab Paid cấm web service |
 
@@ -412,13 +412,13 @@ Và hai nguyên tắc đọc số:
 >
 > Hệ quả cho cách làm việc: mỗi lần tìm ra một thứ không có trong tài liệu, viết nó vào tài liệu ngay trong cùng PR, kể cả khi nó chỉ là một dòng. Và khi mã với tài liệu mâu thuẫn, tin mã rồi sửa tài liệu, đừng để người sau tự đoán.
 >
-> [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md) viết cho đúng tình huống này: người đọc chưa biết gì, không có ai ngồi cạnh. Mục 2.9 của nó là bảng gỡ lỗi, mục 10 là bảng những chỗ tài liệu đang lệch khỏi mã.
+> [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md) viết cho đúng tình huống này: người đọc chưa biết gì, không có ai ngồi cạnh. Mục 2.9 của nó là bảng gỡ lỗi, mục 10 là bảng những chỗ tài liệu đang lệch khỏi mã.
 
 ---
 
 ## 8. Danh sách ký nhận
 
-Một việc coi là xong khi đủ cả bảy, theo [AGENTS.md §7](AGENTS.md):
+Một việc coi là xong khi đủ cả bảy, theo [AGENTS.md §7](../../AGENTS.md):
 
 - [ ] Mã chạy ở `ENV=LOCAL` không cần GPU
 - [ ] Không vi phạm R1 đến R5

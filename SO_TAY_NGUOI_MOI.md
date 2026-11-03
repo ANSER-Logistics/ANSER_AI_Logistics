@@ -89,7 +89,7 @@ R1 có một hệ quả dễ bỏ qua: **"chưa biết" khác "bằng 0"**. `Non
 >
 > Một điều đáng biết khi tới lúc làm: lớp sinh ra giá trị **không cần GPU và không cần model**. Chạy `RUNTIME_PROFILE=minimal` thì Brain phục vụ toàn bộ `/tools/*` trên một máy CPU rẻ tiền, còn nhánh `/chat` tắt theo thiết kế. Kiểm ngày 24/10: `/health` trả `engine_ready: false` mà `/tools/inventory-audit` vẫn ra 2 phát hiện kèm `money_impact`.
 >
-> Ô đỏ này **chưa nằm trong chu kỳ đang chạy**. Chu kỳ 01 dồn vào S2, tức đưa `/chat` qua vLLM server chạy Qwen3-8B trên GPU L4. Lý do hoãn và trạng thái: [SRS_CHU_KY_01.md §9](SRS_CHU_KY_01.md).
+> Ô đỏ này **chưa nằm trong chu kỳ đang chạy**. Chu kỳ 01 dồn vào S2, tức đưa `/chat` qua vLLM server chạy Qwen3-8B trên GPU L4. Lý do hoãn và trạng thái: [SRS_CHU_KY_01.md §9](docs/chu-ky-01/SRS_CHU_KY_01.md).
 
 ### 2.1. Cần gì
 
@@ -594,9 +594,9 @@ Trả một bài viết trên mạng cho câu đầu là trình bày thông tin 
 
 ### 5.5. Chạy phiên đo trên Colab
 
-Runbook đầy đủ ở [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md). Cần GPU L4 hoặc A100; T4 16GB không đủ cho Qwen3-8B AWQ. Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive.
+Runbook đầy đủ ở [PHIEN_DO_COLAB.md](docs/ky-thuat/PHIEN_DO_COLAB.md). Cần GPU L4 hoặc A100; T4 16GB không đủ cho Qwen3-8B AWQ. Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive.
 
-Notebook đã có ở `offline_training/ANSER_train_v3_colab.ipynb`. Người làm Brain được tạo thêm script hoặc notebook cho việc đo khi cần; ví dụ `offline_training/do_ngan_sach_ctx.py` cho BR-04. Runbook dựng vLLM server + Brain trên Colab L4, kèm bảng các bẫy đã gặp, ở [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §7. Bản trước của sổ tay ghi "không tự tạo notebook mới" là chỗ sai, đã sửa 26/10/2026.
+Notebook đã có ở `offline_training/ANSER_train_v3_colab.ipynb`. Người làm Brain được tạo thêm script hoặc notebook cho việc đo khi cần; ví dụ `offline_training/do_ngan_sach_ctx.py` cho BR-04. Runbook dựng vLLM server + Brain trên Colab L4, kèm bảng các bẫy đã gặp, ở [BAO_CAO_BR04.md](docs/chu-ky-01/BAO_CAO_BR04.md) §7. Bản trước của sổ tay ghi "không tự tạo notebook mới" là chỗ sai, đã sửa 26/10/2026.
 
 Dựng lại Brain giữa phiên dùng `offline_training/bat_lai_brain.py`, chạy bằng `%run -i`. Script đó đặt `ENV=GPU`; từ BR-03, `ENV=SERVER` mà không có `VLLM_BASE_URL` là lỗi cấu hình.
 
@@ -660,9 +660,9 @@ Toàn bộ là file `.xlsx` xuất từ MISA. Khách gửi PDF trước, và PDF
 | Doanh thu theo mã hàng | Lãi gộp thật. Hiện chỉ có giá vốn | chưa xin |
 | 10 đến 30 tài liệu nội bộ | Kho tri thức có nội dung thật để tra | chưa xin |
 
-Danh sách đầy đủ, kèm cách xin và tên cột cần có: [HOANG_PHAT_DU_LIEU_CAN_XIN.md](HOANG_PHAT_DU_LIEU_CAN_XIN.md). Bản gửi khách: [HOANG_PHAT_GUI_KHACH.md](HOANG_PHAT_GUI_KHACH.md).
+Danh sách đầy đủ, kèm cách xin và tên cột cần có: [HOANG_PHAT_DU_LIEU_CAN_XIN.md](docs/khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md). Bản gửi khách: [HOANG_PHAT_GUI_KHACH.md](docs/khach-hang/HOANG_PHAT_GUI_KHACH.md).
 
-Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md).
+Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc [BAN_GIAO_VAN_TAI.md](docs/khach-hang/BAN_GIAO_VAN_TAI.md).
 
 ### 6.3. Dữ liệu nào không bao giờ vào repo
 
@@ -728,7 +728,7 @@ Ba chỗ đang tự khẳng định, chưa ai ngoài dự án xác nhận:
 | Định nghĩa "sửa hồi tố" | Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường |
 | Ngưỡng tập trung 20% và 50% | Con số do dự án đặt, chưa ai xác nhận là mức đáng lo |
 
-Một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](HOANG_PHAT_SOAT_SO_1108.md) và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.
+Một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md) và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.
 
 ---
 
@@ -829,15 +829,15 @@ Mỗi dòng kèm lý do. Phần lớn lý do là một sự cố đã xảy ra.
 |---|---|
 | Năm ràng buộc đầy đủ, quy trình làm việc | [AGENTS.md](AGENTS.md) |
 | Quyết định kiến trúc, sổ lỗi đã biết | [ARCHITECTURE.md](ARCHITECTURE.md), kèm cảnh báo dưới |
-| Hình vẽ C4, phụ thuộc giữa module, ngân sách VRAM | [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md) |
-| Đang ở đâu, cái gì đã chắc, cái gì đang dở | [TIEN_TRINH_BRAIN.md](TIEN_TRINH_BRAIN.md) |
+| Hình vẽ C4, phụ thuộc giữa module, ngân sách VRAM | [ARCHITECTURE_DIAGRAMS.md](docs/ky-thuat/ARCHITECTURE_DIAGRAMS.md) |
+| Đang ở đâu, cái gì đã chắc, cái gì đang dở | [TIEN_TRINH_BRAIN.md](docs/ky-thuat/TIEN_TRINH_BRAIN.md) |
 | Lộ trình sản phẩm, cổng ra từng giai đoạn | [ROADMAP.md](ROADMAP.md) |
-| **Việc của chu kỳ này, có người và hạn** | [SRS_CHU_KY_01.md](SRS_CHU_KY_01.md) |
-| Bảy việc dài hạn, đã xếp thứ tự | [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) |
-| Chạy thử nội bộ, kịch bản từng bước | [CHAY_THU_NOI_BO.md](CHAY_THU_NOI_BO.md) |
-| Mảng vận tải, và ba mảng nghiên cứu sâu | [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md) |
-| Kế hoạch RAG và VLM | [RAG_VLM_KE_HOACH.md](RAG_VLM_KE_HOACH.md) |
-| Kết quả soát sổ gửi khách | [HOANG_PHAT_SOAT_SO_1108.md](HOANG_PHAT_SOAT_SO_1108.md) |
+| **Việc của chu kỳ này, có người và hạn** | [SRS_CHU_KY_01.md](docs/chu-ky-01/SRS_CHU_KY_01.md) |
+| Bảy việc dài hạn, đã xếp thứ tự | [GIAO_VIEC_BRAIN.md](docs/chu-ky-01/GIAO_VIEC_BRAIN.md) |
+| Chạy thử nội bộ, kịch bản từng bước | [CHAY_THU_NOI_BO.md](docs/ky-thuat/CHAY_THU_NOI_BO.md) |
+| Mảng vận tải, và ba mảng nghiên cứu sâu | [BAN_GIAO_VAN_TAI.md](docs/khach-hang/BAN_GIAO_VAN_TAI.md) |
+| Kế hoạch RAG và VLM | [RAG_VLM_KE_HOACH.md](docs/ky-thuat/RAG_VLM_KE_HOACH.md) |
+| Kết quả soát sổ gửi khách | [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md) |
 | Hợp đồng API với Body | `tests/test_body_contract.py` |
 | Pipeline fine-tune | [offline_training/README.md](offline_training/README.md) |
 
@@ -852,8 +852,8 @@ Kiểm bằng cách mở từng file. Đọc bảng này trước khi tin ARCHIT
 | `src/README.md` mô tả "Project A", entrypoint `src/server.py`, cổng chất lượng chạy trên `core/tools.py` | `src/server.py` đã tách thành `src/api/`. Lệnh uvicorn và lệnh ruff trong file đó đều gãy |
 | `config.py` docstring "tối ưu cho Google Colab Pro, GPU L4" | Colab đã bị loại khỏi lộ trình production. Log "Booting COLAB engine" đã gỡ ở BR-03 |
 | `deploy/.env.example` cảnh báo "config.py đang để 4096" | Mặc định nay là 8192 |
-| `SCHEMA MAP` trong `saas_api.py` | 4 trên 8 định danh lệch Body: `stock_quantity` so với `stock`, bảng `sales` so với `sales_invoices`, `amount` so với `total`, `workspace_id` so với `warehouse_id`. Body **không có khái niệm `workspace`** nào cả. Lược đồ thật 13 bảng đã chép vào [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) V3, kèm ba cạm bẫy |
-| ARCHITECTURE.md §5.1 ghi vision `Qwen2.5-VL-3B AWQ ~3,0 GB`, tổng `~15,0 GB` | Mã nạp vision bằng `torch_dtype=torch.bfloat16`, **không lượng tử hoá gì cả**, nên nó tốn ~7,5 GB. [RAG_VLM_KE_HOACH.md §B.2.4](RAG_VLM_KE_HOACH.md) đã tính lại ngày 03/08/2026: thật ra ~19,9 GB trên card 22,5 GB sau khi đã đẩy embedder và reranker sang CPU. Dùng bảng ở §B.2.4, đừng dùng §5.1 |
+| `SCHEMA MAP` trong `saas_api.py` | 4 trên 8 định danh lệch Body: `stock_quantity` so với `stock`, bảng `sales` so với `sales_invoices`, `amount` so với `total`, `workspace_id` so với `warehouse_id`. Body **không có khái niệm `workspace`** nào cả. Lược đồ thật 13 bảng đã chép vào [GIAO_VIEC_BRAIN.md](docs/chu-ky-01/GIAO_VIEC_BRAIN.md) V3, kèm ba cạm bẫy |
+| ARCHITECTURE.md §5.1 ghi vision `Qwen2.5-VL-3B AWQ ~3,0 GB`, tổng `~15,0 GB` | Mã nạp vision bằng `torch_dtype=torch.bfloat16`, **không lượng tử hoá gì cả**, nên nó tốn ~7,5 GB. [RAG_VLM_KE_HOACH.md §B.2.4](docs/ky-thuat/RAG_VLM_KE_HOACH.md) đã tính lại ngày 03/08/2026: thật ra ~19,9 GB trên card 22,5 GB sau khi đã đẩy embedder và reranker sang CPU. Dùng bảng ở §B.2.4, đừng dùng §5.1 |
 | ARCHITECTURE.md §13b.3 liệt kê bốn lỗ hổng RAG "phải vá trước khi nạp dữ liệu thật" | **Cả bốn đã vá.** `workspace_id` bắt buộc ở mọi lối vào, `Passage` có `source` và ngày hiệu lực, tài liệu hết hiệu lực bị loại hẳn, `ingest_folder` đã ra khỏi `__init__`. Đọc rồi đi vá lại là mất vài ngày cho việc đã xong |
 | BAN_GIAO_VAN_TAI.md §B.5 hướng dẫn mang gì theo khi tách repo vận tải | **Không tách nữa.** Chủ dự án chốt 22/10/2026: mảng vận tải ở lại repo này, lớp nền giữ một bản |
 

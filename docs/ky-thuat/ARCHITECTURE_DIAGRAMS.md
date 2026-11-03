@@ -1,6 +1,6 @@
 # ANSER — sơ đồ kiến trúc (C4)
 
-Phụ lục hình vẽ cho [ARCHITECTURE.md](ARCHITECTURE.md). Tách file riêng vì
+Phụ lục hình vẽ cho [ARCHITECTURE.md](../../ARCHITECTURE.md). Tách file riêng vì
 ARCHITECTURE.md đã 64KB; **quyết định kiến trúc vẫn nằm ở đó**, file này chỉ vẽ
 lại cho dễ nhìn.
 
@@ -13,7 +13,7 @@ và sửa cùng commit với code.
 > sơ đồ sinh tự động cho biết code *đang* thế nào, bản vẽ tay nói *vì sao* thế.
 
 Đọc kèm: [RAG_VLM_KE_HOACH.md](RAG_VLM_KE_HOACH.md) ·
-[HOANG_PHAT_DU_LIEU_CAN_XIN.md](HOANG_PHAT_DU_LIEU_CAN_XIN.md)
+[HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md)
 
 ---
 
@@ -311,7 +311,7 @@ graph LR
 ```
 
 **Mũi tên chỉ đi xuống** — và từ 03/08/2026 điều đó **kiểm được**, không còn là
-lời hứa: [`tests/test_layering.py`](tests/test_layering.py) duyệt AST toàn bộ
+lời hứa: [`tests/test_layering.py`](../../tests/test_layering.py) duyệt AST toàn bộ
 `src/` và đỏ nếu có module nào import ngược tầng. Duyệt AST chứ không grep, vì
 lỗi lần trước nằm trong **thân hàm** — grep theo dòng đầu file không thấy.
 
@@ -432,4 +432,4 @@ graph LR
 ```
 
 **Cả bốn việc còn lại đều chặn ở DỮ LIỆU, không chặn ở code.** Xem
-[HOANG_PHAT_DU_LIEU_CAN_XIN.md](HOANG_PHAT_DU_LIEU_CAN_XIN.md).
+[HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md).

@@ -16,7 +16,7 @@
 
 Nó **không chép lại** nội dung hai tài liệu kia. Yêu cầu kỹ thuật của Brain nằm ở SRS, và file này chỉ trỏ tới mã yêu cầu. Chép lại là tạo ra nguồn thứ hai cho cùng một thứ, đúng cái R4 cấm.
 
-Theo [AGENTS.md §1](AGENTS.md), người làm Brain **không sửa repo Body**. Mọi việc gắn nhãn Body trong file này là **đề nghị**: đội Body đọc, phản hồi, rồi tự quyết cách làm.
+Theo [AGENTS.md §1](../../AGENTS.md), người làm Brain **không sửa repo Body**. Mọi việc gắn nhãn Body trong file này là **đề nghị**: đội Body đọc, phản hồi, rồi tự quyết cách làm.
 
 ---
 
@@ -61,7 +61,7 @@ Trong 12 commit chưa lên bản chính có:
 d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi moi ghi
 ```
 
-Bốn dòng trên [ROADMAP.md](ROADMAP.md) đánh **✅**:
+Bốn dòng trên [ROADMAP.md](../../ROADMAP.md) đánh **✅**:
 
 > | Chỉ báo AI bật/tắt trên giao diện | ✅ chân sidebar, đỏ khi Brain không kiểm token |
 > | Hướng dẫn cho người không phải kỹ thuật | ✅ trang **Hướng dẫn dùng** trong app |
@@ -160,7 +160,7 @@ Phép thử này **chỉ chạy khi có bản sao Body trên đĩa**, qua biến
 
 #### BD-04. Đưa Body lên chỗ khách truy cập được
 
-Ô đỏ duy nhất còn lại của Giai đoạn B trong [ROADMAP.md](ROADMAP.md). Nó **không chặn** chu kỳ này và cũng **chưa chết**.
+Ô đỏ duy nhất còn lại của Giai đoạn B trong [ROADMAP.md](../../ROADMAP.md). Nó **không chặn** chu kỳ này và cũng **chưa chết**.
 
 Điều đáng biết khi tới lúc làm: lớp sinh ra giá trị của Brain **không cần GPU**. Kiểm ngày 24/10 với `RUNTIME_PROFILE=minimal`, Brain phục vụ toàn bộ `/tools/*` trên máy CPU trong khi `/health` trả `engine_ready: false`, và `/tools/inventory-audit` vẫn ra phát hiện kèm `money_impact`. Nghĩa là Body đi lên trước được, phần hỏi đáp AI nối sau.
 
@@ -292,9 +292,9 @@ Cách giảm rủi ro thật sự nằm ở chỗ khác: **cắt phạm vi sớm
 | Cần gì | Đọc đâu |
 |---|---|
 | Yêu cầu kỹ thuật Brain, nghiệm thu từng việc | [SRS_CHU_KY_01.md](SRS_CHU_KY_01.md) |
-| Dựng môi trường Brain, hiểu mã, từ điển thuật ngữ | [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md) |
+| Dựng môi trường Brain, hiểu mã, từ điển thuật ngữ | [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md) |
 | Bảy việc dài hạn của Brain | [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) |
-| Đang ở đâu, cái gì đã chắc | [TIEN_TRINH_BRAIN.md](TIEN_TRINH_BRAIN.md) |
-| Ranh giới hai repo, năm ràng buộc | [AGENTS.md](AGENTS.md) |
-| Cổng ra từng giai đoạn | [ROADMAP.md](ROADMAP.md) |
+| Đang ở đâu, cái gì đã chắc | [TIEN_TRINH_BRAIN.md](../ky-thuat/TIEN_TRINH_BRAIN.md) |
+| Ranh giới hai repo, năm ràng buộc | [AGENTS.md](../../AGENTS.md) |
+| Cổng ra từng giai đoạn | [ROADMAP.md](../../ROADMAP.md) |
 | Hợp đồng API, đọc thẳng `brain.ts` | `tests/test_body_contract.py` |
