@@ -871,12 +871,53 @@ def tach_tool_tu_json_cut(raw: str) -> str | None:
 # Main
 # ---------------------------------------------------------------------------
 
+
+def quyet_ma_thoat(
+    gate_fail: list,
+    khong_do_duoc: list,
+    mau_qua_it: list,
+    *,
+    no_gate: bool,
+    doi_du_tap_do: bool,
+) -> int:
+    """
+    Mã thoát của cả lượt đo. Hàm thuần — không in, không đọc file, không `sys.exit`.
+
+    Tách ra khỏi `main()` để KIỂM ĐƯỢC. Nằm trong `main()` thì muốn thử một
+    nhánh phải dựng cả một lượt benchmark có model thật, nên không ai thử, nên
+    nó âm thầm sai.
+
+    Ba mã, ba nghĩa khác nhau — và phân biệt được chúng mới là điểm của việc này:
+
+      0  đo đủ, qua mọi ngưỡng
+      1  ĐO ĐƯỢC, và DƯỚI ngưỡng         -> model chưa đạt
+      2  KHÔNG đo được một phần          -> không kết luận được, khác hẳn "đạt"
+
+    Vì sao mã 2 không phải mã mặc định: `ci.yml` chưa gọi file này, nên không ai
+    đang dựa vào hành vi hiện tại. Đổi mặc định là đổi hợp đồng của một công cụ
+    mà mình không biết hết người dùng. Ai nối vào CI thì bật `--doi-du-tap-do`.
+
+    `no_gate` chỉ tha cho việc DƯỚI NGƯỠNG — nó không tha cho việc thiếu dữ
+    liệu, vì hai chuyện đó khác nhau: một cái là "đo rồi, chưa đạt", cái kia là
+    "chưa đo".
+    """
+    if gate_fail and not no_gate:
+        return 1
+    if doi_du_tap_do and (khong_do_duoc or mau_qua_it):
+        return 2
+    return 0
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True)
     parser.add_argument("--max-samples", type=int, default=0, help="0 = tất cả")
     parser.add_argument("--no-gate", action="store_true",
                         help="chỉ đo, không exit 1 (dùng cho baseline)")
+    parser.add_argument(
+        "--doi-du-tap-do", action="store_true",
+        help="exit 1 cả khi THIẾU TẬP ĐO, không chỉ khi dưới ngưỡng. "
+             "Bật cờ này khi nối vào CI.",
+    )
     parser.add_argument("--skip", nargs="*", default=[],
                         choices=["extraction", "n8n", "narration", "agent"])
     parser.add_argument("--json", dest="json_out", default="",
@@ -1250,7 +1291,12 @@ def main() -> None:
     if canh_bao_khung_do or khong_do_duoc or mau_qua_it:
         print("-" * 60)
 
-    if gate_fail and not args.no_gate:
+    ma = quyet_ma_thoat(
+        gate_fail, khong_do_duoc, mau_qua_it,
+        no_gate=args.no_gate, doi_du_tap_do=args.doi_du_tap_do,
+    )
+
+    if ma == 1:
         print("❌ DƯỚI NGƯỠNG:")
         for reason in gate_fail:
             print(f"   {reason}")
@@ -1264,6 +1310,27 @@ def main() -> None:
               "kết luận là model đạt")
     else:
         print("✅ Qua mọi ngưỡng")
+
+    # Mã thoát phải nói CÙNG MỘT CHUYỆN với phần chữ ở trên.
+    #
+    # Phần chữ đã rất cẩn thận: "KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model
+    # đạt)", và câu kết luận có điều kiện. Nhưng mã thoát vẫn là 0. Người đọc
+    # màn hình thì hiểu đúng; một job CI đọc `$?` thì không — nó thấy 0 và đi
+    # tiếp.
+    #
+    # Soát 04/11/2026: 3 trong 4 tập đo không có
+    # (eval_extraction / eval_narration / eval_agent — cả ba cần
+    # DEEPSEEK_API_KEY để sinh lại). Nên cổng này hiện chỉ đo được một phần tư,
+    # mà vẫn thoát 0.
+    #
+    # Cờ RIÊNG chứ không đổi hành vi mặc định: `ci.yml` chưa gọi file này, nên
+    # không ai đang dựa vào mã thoát hiện tại. Đổi mặc định là đổi hợp đồng của
+    # một công cụ mà mình không biết hết người dùng. Ai nối vào CI thì bật cờ.
+    if ma == 2:
+        print()
+        print("❌ --doi-du-tap-do: có phần KHÔNG ĐO ĐƯỢC, nên không kết luận "
+              "là đạt.")
+        sys.exit(2)
 
 
 if __name__ == "__main__":
