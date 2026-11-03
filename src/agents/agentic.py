@@ -460,7 +460,12 @@ class AgenticLoop:
             # Bơm dữ liệu hệ thống TRƯỚC khi chạy. Thiếu nguồn thì dừng hẳn: để
             # model đi tiếp nghĩa là để nó tự nghĩ ra doanh thu rồi hệ thống tính
             # toán nghiêm túc trên số bịa (xem tool_planner.py).
-            if name in self._names and self.data_provider is not None:
+            # `isinstance` ở đây không phải nghi ngờ `self._names` chứa gì — nó là
+            # chỗ duy nhất thu hẹp `name` từ `Any | None` (model điền) về `str`,
+            # để bộ kiểm kiểu bắt được nếu có ai truyền `name` xuống một hàm
+            # khác mà không qua cổng này.
+            if (isinstance(name, str) and name in self._names
+                    and self.data_provider is not None):
                 args, thieu = await self._maybe_await(self.data_provider(name, args))
                 if thieu:
                     logger.info("Agentic: dừng vì thiếu dữ liệu cho %s", name)
@@ -475,7 +480,7 @@ class AgenticLoop:
                         "data_missing": True,
                     }
 
-            if name not in self._names:
+            if not isinstance(name, str) or name not in self._names:
                 observation = {"error": f"không có tool tên '{name}'"}
             else:
                 signature = f"{name}:{json.dumps(args, sort_keys=True, ensure_ascii=False)}"

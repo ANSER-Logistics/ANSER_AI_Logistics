@@ -222,12 +222,20 @@ ENV=LOCAL pytest tests/test_deterministic_core.py -q
 ENV=LOCAL pytest tests/test_tool_planner.py -q -k hoa_don
 ```
 
-Hai cổng chất lượng còn lại, giống CI:
+Hai cổng chất lượng còn lại. Hai lệnh dưới đây **đúng bằng** hai bước `Ruff` và
+`Mypy` trong `.github/workflows/ci.yml` — chạy chúng trước khi push thì không bị
+CI báo lỗi sau:
 
 ```bash
-ruff check src/core/memory.py src/core/context.py tests
-mypy src/core/memory.py src/core/context.py
+ruff check src tests offline_training
+mypy src offline_training/providers.py offline_training/chay_thu_live.py offline_training/bat_lai_brain.py
 ```
+
+`mypy` soi **toàn bộ `src/`** (04/11/2026, trước đó chỉ 5 file) nhưng `offline_training/`
+vẫn là danh sách chọn tay: cả thư mục còn 31 lỗi, và `mypy offline_training` báo
+`Source file found twice` vì thư mục không có `__init__.py` trong khi code import
+`offline_training.dgen_common`. Muốn soi cả thư mục thì cần `MYPYPATH=.` kèm
+`--explicit-package-bases`.
 
 ### 2.6. Bật server
 

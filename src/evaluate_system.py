@@ -148,7 +148,7 @@ AI GENERATED WORKFLOW:
 
 def load_test_data(filepath: str, limit: int):
     """Automatically loads test cases from the fine-tuning JSONL dataset."""
-    dataset =[]
+    dataset: list[dict] = []
     if not os.path.exists(filepath):
         print(f"❌ Dataset not found at: {filepath}")
         return dataset
