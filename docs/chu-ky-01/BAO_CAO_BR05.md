@@ -101,7 +101,7 @@ Cả hai là lỗi R1. Ca NA0006 cho thấy: kể cả khi mọi con số có s�
 
 | Loại lỗi | Số ca | Ví dụ | Nguyên nhân |
 |---|---|---|---|
-| Câu báo giá vận tải bị bắt thành `report` | 6 | AG0001 *"Nhà xe vừa chào 12.500.000 đồng…, biên lợi nhuận họ tính 8%"* → `["report"]` | **mã** — luật `report` có chữ trần `lợi nhuận` ([`tool_planner.py:157`](src/core/tool_planner.py#L157)). Bảng luật không có luật `quote`, vì thiết kế cũ dồn mọi câu "báo giá" về LOGISTICS → n8n — kể cả câu đã có sẵn giá nhà xe. **Đã sửa 28/10 (§6b)** |
+| Câu báo giá vận tải bị bắt thành `report` | 6 | AG0001 *"Nhà xe vừa chào 12.500.000 đồng…, biên lợi nhuận họ tính 8%"* → `["report"]` | **mã** — luật `report` có chữ trần `lợi nhuận` ([`tool_planner.py:157`](../../src/core/tool_planner.py#L157)). Bảng luật không có luật `quote`, vì thiết kế cũ dồn mọi câu "báo giá" về LOGISTICS → n8n — kể cả câu đã có sẵn giá nhà xe. **Đã sửa 28/10 (§6b)** |
 | Luật `carrier_selection` không khớp | 3 | AG0002 *"…Đại An chào 9.400.000 đồng chiết khấu 5%…"* | **mã** — luật chỉ bắt "nhà xe nào", "chọn/so sánh nhà xe"; câu liệt kê nhiều lời chào giá không khớp |
 
 ---

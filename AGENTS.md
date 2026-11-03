@@ -88,11 +88,13 @@ Ba nơi sau phải luôn khớp nhau. Sửa một nơi mà không sửa hai nơi
 
 **Lược đồ DB: Brain KHÔNG giữ bản sao nào.** Body gửi lược đồ kèm ngữ cảnh người dùng; [`agent_middleware.get_db_schema()`](src/core/agent_middleware.py) trả về một placeholder, đúng như vậy, "để tránh định nghĩa lược đồ ở nơi thứ hai".
 
-Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_SCHEMA`, [`db_schema.txt`](offline_training/db_schema.txt), SQL trong [`saas_api.py`](src/core/saas_api.py) — và nêu lệch `sales.amount` vs `sales.total_amount`. **Chỉ dẫn đó sai hướng, và tranh luận đó đã vô nghĩa** (sửa 04/11/2026):
+Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_SCHEMA`, `offline_training/db_schema.txt`, SQL trong [`saas_api.py`](src/core/saas_api.py) — và nêu lệch `sales.amount` vs `sales.total_amount`. **Chỉ dẫn đó sai hướng, và tranh luận đó đã vô nghĩa** (sửa 04/11/2026):
 
 - `Prompts.DB_SCHEMA` đã xoá. Nó không với tới được từ bất kỳ đường nào, và mô tả 10 bảng mà chỉ 3 còn tồn tại bên Body. Bảng `sales` không có — Body dùng `sales_invoices` / `sales_invoice_items` / `invoice_payments`. Lý do đầy đủ nằm ngay chỗ đã xoá trong [`prompts.py`](src/core/prompts.py).
 - Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn. Một nguồn nghĩa là **một**, và nguồn đó ở Body.
-- `db_schema.txt` và `SCHEMA MAP` trong `saas_api.py` còn lại — xem [ARCHITECTURE.md §11.5](ARCHITECTURE.md). Chưa xoá vì chúng chạm tới đường lấy dữ liệu thật, cần đối chiếu Body trước.
+- `offline_training/db_schema.txt` **đã xoá** (04/11/2026). Không file `.py` nào import nó, và nội dung đã lệch khỏi Body. Lấy lại bằng `git show f77096c:offline_training/db_schema.txt`.
+- `SCHEMA MAP` trong `saas_api.py` **đã sửa** theo lược đồ thật của Body (04/11/2026): 5 trong 10 định danh sai, trong đó `workspace_id` ánh xạ tới một khái niệm Body không có. Lý do đầy đủ nằm trong chính khối đó.
+- Còn một bản sao nữa chưa xử: khối `[LƯỢC ĐỒ]` trong `Prompts.INVOICE_SYSTEM`. Prompt đó **đang chạy**. Để lại có chủ ý, chờ S5 gộp prompt hoá đơn — cảnh báo và chỉ dẫn nằm ngay cạnh nó trong [`prompts.py`](src/core/prompts.py).
 
 ### R5 — Hardware-neutral
 

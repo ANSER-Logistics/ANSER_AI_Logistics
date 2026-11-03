@@ -8,7 +8,7 @@ gốc không, và hơn đủ để đáng dùng không?*
 
 > **Từ 26/10/2026 (BR-04):** đường phục vụ là **vLLM server**, không còn
 > `vllm.LLM` trong tiến trình. Runbook dựng vLLM server + Brain trên L4 nằm ở
-> [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §7. SRS BR-05 yêu cầu đo bản fine-tune
+> [BAO_CAO_BR04.md](../chu-ky-01/BAO_CAO_BR04.md) §7. SRS BR-05 yêu cầu đo bản fine-tune
 > **qua đường server đó**. Trước khi đo, chạy
 > `pytest tests/test_agentic_plan.py -k xgrammar`: hai ca phải **passed**,
 > không skipped. Grammar quyết định của vòng agentic từng không được thi hành

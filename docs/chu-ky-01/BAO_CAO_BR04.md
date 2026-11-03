@@ -130,7 +130,7 @@ Tool tính đúng trên thứ nó nhận (5.000.000 + VAT 10% = 5.500.000), và 
 
 Thêm: trường `thought` của bước gọi tool ghi *"không cần gọi công cụ"* trong khi vẫn gọi. Không dùng `thought` làm bằng chứng cho bất cứ điều gì.
 
-**Kết quả (28/10/2026).** Chủ dự án chọn **cả hai, áp theo trường hợp**. Mã ở [`src/core/doc_dau_vao.py`](src/core/doc_dau_vao.py) (chỉ thư viện chuẩn), nối vào `_provide_tool_data` của [`chat.py`](src/api/routes/chat.py):
+**Kết quả (28/10/2026).** Chủ dự án chọn **cả hai, áp theo trường hợp**. Mã ở [`src/core/doc_dau_vao.py`](../../src/core/doc_dau_vao.py) (chỉ thư viện chuẩn), nối vào `_provide_tool_data` của [`chat.py`](../../src/api/routes/chat.py):
 
 | Tool | Cách | Hành vi |
 |---|---|---|
@@ -164,7 +164,7 @@ Phần dưới giữ nguyên phương án đã trình để chủ dự án chọ
 
 **Hai cách sửa (phương án 26/10).** Cả hai nằm ngoài phạm vi SRS chu kỳ 01 (BR-01 ghi "không sửa tool khác"), nên cần quyết định trước khi làm. Chọn một, chọn cả hai, hoặc hoãn sang chu kỳ 02 — trong lúc chờ, câu soát hoá đơn qua Brain **vẫn có thể ra số tiền sai**.
 
-Cả hai cách đặt cùng một chỗ: `provider` trong `_run_agentic` ([`chat.py`](src/api/routes/chat.py)), chạy **sau** khi model điền tham số và **trước** khi tool chạy. Chỗ đó đã có sẵn cho `report` (`_provide_tool_data` ghi đè dữ liệu hệ thống), và nó thấy được câu gốc của người dùng.
+Cả hai cách đặt cùng một chỗ: `provider` trong `_run_agentic` ([`chat.py`](../../src/api/routes/chat.py)), chạy **sau** khi model điền tham số và **trước** khi tool chạy. Chỗ đó đã có sẵn cho `report` (`_provide_tool_data` ghi đè dữ liệu hệ thống), và nó thấy được câu gốc của người dùng.
 
 #### Cách A — chốt neo đầu vào
 
@@ -224,7 +224,7 @@ Khi đo `finish_reason`, cùng câu hoá đơn gửi thẳng cho model (không v
 
 > **Chốt 28/10/2026:** `TEXT_MAX_MODEL_LEN` 32768, `ANSER_TEXT_MAX_CONCURRENT` 4 — đã thành mặc định trong `config.py`, compose, `.env.example`. `gpu_memory_utilization` giữ nguyên ở mỗi đường (0.55 trong tiến trình như đã đo; compose 0.62 vì ở đó vision là service riêng).
 >
-> **Ngưỡng p95 — chốt hai ngưỡng, cấu hình qua env** ([`src/core/nguong_p95.py`](src/core/nguong_p95.py), `Config.p95_*`, `.env.example`): `P95_MS_MOI_TOKEN` = **60** đo sức khoẻ server (đo được ~40, không phụ thuộc câu dài hay ngắn); `P95_NGUONG_MS` = **5000** giữ để thấy thứ người dùng cảm thấy — câu trả lời dài vượt nó là đã biết, không phải sự cố. `do_ngan_sach_ctx.py` nay đọc `usage.completion_tokens`, in p95 ms/token và ✓/✗ cho từng ngưỡng. Với số 28/10: 1× → 8.497 ms ✗ / ~39 ms/token ✓; 4× → 9.074 ms ✗ / ~42 ms/token ✓ (ms/token suy từ 217 token, lần đo sau sẽ ra số thật).
+> **Ngưỡng p95 — chốt hai ngưỡng, cấu hình qua env** ([`src/core/nguong_p95.py`](../../src/core/nguong_p95.py), `Config.p95_*`, `.env.example`): `P95_MS_MOI_TOKEN` = **60** đo sức khoẻ server (đo được ~40, không phụ thuộc câu dài hay ngắn); `P95_NGUONG_MS` = **5000** giữ để thấy thứ người dùng cảm thấy — câu trả lời dài vượt nó là đã biết, không phải sự cố. `do_ngan_sach_ctx.py` nay đọc `usage.completion_tokens`, in p95 ms/token và ✓/✗ cho từng ngưỡng. Với số 28/10: 1× → 8.497 ms ✗ / ~39 ms/token ✓; 4× → 9.074 ms ✗ / ~42 ms/token ✓ (ms/token suy từ 217 token, lần đo sau sẽ ra số thật).
 
 | Tham số | Đề xuất | Lý do |
 |---|---|---|

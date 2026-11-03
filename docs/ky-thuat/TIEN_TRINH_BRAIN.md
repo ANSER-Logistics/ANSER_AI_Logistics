@@ -1,9 +1,9 @@
 # TIẾN TRÌNH BRAIN — bản kiểm soát lộ trình
 
-**Cập nhật 25/08/2026**, bổ sung 26–29/10/2026 (chu kỳ 01: P1 đính chính, việc treo #2, #3 và #5; tổng kết ở [BIEN_BAN_CHU_KY_01.md](BIEN_BAN_CHU_KY_01.md)). File này trả lời bốn câu cho người tiếp quản:
+**Cập nhật 25/08/2026**, bổ sung 26–29/10/2026 (chu kỳ 01: P1 đính chính, việc treo #2, #3 và #5; tổng kết ở [BIEN_BAN_CHU_KY_01.md](../chu-ky-01/BIEN_BAN_CHU_KY_01.md)). File này trả lời bốn câu cho người tiếp quản:
 *đang ở đâu, cái gì đã chắc, cái gì đang dở, và đụng vào đâu thì gãy.*
 
-Khác với [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md) — bản đó chỉ nói phần **vận
+Khác với [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) — bản đó chỉ nói phần **vận
 tải**. Bản này nói **toàn cảnh Brain**, vì phần vận tải nằm trên cùng một lớp
 nền với phần kế toán: không biết lớp nền có gì thì sửa một chỗ vỡ ba chỗ.
 
@@ -125,7 +125,7 @@ mảng dài → tràn trần token → JSON cắt cụt → vòng lặp gãy.
 > lỗi khác che mất: bảng luật đẩy 6/6 câu báo giá sang `report` (chữ trần
 > `lợi nhuận` trong luật `report`), và bộ đề đòi `quote` qua vòng agentic trong
 > khi production đưa câu báo giá sang nhánh LOGISTICS. Đo lại sau khi chốt câu
-> báo giá đi đường nào. Xem [BAO_CAO_BR05.md](BAO_CAO_BR05.md) §3.1, §3.5.
+> báo giá đi đường nào. Xem [BAO_CAO_BR05.md](../chu-ky-01/BAO_CAO_BR05.md) §3.1, §3.5.
 
 ### ✅ Việc treo #2 — phiên đo lại sau khi có `providers.py` — ĐÓNG 27/10/2026
 
@@ -134,7 +134,7 @@ mảng dài → tràn trần token → JSON cắt cụt → vòng lặp gãy.
 > ra được; thêm `test_xgrammar_THAT_*` đo bằng xgrammar thật. Kèm bốn lỗi khung
 > đo đã sửa trong phiên (payload lệch production, đổ cả phiên vì một câu quá
 > giờ, agentic để ngỏ `answer`, cảnh báo thừa). Bảng phân loại lỗi:
-> [BAO_CAO_BR05.md](BAO_CAO_BR05.md).
+> [BAO_CAO_BR05.md](../chu-ky-01/BAO_CAO_BR05.md).
 
 Nhánh benchmark thêm lớp `NhaCungCap` với `nha.rang_buoc` — ghi lại **chế độ ràng
 buộc** vào file kết quả. Tôi đắp phép thử của mình lên: `rang_buoc` nói bộ đo
@@ -167,7 +167,7 @@ Ba thứ này **không chặn phần kế toán** — phần đó không cần m
 ### 🟡 Việc treo #4 — RAG chưa có thước đo
 
 571 dòng mã, 70 test đơn vị, **không một chỉ số recall/MRR/faithfulness nào**.
-Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md) mục E.3.
+Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) mục E.3.
 
 ### ✅ Việc treo #5 — model chép thiếu đầu vào cho tool — ĐÓNG 28/10/2026
 
@@ -179,7 +179,7 @@ số tiền sai mà trông có nguồn. Chốt neo câu trả lời không bắt
 Hai cách sửa — **A: chốt neo đầu vào** (mã đối chiếu mọi số tiền trong câu với
 tham số model gửi, thiếu thì hỏi lại) và **B: tách hoá đơn bằng mã** (hoá đơn
 dán có cấu trúc thì mã bóc `items`, model không điền) — viết đủ chỗ sửa, phép
-thử nghiệm thu và công ở [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §5.2.
+thử nghiệm thu và công ở [BAO_CAO_BR04.md](../chu-ky-01/BAO_CAO_BR04.md) §5.2.
 
 **Đóng 28/10 (`7da7a9f`):** chủ dự án chọn cả hai, áp theo trường hợp — `vat`
 dán có cấu trúc thì B ghi đè rồi A đối chiếu; `vat` câu tự do và `quote` dùng A;
@@ -219,7 +219,7 @@ hoạch thì `answer` **không có trong lược đồ**, chỉ còn `tool` và 
 > server**: xgrammar bỏ qua khoá đứng cạnh `oneOf`, nên grammar vẫn nhận
 > `answer`. BR-04 đo lại đúng câu này: `tool_calls=0` năm lần trên năm. Sửa ở
 > `82e9e9c` (`anyOf` hai nhánh đóng), kiểm bằng xgrammar thật; sau sửa
-> `tool_calls=1`. Xem [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §5.1.
+> `tool_calls=1`. Xem [BAO_CAO_BR04.md](../chu-ky-01/BAO_CAO_BR04.md) §5.1.
 >
 > **Lỗ tiếp theo, đã đóng 28/10:** gọi được tool rồi thì model **chép thiếu dòng
 > hàng** vào `items` — Brain báo "tổng thực tế 5.500.000" thay vì 6.050.000, kèm

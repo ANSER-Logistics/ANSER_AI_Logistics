@@ -5,7 +5,7 @@
 > **Thay thế:** v1.0 (08/05/2026) và `ANSER_AI_SPEC.md` v1.0 (23/06/2026)
 > **Phạm vi:** Repo `AI_ANSER` (module Brain). Repo Body (Flask/VPS/Neon) nằm ngoài phạm vi sửa đổi nhưng là ràng buộc tích hợp.
 
-> 📐 **Hình vẽ ở [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md)** — C4 mức
+> 📐 **Hình vẽ ở [ARCHITECTURE_DIAGRAMS.md](docs/ky-thuat/ARCHITECTURE_DIAGRAMS.md)** — C4 mức
 > 1→3, sơ đồ tuần tự cho ba luồng chính, phụ thuộc giữa các module, và ngân sách
 > VRAM. Tách file vì tài liệu này đã dài; **quyết định kiến trúc vẫn nằm ở đây**,
 > file kia chỉ vẽ lại cho dễ nhìn.
@@ -31,7 +31,9 @@ Mọi quyết định kỹ thuật trong repo này phải kiểm chứng đượ
 ### P1 — Deterministic-first
 **LLM không bao giờ là nguồn tính toán cuối cùng.** LLM chỉ làm 2 việc: (a) chuyển ngôn ngữ tự nhiên → cấu trúc có schema, và (b) diễn giải cấu trúc → ngôn ngữ tự nhiên. Mọi phép tính số học, mọi truy vấn dữ liệu, mọi quyết định ghi DB đều nằm trong code Python thuần kiểm thử được.
 
-*Hiện thân trong code:* [`mcp_server.py`](src/core/mcp_server.py) (VAT theo NĐ 72/2024), [`tools.py`](src/core/tools.py) (safe math bằng `ast.parse`).
+*Hiện thân trong code:* [`mcp_server.py`](src/core/mcp_server.py) — `calculate_vat` (NĐ 72/2024) và `validate_invoice_total`.
+
+> Sửa 04/11/2026: dòng trên từng ghi thêm `src/core/tools.py` (safe math bằng `ast.parse`). **File đó không tồn tại**, và không chỗ nào trong `src/` gọi `ast.parse`. Liên kết chết kèm một mô tả về thứ chưa bao giờ có.
 
 ### P2 — Chủ quyền dữ liệu tuyệt đối
 **Không một byte dữ liệu khách hàng nào được gửi tới LLM bên thứ ba.** Bao gồm: tồn kho, doanh thu, công nợ, bảng giá cước, tỷ lệ biên, danh sách khách, nội dung hóa đơn.
@@ -217,7 +219,7 @@ Colab **chỉ** được dùng cho: fine-tune, quantize, thử nghiệm rời r�
 
 Toàn bộ chạy local, không có API bên ngoài (P2).
 
-**Đo trên L4 23.034 MiB ngày 26/10/2026** (BR-04, chi tiết ở [BAO_CAO_BR04.md](BAO_CAO_BR04.md)). Bảng cũ ghi vision AWQ ~3,0 GB và tổng ~15,0 GB — sai: mã nạp vision **bf16**, và embedder/reranker đã đổi.
+**Đo trên L4 23.034 MiB ngày 26/10/2026** (BR-04, chi tiết ở [BAO_CAO_BR04.md](docs/chu-ky-01/BAO_CAO_BR04.md)). Bảng cũ ghi vision AWQ ~3,0 GB và tổng ~15,0 GB — sai: mã nạp vision **bf16**, và embedder/reranker đã đổi.
 
 | Vai trò | Model | Định dạng | Ở đâu | VRAM đo được |
 |---|---|---|---|---|
@@ -271,7 +273,7 @@ Model v2 (`anser-retail-v2-awq`, LoRA r=64 trên Qwen2.5-7B, distill DeepSeek-R1
 
 > **Trạng thái 26/10/2026: đường text đã nối (BR-02, BR-03).** Có `VLLM_BASE_URL` thì `ModelEngine` gọi `VLLMServerClient.chat()` tới `/v1/chat/completions`; không có thì giữ đường `vllm.LLM` trong tiến trình ở trên. Backend chọn ở một chỗ, [`engine.py::chon_backend()`](src/core/engine.py), và `/health` khai `text_backend`, `vision_backend`, `vllm_server`. Ba cái bẫy riêng của đường server đều có phép thử: server áp chat template, `chat_template_kwargs.enable_thinking=false`, và `repetition_penalty=1.0` khi có grammar. Vision vẫn nạp trong tiến trình; qua HTTP thuộc chu kỳ 02.
 
-> **Ngân sách ngữ cảnh, BR-04 — ĐÃ CHỐT 28/10/2026** (`TEXT_MAX_MODEL_LEN` 32768 là mặc định trong `config.py`, compose, `.env.example`). Ngưỡng p95 chốt hai ngưỡng (ms/token + tổng ms). Số đo và lý do đầy đủ ở [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §6.
+> **Ngân sách ngữ cảnh, BR-04 — ĐÃ CHỐT 28/10/2026** (`TEXT_MAX_MODEL_LEN` 32768 là mặc định trong `config.py`, compose, `.env.example`). Ngưỡng p95 chốt hai ngưỡng (ms/token + tổng ms). Số đo và lý do đầy đủ ở [BAO_CAO_BR04.md](docs/chu-ky-01/BAO_CAO_BR04.md) §6.
 >
 > | Tham số | Đề xuất | Căn cứ đo |
 > |---|---|---|
@@ -474,7 +476,11 @@ Vòng lặp nạp lại kết quả tool ở mỗi bước. Với `max_model_len
 
 ## 10. Mô hình dữ liệu Logistics (bảng mới, thuộc Body)
 
-[`db_schema.txt`](offline_training/db_schema.txt) hiện chỉ có bảng bán lẻ. Nghiệp vụ logistics cần bổ sung:
+Nghiệp vụ logistics cần bổ sung các bảng sau **bên Body** (Brain chỉ đề xuất, không tự tạo — AGENTS.md §1):
+
+> **Sửa 04/11/2026.** Mục này từng mở đầu bằng "`offline_training/db_schema.txt` hiện chỉ có bảng bán lẻ". File đó **đã xoá**: không mã nào đọc nó, và nội dung đã lệch khỏi Body. Brain không giữ bản sao lược đồ nào — Body gửi kèm ngữ cảnh (AGENTS.md §4).
+>
+> **SQL dưới đây chưa sửa, và nó dùng `workspace_id`.** Body không có khái niệm workspace nào — tìm cả `schema.ts` không ra một chữ. Thứ tương ứng là `warehouse_id` (kho). Đề xuất bảng mới cho Body thì phải nói đúng tiếng của Body, nếu không bản đặc tả gửi sang sẽ bị trả lại. Chưa sửa ở đây vì đổi một đề xuất lược đồ là việc cần người quyết, không phải đổi tên biến.
 
 ```sql
 carriers(id, workspace_id, name, phone, depot, bank_account, notes, is_active)
@@ -830,7 +836,7 @@ Ghi log từ request đầu tiên. Không có số đo thì mọi tranh luận v
 
 | Nhóm | Chỉ số | Ngưỡng |
 |---|---|---|
-| **Hạ tầng** | `inference_latency_p95` | **Hai ngưỡng, chốt 28/10/2026**, đổi qua env: ≤ **60 ms/token** (`P95_MS_MOI_TOKEN`, sức khoẻ server — đo được ~40) và ≤ **5.000 ms** tổng (`P95_NGUONG_MS`, thứ người dùng cảm thấy; câu ~217 token trên L4 mất 8,6–9,2 giây nên vượt — đã biết). Xem `src/core/nguong_p95.py`, [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §6 |
+| **Hạ tầng** | `inference_latency_p95` | **Hai ngưỡng, chốt 28/10/2026**, đổi qua env: ≤ **60 ms/token** (`P95_MS_MOI_TOKEN`, sức khoẻ server — đo được ~40) và ≤ **5.000 ms** tổng (`P95_NGUONG_MS`, thứ người dùng cảm thấy; câu ~217 token trên L4 mất 8,6–9,2 giây nên vượt — đã biết). Xem `src/core/nguong_p95.py`, [BAO_CAO_BR04.md](docs/chu-ky-01/BAO_CAO_BR04.md) §6 |
 | | `vram_utilization_pct` | > 90% cảnh báo |
 | | `gpu_hours_per_month` | ≤ ngân sách bậc hiện tại |
 | | `oom_incident_count` | 0 |
