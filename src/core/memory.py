@@ -23,6 +23,39 @@ MESSAGES_TABLE = "ai_chat_history"     # ⚠️ bản cũ dùng 'chat_messages'
 M_SESSION, M_ROLE, M_CONTENT, M_CREATED = "session_id", "role", "content", "created_at"
 # =====================================================================
 
+# Mọi bảng file này chạm tới. Dùng cho `kiem_luoc_do()`.
+#
+# ⚠️ SOÁT 04/11/2026: TOÀN BỘ danh sách này KHÔNG CÓ trong lược đồ Body.
+#
+# Không phải đổi tên — chưa bao giờ có. Đối chiếu cả 15 migration của Body
+# (`Dgsonn/ANSER-logistics`, master, `frontend/src/server/db/migrations/`,
+# `0000_dizzy_iron_man` → `0014_youthful_red_wolf`): tổng cộng tạo đúng 13 bảng,
+# và không có chữ "chat", "message" hay "workspace" nào trong cả lịch sử.
+#
+#   automation_rules · categories · company_settings · customers · employees
+#   inventory_transactions · invoice_payments · products · sales_invoice_items
+#   sales_invoices · suppliers · users · warehouses
+#
+# Mà `Config.DB_URL` đọc `DATABASE_URL` — tức file này nối vào CHÍNH DB của
+# Body. Nghĩa là S7 (hội thoại nhiều lượt, AGENTS §8 đánh dấu ✅ Xong) không
+# lưu được gì khi chạy với DB thật.
+#
+# Chưa sửa hướng đi, vì ba hướng rất khác nhau và đều cần chủ dự án chọn: Body
+# thêm bảng (thay đổi bên Body — AGENTS §1 chỉ cho ĐỀ XUẤT), Brain dùng DB
+# riêng (thêm thứ phải vận hành — R3), hay bỏ lưu phía Brain để Body gửi kèm
+# ngữ cảnh (nhất quán với `agent_middleware.get_db_schema`). Xem việc brain#24.
+#
+# Cái sửa được ngay mà không cần chọn hướng là `kiem_luoc_do()` bên dưới: cho
+# lỗi NHÌN THẤY ĐƯỢC thay vì trả rỗng.
+BANG_CAN_CO = (
+    SESSIONS_TABLE,
+    ATTACHMENTS_TABLE,
+    MESSAGES_TABLE,
+    "workspaces",
+    "user_workspaces",
+    "workflows",
+)
+
 
 class MemoryManager:
     def __init__(self):
@@ -32,11 +65,70 @@ class MemoryManager:
         except Exception:
             logger.error("Failed to create database engine", exc_info=True)
             self.engine = None
+        # Nhớ kết quả kiểm lược đồ — `/health` gọi mỗi lần, DB chỉ hỏi một lần.
+        self._luoc_do_da_kiem: bool = False
+        self._luoc_do_loi: str | None = None
 
     def get_conn(self):
         if not self.engine:
             raise RuntimeError("Database engine is not configured")
         return self.engine.connect()
+
+    def kiem_luoc_do(self) -> str | None:
+        """
+        Bảng nào thiếu, hoặc None khi đủ. Kết quả nhớ lại, chỉ hỏi DB một lần.
+
+        VÌ SAO CẦN HÀM NÀY
+        ------------------
+        Mọi phương thức bên dưới đều bắt `Exception`, ghi log, rồi trả `[]` hoặc
+        `""`. Log có — nhưng CHỖ GỌI không phân biệt được "không có dữ liệu" với
+        "bảng không tồn tại". Nên `get_user_stores` trả `[]`, `ContextResolver`
+        thấy không có cửa hàng nào, và người dùng đọc được "chưa có cửa hàng"
+        trong khi sự thật là lược đồ sai.
+
+        Hệ thống trông như đang chạy đúng với dữ liệu rỗng. Đúng loại lỗi mà
+        AGENTS.md R1 gọi là tệ nhất: sai mà nghe có vẻ đúng, không ai phát hiện.
+
+        Cùng lý lẽ với dòng `auth_enabled` ở `/health` — một dòng biến lỗi câm
+        thành lỗi nhìn ra ngay.
+
+        Trả chuỗi mô tả (để `/health` in thẳng ra) chứ không ném: `/health`
+        không bao giờ được phép hỏng vì một phép kiểm chẩn đoán.
+        """
+        if self._luoc_do_da_kiem:
+            return self._luoc_do_loi
+
+        self._luoc_do_da_kiem = True
+        if not self.engine:
+            self._luoc_do_loi = "Chưa nối được DB (engine=None)"
+            return self._luoc_do_loi
+
+        # DB_URL lùi về sqlite in-memory khi thiếu DATABASE_URL. Lúc đó mọi bảng
+        # đều thiếu, nhưng đó là CHƯA CẤU HÌNH chứ không phải lược đồ sai — báo
+        # "thiếu 6 bảng" ở ENV=LOCAL là báo oan, và báo oan vài lần thì lần thật
+        # cũng bị bỏ qua.
+        if self.config.DB_URL.startswith("sqlite"):
+            self._luoc_do_loi = None
+            return None
+
+        try:
+            from sqlalchemy import inspect as _inspect
+            thieu = [t for t in BANG_CAN_CO if not _inspect(self.engine).has_table(t)]
+        except Exception:
+            logger.warning("Không kiểm được lược đồ DB", exc_info=True)
+            self._luoc_do_loi = None   # không kiểm được ≠ sai; đừng báo oan
+            return None
+
+        if thieu:
+            self._luoc_do_loi = (
+                f"Thiếu {len(thieu)}/{len(BANG_CAN_CO)} bảng trong DB: "
+                f"{', '.join(thieu)}. Lịch sử hội thoại KHÔNG lưu được. "
+                "Xem khối BANG_CAN_CO trong src/core/memory.py."
+            )
+            logger.error("Lược đồ DB không khớp: %s", self._luoc_do_loi)
+        else:
+            self._luoc_do_loi = None
+        return self._luoc_do_loi
 
     def _get_active_session(self, conn, user_id, workspace_id="1"):
         """
