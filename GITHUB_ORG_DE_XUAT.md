@@ -136,6 +136,150 @@ Org làm cho việc **chạm vào phần của người khác** trở nên có c
 
 ---
 
+## 10. Làm từng bước
+
+Thứ tự này có lý do: mỗi bước kiểm được trước khi sang bước sau, và bước nào hỏng thì lùi lại được mà chưa ai mất việc.
+
+### Bước 0 — trả lời câu hỏi billing trước
+
+**Làm trước mọi thứ khác**, vì câu trả lời quyết định org đáng giá đến đâu.
+
+Mở `github.com/settings/billing` bằng tài khoản `PCBoiz`. Đọc lý do khoá.
+
+- Nếu là **thẻ thanh toán lỗi / hết hạn** ở cấp tài khoản → org mới có billing riêng, nhiều khả năng CI chạy lại được ngay, 0đ (repo public dùng standard runner miễn phí).
+- Nếu là **tranh chấp / vi phạm điều khoản** → org cùng chủ có thể kế thừa. Hỏi GitHub Support trước khi transfer.
+
+Ghi lại nguyên văn dòng lý do rồi báo lại — tôi không có quyền vào trang đó.
+
+### Bước 1 — lập org (2 phút, không cần thẻ)
+
+`github.com/organizations/plan` → **Free** → đặt tên.
+
+- Tên đề xuất: `anser-ai`. Phải là tên chưa ai dùng trên toàn GitHub.
+- "This organization belongs to": chọn **My personal account**, không phải business — business hỏi thông tin doanh nghiệp và không cần cho gói Free.
+- Email liên hệ: email anh đang dùng cho GitHub.
+
+Chưa mời ai ở bước này.
+
+### Bước 2 — tạo hai team
+
+`github.com/orgs/anser-ai/teams` → **New team**, làm hai lần:
+
+| Team | Thành viên | Quyền mặc định |
+|---|---|---|
+| `brain` | Thành | Write |
+| `body` | Sĩ, Nam, (Sơn) | Write |
+
+Anh là **Owner** của org, không cần ở trong team nào.
+
+Đừng đặt quyền Admin cho team. Admin cho phép xoá repo và đổi hiển thị public/private — thứ mục 3 nói là không được đổi.
+
+### Bước 3 — transfer repo Brain
+
+`github.com/PCBoiz/ANSER_AI_Logistics/settings` → cuối trang, **Danger Zone** → **Transfer ownership** → gõ `anser-ai`.
+
+Trước khi bấm, chạy lại một lượt quét bí mật trên toàn bộ lịch sử (R2b.2 — transfer giữ nguyên mọi commit):
+
+```bash
+git log --all -S 'npg_' --oneline | head
+git log --all -S 'postgres://' --oneline | head
+git log --all -S 'sk-' --oneline | head
+```
+
+Lần quét trước mọi kết quả khớp đều là fixture của test. Hai phút, cứ quét lại.
+
+Sau khi transfer, trên **máy của từng người**:
+
+```bash
+git remote set-url origin https://github.com/anser-ai/ANSER_AI_Logistics.git
+git remote -v        # xác nhận
+```
+
+URL cũ vẫn redirect, nhưng đừng dựa vào đó.
+
+### Bước 4 — transfer repo Body
+
+**Việc này chỉ Dgsonn làm được.** Anh không transfer hộ repo của người khác.
+
+Cùng đường: `Settings` → `Danger Zone` → `Transfer ownership` → `anser-ai`.
+
+Dgsonn cần được mời vào org trước (ít nhất quyền Member) thì mới chọn được org làm đích.
+
+### Bước 5 — gán quyền repo cho team
+
+Ở mỗi repo: `Settings` → `Collaborators and teams` → **Add teams**.
+
+- `ANSER_AI_Logistics` → team `brain`: **Write**; team `body`: **Read**
+- `ANSER-logistics` → team `body`: **Write**; team `brain`: **Read**
+
+**Read cho đội kia là có chủ ý.** AGENTS.md §1 nói Brain không được sửa Body. Đến đây nó không còn là quy tắc giấy nữa — GitHub chặn thật. Nhưng vẫn đọc được, mà đọc là cần: lược đồ Body là nguồn sự thật cho `SCHEMA MAP` bên Brain.
+
+### Bước 6 — CODEOWNERS
+
+Tạo `.github/CODEOWNERS` ở mỗi repo.
+
+Brain:
+
+```
+*                       @anser-ai/brain
+/src/core/prompts.py    @anser-ai/brain
+/AGENTS.md              @anser-ai/brain
+```
+
+Body: tương tự với `@anser-ai/body`.
+
+File này chỉ có tác dụng khi bật "Require review from Code Owners" ở bước 7.
+
+### Bước 7 — ruleset cho `main` / `master`
+
+`Settings` → `Rules` → `Rulesets` → **New branch ruleset**.
+
+- Target: `main` (Brain) / `master` (Body)
+- Bật: **Require a pull request before merging** → required approvals **1** → **Require review from Code Owners**
+- Bật: **Block force pushes**
+- Chưa bật "Require status checks" cho tới khi CI chạy lại được — bật sớm là tự khoá mình, vì không check nào xanh nổi.
+
+### Bước 8 — issue type và board
+
+`Settings` của org → **Issue types**. Mặc định có Task / Bug / Feature. Thêm cái thật sự thiếu:
+
+- `R-violation` — vi phạm R1–R5. Loại này không được để lẫn với bug thường.
+- `blocked-by-other-repo` — việc Brain chờ Body hoặc ngược lại. Đây chính là thứ hiện không ghi được bằng cấu trúc.
+
+Rồi `Projects` → **New project** → Board. Thêm cả hai repo vào nó.
+
+**Kiểm ngay ở bước này** câu hỏi mục 6: một board có trải được hai repo không. Tôi không tìm được tài liệu chính thức xác nhận, và 10 phút thử rẻ hơn mọi tranh luận.
+
+### Bước 9 — dọn những thứ trỏ vào địa chỉ cũ
+
+- `.grapuco/config.json`: chạy `grapuco status`. `repoId` không đổi theo tên repo nên nhiều khả năng không gãy — nhưng kiểm.
+- Bảng kanzo `brain`: đang liên kết `pcboiz/anser_ai_logistics`, phải trỏ lại.
+- Tài liệu trong repo còn ghi `PCBoiz/...`: bảng tra cứu ở `SO_TAY_NGUOI_MOI.md §1.2` là chỗ phải đúng. Biên bản và bản phân việc cũ thì để nguyên — đó là tài liệu lịch sử.
+
+### Bước 10 — kiểm lại bước 0
+
+Vào `Actions` của repo Brain, chạy lại một workflow bất kỳ.
+
+Xanh → đã gỡ được cổng tự động, và `.pre-commit-config.yaml` từ phương án tạm thành lớp thứ hai.
+Vẫn khoá → quay lại kết luận ở bước 0 và hỏi GitHub Support.
+
+---
+
+## 11. Việc nào của ai
+
+| Bước | Ai làm | Chặn bởi |
+|---|---|---|
+| 0 — đọc lý do khoá billing | **Sơn** | — |
+| 1, 2 — lập org, tạo team | **Sơn** | — |
+| 3 — transfer Brain | **Sơn** | bước 1 |
+| 4 — transfer Body | **Dgsonn** | bước 1 + được mời vào org |
+| 5, 6, 7 — quyền, CODEOWNERS, ruleset | **Sơn** | bước 3, 4 |
+| 8 — issue type, board | **Sơn** | bước 1 |
+| 9 — dọn địa chỉ cũ | mỗi người trên máy mình | bước 3, 4 |
+| 10 — kiểm CI | **Sơn** | bước 3 |
+
+Bước 0 làm được ngay hôm nay và nó quyết định mức độ đáng làm của tất cả phần còn lại.
+
 ## Nguồn
 
 - [GitHub's plans — docs.github.com](https://docs.github.com/en/get-started/learning-about-github/githubs-plans)
