@@ -122,6 +122,56 @@ _SO_TIEN = re.compile(
 )
 
 
+# Từ đánh dấu một ĐỐI TÁC CỤ THỂ. Chuỗi từ viết hoa ngay sau chúng gần như
+# chắc chắn là tên riêng — tên khách, tên nhà xe, tên người.
+#
+# Chỉ xoá SAU những từ này, không xoá mọi từ viết hoa trong câu. "Sở Kế hoạch
+# Đầu tư", "Bộ Tài chính", "Tổng cục Thuế" là cơ quan nhà nước, công khai, và
+# là thứ làm truy vấn tìm đúng văn bản — xoá chúng là đổi một lỗi R2 lấy một
+# câu trả lời sai.
+_DANH_DAU_DOI_TAC = re.compile(
+    r"\A(công ty|cty|khách hàng|khách|nhà xe|đối tác|nhà cung cấp)\Z",
+    re.IGNORECASE,
+)
+
+# Hình thức pháp nhân: viết hoa nhưng KHÔNG phải tên riêng.
+#
+# CỐ Ý KHÔNG có "VIỆT"/"NAM" ở đây. Bản đầu có, và nó làm lọt một tên người:
+# "khách Trần Văn Nam" -> "khách Nam", vì vòng lặp dừng ngay ở "Nam". Giữa
+# nguy cơ bỏ sót một cái tên và nguy cơ xoá nhầm chữ "Việt Nam" trong một câu
+# hỏi luật, chọn cái thứ hai — R2 là ràng buộc bất biến, một truy vấn kém hơn
+# một chút thì không.
+_HINH_THUC_PHAP_NHAN = {"TNHH", "CP", "CTCP", "MTV", "TM", "DV", "XNK", "SX"}
+
+
+def _xoa_ten_rieng(query: str) -> str:
+    """Bỏ chuỗi từ viết hoa đứng ngay sau một từ đánh dấu đối tác."""
+    tu = (query or "").split()
+    ra: list[str] = []
+    i = 0
+    while i < len(tu):
+        ra.append(tu[i])
+        # Từ đánh dấu dài một hoặc hai từ: "khách" / "khách hàng", "nhà xe".
+        dai = 0
+        if i + 1 < len(tu) and _DANH_DAU_DOI_TAC.match(" ".join(tu[i : i + 2])):
+            dai = 2
+        elif _DANH_DAU_DOI_TAC.match(tu[i]):
+            dai = 1
+        if not dai:
+            i += 1
+            continue
+        if dai == 2:
+            ra.append(tu[i + 1])
+        j = i + dai
+        while j < len(tu):
+            w = tu[j].strip(".,;:!?")
+            if not w or not w[0].isupper() or w.upper() in _HINH_THUC_PHAP_NHAN:
+                break
+            j += 1
+        i = j
+    return " ".join(ra)
+
+
 def loc_truy_van_web(query: str) -> str:
     """
     Bỏ con số khỏi truy vấn trước khi gửi ra ngoài. Giữ nguyên phần chủ đề.
@@ -156,11 +206,16 @@ def loc_truy_van_web(query: str) -> str:
         return f"\x00{len(giu) - 1}\x00"
 
     sach = _SO_VAN_BAN.sub(_cat, goc)
+    # Nhánh 3 của `_SO_TIEN` đã nuốt cả đơn vị tiền đi kèm số, nên KHÔNG cần
+    # thêm một bước dọn đơn vị riêng.
+    #
+    # Bản trước có bước đó — `re.sub(r"\s+(đ|vnd|đồng)", …)` — và nó ăn nhầm từ
+    # thường: "hợp đồng với đối tác" thành "hợp với đối tác". Chữ "đồng" trong
+    # "hợp đồng" không phải đơn vị tiền. Xoá một bước lọc thừa an toàn hơn là
+    # thêm ngoại lệ cho từng từ ghép.
     sach = _SO_TIEN.sub(" ", sach)
-    # Đơn vị tiền tệ trơ lại sau khi số bị bỏ.
-    sach = re.sub(r"\s+(đ|vnd|vnđ|đồng)(?![^\W\d_])", " ", sach, flags=re.IGNORECASE)
     sach = re.sub(r"\x00(\d+)\x00", lambda m: giu[int(m.group(1))], sach)
-    return " ".join(sach.split())
+    return _xoa_ten_rieng(" ".join(sach.split()))
 
 
 def decide_web_fallback(query: str) -> WebDecision:
