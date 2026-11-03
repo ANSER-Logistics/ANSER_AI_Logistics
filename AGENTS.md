@@ -19,6 +19,18 @@ Khi một việc cần Body đổi (ví dụ thêm bảng logistics ở [ARCHITE
 
 [`agent_middleware.py`](src/core/agent_middleware.py) và các khối `SCHEMA MAP` trong [`memory.py`](src/core/memory.py), [`saas_api.py`](src/core/saas_api.py) là **bản sao mô tả** của thứ thuộc về Body. Chúng lệch được, và đã từng lệch. Trước khi tin vào chúng, đối chiếu lại với Body.
 
+**Đối chiếu bằng lệnh, đừng nhớ:**
+
+```bash
+python offline_training/doi_chieu_hop_dong_body.py
+```
+
+Nó tải `brain.ts` của Body về và so từng trường với các schema đầu vào trong [`tools.py`](src/api/routes/tools.py), mã thoát 1 nếu Body gửi trường Brain không nhận. Chạy nó **trước khi gộp vào `main`**.
+
+Từ 04/11/2026 `_ToolIn` đặt `extra="forbid"`, nên mỗi chỗ lệch không còn bị bỏ im lặng nữa mà thành một lời gọi hỏng — đó là điều cần thiết (BR-01: một phụ phí bị bỏ im lặng làm sai báo giá gửi khách), nhưng nó cũng có nghĩa là việc đối chiếu không được phép là chuyện nhớ thì làm.
+
+> **Repo Body đổi chỗ hai lần trong một tuần** (`Dgsonn/ANSER-v2` → `Dgsonn/ANSER-logistics` → `ANSER-Logistics/ANSER-logistics-body`). URL nằm ở hằng số `URL_BRAIN_TS` trong chính script. Script báo lỗi tải thì kiểm URL trước khi kết luận là mạng hỏng.
+
 ---
 
 ## 2. Năm ràng buộc bất biến
