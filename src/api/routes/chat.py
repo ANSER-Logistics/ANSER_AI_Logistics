@@ -378,6 +378,14 @@ async def _handle_logistics_quote(
     from src.core.prompts import Prompts
     from src.core.schemas import QUOTE_REQUIRED_FIELDS, QuoteExtraction
 
+    if runtime.manager is None:
+        # Chỗ gọi duy nhất (`chat_endpoint`) đã chặn rồi, nên nhánh này không
+        # chạy hôm nay. Viết ra vì hàm này là `async def` ở mức module — ai
+        # cũng gọi được, và không có gì ép họ chặn trước. Trả câu tiếng Việt
+        # ngắn, đúng khuôn mọi nhánh lỗi khác ở đây: chủ DN có thể đang lái xe.
+        return ("Hệ thống AI chưa sẵn sàng nên tôi chưa báo giá được. "
+                "Bạn thử lại sau ít phút giúp tôi.")
+
     # 1) Trích xuất (LLM, guided_json)
     #    Lịch sử phải được bọc y hệt lúc train (P4) — xem
     #    Prompts.format_extraction_history.
@@ -494,7 +502,17 @@ async def chat_endpoint(
     require_api_token(x_api_token)
     user_id, store_id = resolve_identity(req, x_user_id, x_store_id)
     await runtime.ensure_text_runtime()
-    if not runtime.manager or not runtime.coder:
+    # Kiểm cả `engine`, không chỉ `manager`/`coder`.
+    #
+    # `manager` chỉ được tạo khi `engine` tồn tại (`RuntimeState` dựng theo thứ
+    # tự đó), nên chặn `manager` là ĐỦ về logic. Nhưng đó là một bất biến ngầm
+    # nằm ở file khác: cuối hàm này dùng `runtime.engine.background_worker`, và
+    # nếu ngày nào thứ tự dựng runtime đổi thì chỗ đó hỏng mà cổng chặn ở đây
+    # vẫn cho qua.
+    #
+    # Viết ra thì tốn một phép kiểm luôn đúng, và đổi lại một lỗi lúc chạy
+    # thành một lỗi lúc kiểm kiểu.
+    if not runtime.engine or not runtime.manager or not runtime.coder:
         raise HTTPException(status_code=503, detail="Text runtime unavailable")
 
     user_msg = extract_user_content(req.message)
