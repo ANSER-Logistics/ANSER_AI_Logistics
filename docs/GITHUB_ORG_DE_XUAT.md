@@ -3,7 +3,7 @@
 > Cập nhật 04/11/2026. Người đọc: Sơn, và ai cần thao tác trên org.
 > Việc ở đây làm trên trình duyệt, không cần biết lập trình.
 
-Org đã lập, hai repo đã vào. **Còn bốn việc chưa xong**, mục 2.
+Org đã lập, hai repo đã vào, và **GitHub Actions đã chạy lại** (03/11 lúc 18:33). **Còn ba việc chưa xong**, mục 2.
 
 Muốn biết vì sao lập org thì xem [mục 6](#6-vì-sao-lập-org-đã-quyết-xong) ở cuối — đó là chuyện đã quyết, để lại làm lịch sử.
 
@@ -23,32 +23,9 @@ Muốn biết vì sao lập org thì xem [mục 6](#6-vì-sao-lập-org-đã-quy
 
 ---
 
-## 2. Bốn việc chưa xong
+## 2. Ba việc chưa xong
 
-### 2.1. Mở khoá GitHub Actions
-
-**Hiện trạng:** repo Brain có **153 lượt chạy, không lượt nào xanh**, liên tục từ 14/05/2026. Mỗi lượt chết trong 2–3 giây, trước khi chạy bước nào.
-
-**Nguyên nhân:** vào `Settings → Billing → Payment information` sẽ thấy dòng đỏ:
-
-> Invalid payment method — authorization hold failed.
-
-GitHub giữ thử một khoản nhỏ trên thẻ để xác thực rồi huỷ ngay. Lượt giữ đó hỏng, nên tài khoản bị coi là thanh toán lỗi và Actions bị chặn.
-
-Trang `Billing → Overview` hiện `$0` và không có khoản phải trả — nhìn ở đó sẽ tưởng không có vấn đề gì. Hai trang nói hai chuyện khác nhau; trang `Payment information` mới đúng.
-
-**Làm theo thứ tự:**
-
-1. Bấm **Retry authorization** trên dải băng vàng.
-2. Vẫn hỏng thì gọi ngân hàng, bật **thanh toán quốc tế / trực tuyến** cho thẻ. Nói rõ là "giao dịch giữ tiền xác thực từ GitHub" — thẻ nội địa Việt Nam hay chặn loại này mặc định. Rồi bấm Retry lần nữa.
-3. Vẫn hỏng thì đổi thẻ khác, hoặc PayPal.
-4. Vẫn hỏng thì mở phiếu hỗ trợ ở **GitHub Support → Billing**. Chỉ họ gỡ khoá thủ công được. Xem cả mục **Payment history** — một hoá đơn hỏng còn treo vẫn giữ cờ khoá dù thẻ đã sửa.
-
-**Đáng làm vì:** repo public dùng máy chạy tiêu chuẩn là miễn phí. Gỡ được khoá thì 1254 bài kiểm tra của Brain có cổng tự động chạy lại, không tốn đồng nào.
-
-**Chưa chắc chắn:** về lý thì gói Free + repo public không cần thẻ nào cả, nên gỡ thẻ ra là hết lỗi. Nhưng tài liệu chính thức chỉ nói phải có **một lượt xác thực thành công** thì mới tự mở khoá. Đừng gỡ thẻ với kỳ vọng nó chữa được.
-
-### 2.2. Đưa file CODEOWNERS lên nhánh chính
+### 2.1. Đưa file CODEOWNERS lên nhánh chính
 
 **CODEOWNERS là gì:** một file liệt kê *đường dẫn nào thuộc về ai*. Khi có ai đó mở PR chạm vào đường dẫn khớp, GitHub tự thêm người hoặc nhóm đó làm người duyệt bắt buộc.
 
@@ -59,7 +36,7 @@ Trang `Billing → Overview` hiện `$0` và không có khoản phải trả —
 | Repo | File ở đâu | Có tác dụng chưa |
 |---|---|---|
 | Brain | nhánh `feat/workflow-format-and-deterministic-core` | ❌ chưa — nhánh mặc định là `main` |
-| Body | ✅ đã lên `master` ([PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) đã gộp) | ⚠️ mời được người duyệt, chưa chặn được gộp — thiếu ruleset ở mục 2.3 |
+| Body | ✅ đã lên `master` ([PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) đã gộp) | ⚠️ mời được người duyệt, chưa chặn được gộp — thiếu ruleset ở mục 2.2 |
 
 **GitHub chỉ đọc CODEOWNERS từ nhánh mặc định.** File nằm trên nhánh khác thì không tính. Đây là chỗ hay nhầm nhất.
 
@@ -69,7 +46,7 @@ Trang `Billing → Overview` hiện `$0` và không có khoản phải trả —
 
 1. **Dòng khớp cuối cùng thắng** — ngược với `.gitignore`. Nên mẫu chung đặt trước, mẫu cụ thể đặt sau.
 2. **Nhóm được nhắc phải có quyền Write trở lên** trên repo đó. Không thì GitHub bỏ qua dòng ấy **mà không báo lỗi** — file trông vẫn đúng, chỉ là không chạy.
-3. **File này một mình không làm gì cả.** Nó chỉ là gợi ý người duyệt cho tới khi bật "Require review from Code Owners" ở mục 2.3.
+3. **File này một mình không làm gì cả.** Nó chỉ là gợi ý người duyệt cho tới khi bật "Require review from Code Owners" ở mục 2.2.
 
 **Kiểm xem có chạy không:** mở một PR nháp sửa một dòng trong `AGENTS.md`. Ô "Reviewers" phải tự điền nhóm `brain`. Không tự điền thì sai ở quyền nhóm hoặc sai cú pháp — `Settings → Code owners` liệt kê lỗi cú pháp.
 
@@ -122,7 +99,7 @@ gh api repos/ANSER-Logistics/ANSER-logistics-body/codeowners/errors
 
 Trả về số lỗi. Giao diện web ở `Settings → Code owners` cũng liệt kê.
 
-### 2.3. Bật cổng bảo vệ nhánh chính
+### 2.2. Bật cổng bảo vệ nhánh chính
 
 Hai repo đều chưa có. Hiện một lệnh `git push` là code vào thẳng nhánh chính, không ai nhìn.
 
@@ -146,11 +123,11 @@ Rồi tích trong phần **Rules**:
 
 **Đừng thêm mình vào Bypass list.** Thêm vào là tự vô hiệu hoá đúng cái vừa dựng.
 
-**Đừng bật "Require status checks" trước khi xong việc 2.1.** Khi Actions còn khoá thì không lượt kiểm nào xanh được, mà luật này đòi kiểm xanh mới cho gộp — tức khoá luôn mọi PR, kể cả PR sửa chính cái khoá đó.
+**"Require status checks" giờ bật được** — Actions đã chạy lại từ 03/11 (xem mục 6b). Chọn job `test`. Khi Actions còn khoá thì không lượt kiểm nào xanh được, mà luật này đòi kiểm xanh mới cho gộp — tức khoá luôn mọi PR, kể cả PR sửa chính cái khoá đó.
 
 **Đội một người thì sao?** `Required approvals: 1` nghĩa là không ai tự duyệt PR của chính mình. Thành làm Brain một mình nên mọi PR sẽ cần anh duyệt. Thấy vướng thì để `0` mà vẫn bật "Require a pull request" — vẫn chặn đẩy thẳng, vẫn có chỗ đọc thay đổi, chỉ không bắt buộc người thứ hai.
 
-### 2.4. Dựng cột cho bảng công việc
+### 2.3. Dựng cột cho bảng công việc
 
 Bảng đã tạo: [ANSER - Brain va Body](https://github.com/orgs/ANSER-Logistics/projects/5). Trên đó đã có 5 mục, lấy từ **cả hai repo**:
 
@@ -210,20 +187,19 @@ Cả hai là đề xuất. Đội Body đọc rồi tự quyết gộp hay đón
 
 | Việc | Ai làm | Chặn bởi |
 |---|---|---|
-| 2.1 — mở khoá Actions | **Sơn** | — |
-| 2.2 — gộp nhánh Brain vào `main` để CODEOWNERS có tác dụng | **Sơn** | — |
-| 2.2 — quyết [PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) (CODEOWNERS cho Body) | **đội Body** | — |
-| 2.3 — bật cổng bảo vệ nhánh, repo Brain | **Sơn** | 2.2 |
-| 2.3 — bật cổng bảo vệ nhánh, repo Body | **Dgsonn** | 2.2 |
-| 2.4 — đặt tên cột + bật chế độ cây | **Sơn** | — |
+| 2.1 — gộp nhánh Brain vào `main` để CODEOWNERS có tác dụng | **Sơn** | — |
+| 2.1 — quyết [PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) (CODEOWNERS cho Body) | **đội Body** | — |
+| 2.2 — bật cổng bảo vệ nhánh, repo Brain | **Sơn** | 2.1 |
+| 2.2 — bật cổng bảo vệ nhánh, repo Body | **Dgsonn** | 2.1 |
+| 2.3 — đặt tên cột + bật chế độ cây | **Sơn** | — |
 | Quyết [PR #22](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/22) (sửa panel) | **đội Body** | — |
 
 Hai chỗ có thứ tự bắt buộc:
 
-- **2.2 phải trước 2.3.** Bật "Require review from Code Owners" khi chưa có file CODEOWNERS trên nhánh mặc định thì luật đó không biết hỏi ai.
-- **2.1 phải trước khi bật "Require status checks".** Xem ghi chú ở mục 2.3.
+- **2.1 phải trước 2.2.** Bật "Require review from Code Owners" khi chưa có file CODEOWNERS trên nhánh mặc định thì luật đó không biết hỏi ai.
+- **"Require status checks" bật được rồi** — Actions đã chạy lại.
 
-Việc 2.1 làm được ngay hôm nay và nó quyết định phần còn lại đáng làm tới đâu.
+Việc 2.1 chặn 2.2, nên làm trước.
 
 ---
 
@@ -273,6 +249,24 @@ Giữ lại để người đến sau biết căn cứ. Không cần đọc nế
 Và nó chạm một chỗ đau: repo public chính là đường mật khẩu Neon đi ra hồi 27/07. Giữ public là lựa chọn có giá, không phải lựa chọn mặc định.
 
 **Org không giải quyết được gì:** nó là cổng quyền, không phải kỷ luật. Tài liệu lệch khỏi code, định nghĩa trùng ở nhiều nơi, số liệu do model tự tính — org không bắt được cái nào. Nó làm cho việc **chạm vào phần của người khác** trở nên có cổng; không làm cho việc chạm vào phần của chính mình trở nên đúng.
+
+---
+
+## 6b. Gỡ khoá Actions (đã xong)
+
+Giữ lại vì cách tìm ra nguyên nhân đáng nhớ hơn bản thân việc sửa.
+
+**Trạng thái trước:** repo Brain có 153 lượt chạy, **không lượt nào xanh**, liên tục từ 14/05/2026. Mỗi lượt chết trong 2–3 giây, trước khi chạy bước nào.
+
+**Chỗ đánh lừa:** trang `Billing → Overview` hiện `$0` và không có khoản phải trả — nhìn ở đó sẽ kết luận không có vấn đề gì. Dòng đỏ nằm ở trang khác, `Billing → Payment information`:
+
+> Invalid payment method — authorization hold failed.
+
+GitHub giữ thử một khoản nhỏ trên thẻ để xác thực rồi huỷ ngay. Lượt giữ đó hỏng, nên tài khoản bị coi là thanh toán lỗi và Actions bị chặn. Thẻ nội địa Việt Nam hay chặn loại giao dịch này mặc định.
+
+**Đã xong 03/11/2026 lúc 18:33.** Lượt đỏ cuối cùng 17:33. Đo lại ngày 04/11: **21 lượt xanh liên tiếp**, trên tổng 175 lượt từ trước tới nay.
+
+**Bài học:** hai trang cùng nói về billing mà nói hai chuyện khác nhau. Trang tổng quan trả lời "có nợ tiền không"; trang phương thức thanh toán trả lời "thẻ có dùng được không". Khoá Actions đến từ câu hỏi thứ hai.
 
 ---
 

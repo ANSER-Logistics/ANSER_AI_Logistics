@@ -120,6 +120,16 @@ mảng dài → tràn trần token → JSON cắt cụt → vòng lặp gãy.
 > **⚠ CI chưa từng chạy** (phát hiện 29/10): GitHub Actions của repo bị khoá
 > thanh toán ở tài khoản chủ repo — 136 lượt, 0 lượt xanh, ít nhất từ 14/05/2026.
 > Mọi "CI xanh" trước đây không có lượt chạy nào chứng minh. Xem biên bản §6.
+>
+> **✅ ĐÃ GỠ — 03/11/2026 lúc 18:33.** Lượt đỏ cuối cùng 17:33. Đo ngày 04/11:
+> **21 lượt xanh liên tiếp** trên tổng 175 lượt.
+>
+> Nguyên nhân thật nằm ở trang `Billing → Payment information`:
+> *"Invalid payment method — authorization hold failed"*. Trang
+> `Billing → Overview` hiện `$0` và không có khoản phải trả, nên nhìn ở đó sẽ
+> kết luận không có vấn đề gì — hai trang cùng nói về billing mà trả lời hai
+> câu hỏi khác nhau. Chi tiết ở
+> [docs/GITHUB_ORG_DE_XUAT.md §6b](../GITHUB_ORG_DE_XUAT.md).
 
 > **BR-05 (27/10/2026): VẪN MỞ.** Phiên đo chạy được, nhưng nhánh agentic bị một
 > lỗi khác che mất: bảng luật đẩy 6/6 câu báo giá sang `report` (chữ trần
