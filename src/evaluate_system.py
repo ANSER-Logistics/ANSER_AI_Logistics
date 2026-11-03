@@ -1,10 +1,84 @@
+"""
+src/evaluate_system.py — ĐÃ BỊ THAY THẾ. Chặn chạy từ 04/11/2026.
+
+Dùng `offline_training/benchmark_v3.py` thay cho file này.
+
+VÌ SAO CHẶN
+-----------
+File này vẫn chạy được, và đó mới là vấn đề: nó sinh ra những con số trông như
+kết quả đo nhưng không đo thứ mà dự án đang làm. Bốn điểm, soát 04/11/2026:
+
+1. ĐO SAI ĐỊNH DẠNG (R4). Prompt chấm điểm của judge viết nguyên văn: "grade an
+   AI-generated **Make.com** JSON workflow against a Ground Truth blueprint."
+   Nhưng R4 chốt "Định dạng workflow duy nhất: n8n. Make.com và engine nội bộ
+   Body không phải đích sinh code." Tức nó chấm đầu ra n8n bằng thước Make.com.
+   Mọi điểm số nó đưa ra đều vô nghĩa — và vô nghĩa theo kiểu nhìn vẫn có vẻ
+   hợp lý, loại tệ nhất.
+
+2. DỮ LIỆU TIỀN-v3. Nó đọc `src/data/training_dataset.jsonl` — bản 27/07/2026,
+   trước pipeline v3. Ground truth trong đó cũng thuộc thời Make.com.
+
+3. DÁN NHÃN PHẦN CỨNG SAI (R5). Báo cáo in "⚡ Hardware Efficiency (A100)" bất
+   kể chạy trên gì. AGENTS.md v2.0 mở đầu bằng việc tuyên bố giả định A100 80GB
+   "không còn đúng". Một con số độ trễ dán nhãn A100 mời gọi so sánh sai.
+
+4. RỦI RO R2 KHÔNG CÓ RÀO. Nó gửi prompt + ground truth + đầu ra model tới
+   DeepSeek API. AGENTS.md §R2 ghi "Chỉ được chạy trên dữ liệu tổng hợp/mẫu,
+   tuyệt đối không trên dữ liệu khách thật" — nhưng câu đó chỉ nằm trong tài
+   liệu, không có gì trong chính file này nói ra, và không có gì chặn.
+
+Thêm vào đó, nó tuyên bố "🟢 STATUS: PRODUCTION READY" dựa trên điểm của một
+LLM judge. Một model chấm điểm không phải là quyết định phát hành.
+
+`benchmark_v3.py` thay thế cả bốn: đo đúng ba việc model làm trong kiến trúc
+mới (extraction / n8n / narration), chấm n8n bằng chính `validate_workflow()`
+của runtime, và chấm narration bằng `src/core/grounding.py` — tức phép kiểm lúc
+đo và phép kiểm lúc chạy là MỘT (R4).
+
+CÒN GIỮ FILE ĐỂ LÀM GÌ
+----------------------
+Chưa xoá vì đó là quyết định của chủ dự án (việc brain trên bảng kanzo). Giữ ở
+đây thì còn đối chiếu được rubric cũ nếu cần. Chặn chạy thì không ai vô tình
+sinh ra một bảng số sai nữa.
+
+Thật sự cần chạy (ví dụ để tái hiện một kết quả cũ) thì đặt biến môi trường
+`ANSER_CHAY_EVAL_CU=1`. Tên biến dài và xấu là có chủ ý.
+"""
+
 import json
 import os
 import sys
 import time
 
-from json_repair import repair_json
-from openai import OpenAI
+# Rào đặt TRƯỚC mọi import nặng, có chủ ý.
+#
+# Bản đầu của rào này nằm ở `__main__`, sau `from openai import OpenAI`. Trên
+# máy không cài `openai` thì file chết bằng `ModuleNotFoundError` — người chạy
+# đọc được một lỗi thiếu thư viện thay vì lý do thật là "file này đã bị thay
+# thế". Lỗi sai chỗ cũng tệ như không có lỗi.
+if __name__ == "__main__" and os.environ.get("ANSER_CHAY_EVAL_CU") != "1":
+    print(
+        "src/evaluate_system.py đã bị thay thế bởi "
+        "offline_training/benchmark_v3.py.\n\n"
+        "Chạy file này sinh ra số liệu KHÔNG đo thứ dự án đang làm:\n"
+        "  - judge chấm theo định dạng Make.com, trong khi đích sinh code là "
+        "n8n (R4)\n"
+        "  - đọc training_dataset.jsonl bản 27/07/2026, trước pipeline v3\n"
+        "  - in \"Hardware Efficiency (A100)\" bất kể chạy trên phần cứng gì "
+        "(R5)\n"
+        "  - gửi prompt + ground truth + đầu ra model tới DeepSeek API, không\n"
+        "    rào nào chặn việc lỡ chạy trên dữ liệu khách thật (R2)\n\n"
+        "Dùng cái này:\n"
+        "  python offline_training/benchmark_v3.py --model <AWQ_DIR>\n\n"
+        "Thật sự cần chạy bản cũ (tái hiện một kết quả cũ):\n"
+        "  ANSER_CHAY_EVAL_CU=1 python src/evaluate_system.py\n\n"
+        "Lý do đầy đủ nằm ở docstring đầu file.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+from json_repair import repair_json  # noqa: E402
+from openai import OpenAI  # noqa: E402
 
 # --- PATH FIXER (CRITICAL FOR COLAB) ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -191,7 +265,11 @@ def evaluate_pipeline():
     validity_rate = (metrics["valid_json_count"] / metrics["total_runs"]) * 100
     avg_score = metrics["total_business_score"] / metrics["total_runs"]
 
-    print("⚡ Hardware Efficiency (A100):")
+    # Bản trước in nguyên văn "Hardware Efficiency (A100)" bất kể chạy trên gì.
+    # Dự án chưa bao giờ chạy trên A100 — AGENTS.md v2.0 mở đầu bằng việc tuyên
+    # bố giả định đó không còn đúng. Một con số độ trễ dán nhãn A100 mời gọi so
+    # sánh sai, và không ai đọc báo cáo mà đi kiểm lại nhãn (R5).
+    print(f"⚡ Hardware Efficiency ({_mo_ta_phan_cung()}):")
     print(f"   - Average Latency per Task: {avg_latency:.2f} seconds")
     print(f"   - Average Throughput:       {avg_tps:.1f} Tokens/Second")
 
@@ -208,5 +286,32 @@ def evaluate_pipeline():
     else:
         print("\n🔴 STATUS: NEEDS FINE-TUNING. The model is failing to grasp the workflow logic.")
 
-if __name__ == "__main__":
+def _mo_ta_phan_cung() -> str:
+    """Phần cứng ĐANG chạy, hoặc nói thẳng là không biết. Không đoán."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return torch.cuda.get_device_name(0)
+        return "CPU"
+    except Exception:
+        # Thiếu torch là chuyện bình thường ở ENV=LOCAL. Không biết thì nói
+        # không biết — đó chính là lỗi đang sửa, đừng lặp lại nó.
+        return "phần cứng không xác định"
+
+
+def main() -> int:
+    # Rào đã chạy ở ĐẦU FILE, trước mọi import nặng. Tới được đây nghĩa là
+    # người chạy đã đặt ANSER_CHAY_EVAL_CU=1 — vẫn nhắc lại cái họ sắp nhận.
+    print(
+        "⚠️  Đang chạy bản eval CŨ theo yêu cầu (ANSER_CHAY_EVAL_CU=1).\n"
+        "⚠️  Judge chấm theo Make.com, KHÔNG phải n8n — số liệu không so được\n"
+        "⚠️  với benchmark_v3. Và nó gửi dữ liệu tới DeepSeek: CHỈ dùng dữ liệu\n"
+        "⚠️  tổng hợp/mẫu, tuyệt đối không dùng dữ liệu khách thật (R2).\n",
+        file=sys.stderr,
+    )
     evaluate_pipeline()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
