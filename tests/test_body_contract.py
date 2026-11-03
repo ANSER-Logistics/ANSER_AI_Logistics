@@ -451,3 +451,51 @@ def test_partner_role_tu_body_duoc_nhan_nhung_danh_sach_moi_quyet_dinh():
     tom_tat = resp.json()["summary"]
     assert tom_tat["số_khách_hàng"] == 1, "danh sách phải thắng role Body gửi"
     assert tom_tat["số_nhà_cung_cấp"] == 0
+
+
+def test_report_khong_co_du_lieu_van_du_bon_truong_explain():
+    """
+    `explain` phải CÙNG HÌNH DẠNG ở cả hai nhánh — có dữ liệu và không.
+
+    Bản trước nhánh rỗng chỉ trả `{"note": …}`. Kiểu `BrainReport` bên Body khai
+    bốn trường kia là bắt buộc, nhưng kiểu TypeScript chỉ sống lúc biên dịch —
+    lúc chạy chúng là `undefined`, không lỗi ở đâu cả. Hậu quả đo được trong
+    `BrainProfitPanel.tsx` (04/11/2026):
+
+        dòng 69   `explain?.cogs_coverage_pct ?? 0`  -> hiện 0%
+        dòng 122  `độ tin cậy: {explain.confidence}` -> chuỗi rỗng
+        dòng 179  `{explain.formula}`                -> chuỗi rỗng
+
+    Tức Brain viết một lời giải thích trung thực vào `note`, Body không biết
+    trường đó nên không hiển thị, và khách nhìn thấy "0% phủ giá vốn" — một con
+    số trông như kết quả đo. R1: thiếu dữ liệu thì nói thiếu, không điền 0.
+    """
+    resp = client.post("/tools/report", json={"sales": []})
+    assert resp.status_code == 200, resp.text
+    explain = resp.json()["explain"]
+
+    for truong in ("cogs_coverage_pct", "confidence", "formula", "period_count"):
+        assert truong in explain, f"Body khai `{truong}` là bắt buộc, Brain không trả"
+
+    # None chứ KHÔNG phải 0: 0 nghĩa là "đã đo, và bằng không".
+    assert explain["cogs_coverage_pct"] is None
+    assert explain["period_count"] == 0
+    assert explain["confidence"] == "không có dữ liệu"
+    assert explain["note"], "vẫn giữ lời giải thích dạng chữ"
+
+
+def test_report_hai_nhanh_explain_cung_tap_truong():
+    """
+    So thẳng hai nhánh với nhau, thay vì viết tay danh sách trường ở hai chỗ.
+
+    Viết tay thì thêm một trường vào nhánh có dữ liệu mà quên nhánh rỗng là lỗi
+    quay lại — và đó đúng là cách lỗi này sinh ra lần đầu.
+    """
+    rong = client.post("/tools/report", json={"sales": []}).json()["explain"]
+    co_du_lieu = client.post(
+        "/tools/report",
+        json={"sales": [{"date": "2026-10-01", "revenue": 1_000_000, "cogs": 700_000}]},
+    ).json()["explain"]
+
+    thieu = set(co_du_lieu) - set(rong)
+    assert not thieu, f"nhánh rỗng thiếu trường mà nhánh có dữ liệu trả: {sorted(thieu)}"

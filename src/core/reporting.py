@@ -147,11 +147,39 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
             f"{bad_dates} dòng có ngày sai định dạng (cần YYYY-MM-DD) — đã bỏ qua."
         )
     if not buckets:
+        # `explain` phải CÙNG HÌNH DẠNG với nhánh có dữ liệu bên dưới.
+        #
+        # Bản trước chỉ trả `{"note": …}`. Đọc mã Body thì thấy hậu quả thật
+        # (soát 04/11/2026, `BrainProfitPanel.tsx`):
+        #
+        #   dòng 69   `explain?.cogs_coverage_pct ?? 0`  -> hiện **0%**
+        #   dòng 122  `độ tin cậy: {explain.confidence}` -> chuỗi RỖNG
+        #   dòng 179  `{explain.formula}`                -> chuỗi RỖNG
+        #
+        # Kiểu `BrainReport` bên Body khai bốn trường này là bắt buộc, nhưng
+        # kiểu TypeScript chỉ sống lúc biên dịch — lúc chạy chúng là
+        # `undefined`, không lỗi ở đâu cả.
+        #
+        # Nên Brain viết một lời giải thích trung thực, Body không biết trường
+        # `note` nên không hiển thị, và thứ khách nhìn thấy là "0% phủ giá vốn"
+        # — một con số trông như kết quả đo. Đúng thứ R1 cấm: thiếu dữ liệu thì
+        # nói thiếu, không điền 0.
+        #
+        # `cogs_coverage_pct=None` chứ không phải 0: 0 nghĩa là "đã đo, và bằng
+        # không". Body hiện vẫn `?? 0` nên vẫn ra 0% — đó là việc của Body, đã
+        # ghi thành đề xuất bằng văn bản (AGENTS §1, không tự sửa repo Body).
+        # Thứ ĐẾN ĐƯỢC mắt người dùng ngay từ phía Brain là `confidence`.
         return {
             "granularity": req.granularity,
             "periods": [],
             "products": [],
-            "explain": {"note": "Không có dữ liệu hợp lệ trong khoảng yêu cầu."},
+            "explain": {
+                "cogs_coverage_pct": None,
+                "confidence": "không có dữ liệu",
+                "formula": "Không tính được: không có dòng bán hợp lệ nào.",
+                "period_count": 0,
+                "note": "Không có dữ liệu hợp lệ trong khoảng yêu cầu.",
+            },
             "warnings": warnings,
         }
 
