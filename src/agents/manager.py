@@ -536,8 +536,6 @@ class ManagerAgent(BaseAgent):
     async def answer_general(self, task: str, history: list[dict] | None = None):
         """Hội thoại tự do, tính toán đơn giản, giải thích ngắn."""
         system = self._get_prompt("GENERAL_SYSTEM")
-        if "{context}" in system:      # trường hợp fallback về CONSULT_SYSTEM
-            system = system.format(schema=Prompts.DB_SCHEMA, context="")
         return await self.generate_chat(
             system=system,
             user=task,
@@ -553,11 +551,7 @@ class ManagerAgent(BaseAgent):
         """Trả lời dựa trên tài liệu nội bộ hoặc kết quả tìm kiếm web."""
         system = self._get_prompt("RETRIEVAL_SYSTEM")
         ctx = context or "(không có tài liệu liên quan)"
-        try:
-            system = system.format(context=ctx)
-        except KeyError:
-            # CONSULT_SYSTEM cũ cần thêm {schema}
-            system = system.format(schema=Prompts.DB_SCHEMA, context=ctx)
+        system = system.format(context=ctx)
         return await self.generate_chat(
             system=system,
             user=task,
@@ -573,10 +567,7 @@ class ManagerAgent(BaseAgent):
         """Trả lời CHỈ dựa trên dữ liệu thật lấy từ DB cửa hàng."""
         system = self._get_prompt("DATA_SYSTEM")
         ctx = context or "(chưa có dữ liệu)"
-        try:
-            system = system.format(context=ctx)
-        except KeyError:
-            system = system.format(schema=Prompts.DB_SCHEMA, context=ctx)
+        system = system.format(context=ctx)
         return await self.generate_chat(
             system=system,
             user=task,
