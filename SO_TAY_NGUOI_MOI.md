@@ -228,14 +228,18 @@ CI báo lỗi sau:
 
 ```bash
 ruff check src tests offline_training
-mypy src offline_training/providers.py offline_training/chay_thu_live.py offline_training/bat_lai_brain.py
+mypy src offline_training
 ```
 
-`mypy` soi **toàn bộ `src/`** (04/11/2026, trước đó chỉ 5 file) nhưng `offline_training/`
-vẫn là danh sách chọn tay: cả thư mục còn 31 lỗi, và `mypy offline_training` báo
-`Source file found twice` vì thư mục không có `__init__.py` trong khi code import
-`offline_training.dgen_common`. Muốn soi cả thư mục thì cần `MYPYPATH=.` kèm
-`--explicit-package-bases`.
+`mypy` soi **cả `src/` và `offline_training/`** — 83 file, không còn file nào
+chọn tay (04/11/2026; trước đó 5 file).
+
+> `mypy offline_training` chỉ chạy được nhờ hai dòng `mypy_path` và
+> `explicit_package_bases` trong `[tool.mypy]` của `pyproject.toml`. Thư mục
+> đó không có `__init__.py`, nhưng code trong nó import `offline_training.dgen_common`,
+> nên nếu không có hai dòng ấy thì mypy thấy cùng một file dưới hai tên module
+> và chết ngay với `Source file found twice`. Lý do không thêm `__init__.py`:
+> mấy script đó chạy bằng `python offline_training/xxx.py` trên Colab.
 
 ### 2.6. Bật server
 

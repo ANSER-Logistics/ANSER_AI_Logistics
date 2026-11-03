@@ -25,6 +25,16 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.10"
+# Hai dòng dưới để `mypy offline_training` chạy được. Thư mục đó không có
+# `__init__.py`, nhưng code trong nó import theo đường gói
+# (`from offline_training.dgen_common import ...`), nên mypy thấy cùng một
+# file dưới hai tên module và chết với "Source file found twice".
+#
+# Chọn cách này chứ KHÔNG thêm `offline_training/__init__.py`: mấy script đó
+# chạy bằng `python offline_training/xxx.py` trên Colab, biến thư mục thành
+# package có thể đổi cách Python nạp chúng ở đúng chỗ không ai test được.
+mypy_path = "."
+explicit_package_bases = true
 warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true

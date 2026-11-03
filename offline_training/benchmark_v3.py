@@ -155,7 +155,7 @@ def score_extraction(rows: list[dict], outputs: list[str]) -> dict:
     from src.core.schemas import QuoteExtraction
 
     fields = list(QuoteExtraction.model_fields)
-    counts = {f: Counter() for f in fields}
+    counts: dict[str, Counter] = {f: Counter() for f in fields}
     n_ready = 0
     by_kind: dict[str, list[bool]] = {"single": [], "followup": []}
 
@@ -1216,8 +1216,13 @@ def main() -> None:
                 khoa = plan[0] if plan and plan[0] in theo_ten else ""
                 nhom.setdefault(khoa, []).append(i)
 
-            outputs: list[str] = [""] * len(rows)
-            finishes: list[str] = [""] * len(rows)
+            # Ten rieng cho doan nay (`dau_ra_agent` / `ket_thuc_agent`) chu khong
+            # dung lai `outputs` / `finishes`: ba doan do trong cung mot ham da
+            # dung hai ten ay cho ba luot sinh khac nhau. Doc tai dong 1250 thi
+            # khong biet `outputs` dang la luot nao, va bo kiem kieu mat kha nang
+            # kiem tren CA BA doan.
+            dau_ra_agent: list[str] = [""] * len(rows)
+            ket_thuc_agent: list[str] = [""] * len(rows)
             for ten, idxs in nhom.items():
                 if ten:
                     # `bat_buoc_tool=True` ĐÚNG như `AgenticLoop.run` khi còn kế
@@ -1240,16 +1245,16 @@ def main() -> None:
                     temperature=0.0,
                 )
                 for vi_tri, i in enumerate(idxs):
-                    outputs[i] = o[vi_tri]
-                    finishes[i] = f[vi_tri]
+                    dau_ra_agent[i] = o[vi_tri]
+                    ket_thuc_agent[i] = f[vi_tri]
 
-            n_cut = sum(1 for f in finishes if f == "length")
-            result = score_agent(rows, outputs)
-            ghi_tho("agentic", rows, outputs, finishes, result.get("failures", ()))
+            n_cut = sum(1 for f in ket_thuc_agent if f == "length")
+            result = score_agent(rows, dau_ra_agent)
+            ghi_tho("agentic", rows, dau_ra_agent, ket_thuc_agent, result.get("failures", ()))
             print(f"\n[agentic — phần của model] n={result['n']}")
             in_thong_ke_parse(result["parse"])
             if n_cut:
-                print(f"  ⚠ {n_cut}/{len(finishes)} đầu ra vẫn CẮT CỤT")
+                print(f"  ⚠ {n_cut}/{len(ket_thuc_agent)} đầu ra vẫn CẮT CỤT")
             if result["cuu_tu_json_cut"]:
                 print(f"    (moi lại tên tool từ {result['cuu_tu_json_cut']} JSON cắt cụt)")
             if result["ask_back_rate"] is not None:
@@ -1268,7 +1273,7 @@ def main() -> None:
             ghi_json()
 
             # ---- 4c. HỆ THỐNG: đầu ra model qua chốt đầu vào như production --
-            ht = score_he_thong(rows, outputs)
+            ht = score_he_thong(rows, dau_ra_agent)
             print(f"\n[agentic — qua chốt đầu vào, như production] chấm {ht['n_cham']} dòng")
             if ht["an_toan"] is not None:
                 print(f"  an toàn         {ht['an_toan'] * 100:5.1f}%"

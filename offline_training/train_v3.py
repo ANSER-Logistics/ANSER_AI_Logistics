@@ -28,6 +28,7 @@ Biến env tuỳ chọn: BASE_MODEL_ID, MAX_SEQ_LEN, LORA_R, LR, EPOCHS, OUT_DIR
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 # Chống phân mảnh VRAM. PHẢI đặt TRƯỚC khi allocator CUDA khởi tạo, nên nằm
 # trên dòng `import torch`. Thông báo OOM của PyTorch tự gợi ý đúng cờ này khi
@@ -209,7 +210,11 @@ _BASE_ARGS = dict(
 
 
 def _build_trainer(use_liger: bool):
-    args = TrainingArguments(**_BASE_ARGS, **({"use_liger_kernel": True} if use_liger else {}))
+    # Tach ra bien co khai kieu: tra `dict[str, bool]` thang vao `**` lam bo kiem
+    # kieu doi chieu `bool` voi TUNG tham so cua TrainingArguments — mot dong nay
+    # mot minh sinh 14 loi gia.
+    them: dict[str, Any] = {"use_liger_kernel": True} if use_liger else {}
+    args = TrainingArguments(**_BASE_ARGS, **them)
     return Trainer(model=model, train_dataset=train_ds, eval_dataset=eval_ds,
                    data_collator=collate, args=args)
 

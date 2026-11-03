@@ -368,7 +368,13 @@ async def process_row(client, semaphore, row: dict, out_path: Path, stats: dict)
 
     async with semaphore:
         # 1) Câu hỏi tự nhiên chứa đúng dữ kiện
-        question, reason = None, None
+        # `question` khoi tao bang "" chu khong phai None: `_ask()` khai `-> str`,
+        # nen None o day la thu DUY NHAT lam kieu cua `question` thanh Optional,
+        # roi lan xuong bon cho goi `build_*_prompt(question, ...)`. Hanh vi khong
+        # doi: `verify_question("")` tra ve "cau hoi rong hoac qua dai", nen cau
+        # rong khong bao gio di qua duoc vong kiem.
+        question: str = ""
+        reason: str | None = None
         for attempt in (1, 2):
             try:
                 question = await _ask(client, build_question_prompt(row), 300, 1.0)

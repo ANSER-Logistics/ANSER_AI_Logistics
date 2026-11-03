@@ -105,8 +105,12 @@ def validate():
     # Lỗi
     print(f"\n  Lỗi tìm thấy: {len(errors)}")
     if errors:
-        for e in errors[:20]:
-            print(f"    ❌ {e}")
+        # `loi` chu khong phai `e`: ten `e` da bi mot `except ... as e` trong
+        # cung ham chiem. Python xoa `e` khi ra khoi khoi except, nen dung lai
+        # ten do hop le nhung lam nguoi doc (va bo kiem kieu) khong biet `e`
+        # dang la ngoai le hay la mot dong loi.
+        for loi in errors[:20]:
+            print(f"    ❌ {loi}")
         if len(errors) > 20:
             print(f"    ... và {len(errors)-20} lỗi khác")
         print("\n  ❌ VALIDATION FAILED — Sửa lỗi trước khi chạy training.py")
