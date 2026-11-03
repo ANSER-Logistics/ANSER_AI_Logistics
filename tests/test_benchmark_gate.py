@@ -1,109 +1,134 @@
 """
-tests/test_benchmark_gate.py — mã thoát của cổng đo chất lượng.
+tests/test_benchmark_gate.py — ba mức kết luận của cổng đo chất lượng.
 
-`benchmark_v3.py` là cổng chặn chất lượng của pipeline fine-tune. Phần chữ nó
-in ra rất cẩn thận: "KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model đạt)", và
-câu kết luận có điều kiện.
+`benchmark_v3.py` là cổng chặn chất lượng của pipeline fine-tune. Nó phải phân
+biệt được **ba** chuyện, không phải hai:
 
-Nhưng **mã thoát** mới là thứ máy đọc. Người nhìn màn hình thì hiểu đúng; một
-job CI đọc `$?` chỉ thấy một con số. Nếu con số đó là 0 khi chưa đo được gì,
-thì "CI xanh" trở thành một câu không có lần chạy nào chứng minh — đúng thứ
-`BIEN_BAN_CHU_KY_01` đã ghi về 136 lượt Actions.
+    ĐẠT               qua mọi ngưỡng, và đo đủ
+    CHƯA ĐẠT          đo được, và dưới ngưỡng
+    KHÔNG ĐỦ DỮ LIỆU  phần đo được thì qua, nhưng còn phần chưa đo
+
+Gộp mức thứ ba vào "đạt" là loại lỗi tệ nhất mà dự án đang chống: một câu nghe
+có vẻ đúng. Bản trước in `"✅ Qua mọi ngưỡng ĐO ĐƯỢC"` cho mức đó — đúng chữ,
+nhưng người lướt qua chỉ thấy dấu tích xanh.
 
 Soát 04/11/2026: 3 trong 4 tập đo không có (`eval_extraction`,
-`eval_narration`, `eval_agent` — cả ba cần `DEEPSEEK_API_KEY` để sinh lại).
+`eval_narration`, `eval_agent` — cả ba cần `DEEPSEEK_API_KEY` để sinh lại),
+nên mức thứ ba là mức mà cổng này đang thực sự ở.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from offline_training.benchmark_v3 import quyet_ma_thoat
+from offline_training.benchmark_v3 import (
+    MUC_CHUA_DAT,
+    MUC_DAT,
+    MUC_KHONG_DU_DU_LIEU,
+    ma_thoat_cua,
+    nhan_cua_muc,
+    xep_muc,
+)
 
-
-def _goi(gate_fail=(), khong_do_duoc=(), mau_qua_it=(), *, no_gate=False, doi=False):
-    return quyet_ma_thoat(
-        list(gate_fail), list(khong_do_duoc), list(mau_qua_it),
-        no_gate=no_gate, doi_du_tap_do=doi,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Ba mã, ba nghĩa khác nhau
-# ---------------------------------------------------------------------------
-
-def test_do_du_va_qua_nguong_thi_0():
-    assert _goi() == 0
-
-
-def test_duoi_nguong_thi_1():
-    """Đo được, và không đạt. Đây là nghĩa gốc của cổng."""
-    assert _goi(gate_fail=["narration 62% < 80%"]) == 1
-
-
-def test_thieu_tap_do_voi_co_thi_2():
-    """
-    Khác hẳn mã 1: không phải "model chưa đạt", mà là "chưa đo".
-
-    Dùng mã riêng để người đọc `$?` phân biệt được hai chuyện đó.
-    """
-    assert _goi(khong_do_duoc=["narration — thiếu eval_narration.jsonl"], doi=True) == 2
+TRUOT = ["narration 62% < 80%"]
+THIEU = ["narration — thiếu eval_narration.jsonl"]
+IT_MAU = ["extraction — 3 ca, quá ít"]
 
 
 # ---------------------------------------------------------------------------
-# Hành vi mặc định KHÔNG đổi
+# Ba mức, ba nghĩa
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
-    "khong_do_duoc, mau_qua_it",
+    "gate_fail, khong_do_duoc, mau_qua_it, muc",
     [
-        (["narration — thiếu eval_narration.jsonl"], []),
-        ([], ["extraction — 3 ca, quá ít"]),
-        (["a", "b", "c"], ["d"]),
+        ([], [], [], MUC_DAT),
+        (TRUOT, [], [], MUC_CHUA_DAT),
+        ([], THIEU, [], MUC_KHONG_DU_DU_LIEU),
+        ([], [], IT_MAU, MUC_KHONG_DU_DU_LIEU),
     ],
 )
-def test_thieu_tap_do_ma_khong_bat_co_thi_van_0(khong_do_duoc, mau_qua_it):
+def test_xep_dung_muc(gate_fail, khong_do_duoc, mau_qua_it, muc):
+    assert xep_muc(gate_fail, khong_do_duoc, mau_qua_it) == muc
+
+
+def test_chua_dat_thang_khong_du_du_lieu():
     """
-    `ci.yml` chưa gọi file này, nên không ai đang dựa vào mã thoát hiện tại.
-    Đổi mặc định là đổi hợp đồng của một công cụ mà mình không biết hết người
-    dùng. Ai nối vào CI thì tự bật cờ.
-    """
-    assert _goi(khong_do_duoc=khong_do_duoc, mau_qua_it=mau_qua_it) == 0
-
-
-# ---------------------------------------------------------------------------
-# `--no-gate` tha đúng một chuyện
-# ---------------------------------------------------------------------------
-
-def test_no_gate_tha_viec_duoi_nguong():
-    """Dùng khi đo baseline model gốc — biết trước là dưới ngưỡng."""
-    assert _goi(gate_fail=["narration 62% < 80%"], no_gate=True) == 0
-
-
-def test_no_gate_KHONG_tha_viec_thieu_tap_do():
-    """
-    Hai chuyện khác nhau: "đo rồi, chưa đạt" và "chưa đo".
-
-    `--no-gate` nói "tôi biết nó chưa đạt, đừng chặn". Nó không nói gì về việc
-    thiếu dữ liệu. Để nó tha luôn cả hai thì bật `--no-gate` trong CI là tắt
-    sạch cổng mà không ai nhận ra.
-    """
-    assert _goi(
-        khong_do_duoc=["narration — thiếu eval_narration.jsonl"],
-        no_gate=True, doi=True,
-    ) == 2
-
-
-def test_duoi_nguong_thang_thieu_tap_do():
-    """
-    Vừa dưới ngưỡng vừa thiếu tập đo -> trả 1.
+    Vừa dưới ngưỡng vừa thiếu tập đo -> CHƯA ĐẠT.
 
     "Đo được phần này và nó trượt" là tin chắc chắn hơn "phần kia chưa đo", nên
-    báo cái chắc chắn trước. Mã 2 dành cho trường hợp KHÔNG có tin xấu nào chắc
-    chắn mà vẫn không kết luận được.
+    báo cái chắc chắn trước.
     """
-    assert _goi(
-        gate_fail=["narration 62% < 80%"],
-        khong_do_duoc=["extraction — thiếu eval_extraction.jsonl"],
-        doi=True,
-    ) == 1
+    assert xep_muc(TRUOT, THIEU, IT_MAU) == MUC_CHUA_DAT
+
+
+# ---------------------------------------------------------------------------
+# Mức KHÔNG phụ thuộc cờ dòng lệnh
+# ---------------------------------------------------------------------------
+
+def test_xep_muc_khong_nhan_co():
+    """
+    `xep_muc` nói SỰ THẬT, cờ nói ta LÀM GÌ với sự thật đó.
+
+    Gộp lại thì bật một cờ ở CI có thể âm thầm biến một lượt trượt thành một
+    dòng xanh. Tách ra thì `--no-gate` đổi được mã thoát mà không đổi được kết
+    luận.
+    """
+    import inspect
+
+    tham_so = set(inspect.signature(xep_muc).parameters)
+    assert "no_gate" not in tham_so
+    assert "doi_du_tap_do" not in tham_so
+
+
+# ---------------------------------------------------------------------------
+# Nhãn in ra
+# ---------------------------------------------------------------------------
+
+def test_khong_du_du_lieu_KHONG_dung_dau_tich_xanh():
+    """Người lướt qua chỉ nhìn biểu tượng đầu dòng."""
+    nhan = nhan_cua_muc(MUC_KHONG_DU_DU_LIEU)
+    assert "✅" not in nhan
+    assert "KHÔNG" in nhan
+
+
+def test_moi_muc_co_nhan_rieng():
+    nhan = {nhan_cua_muc(m) for m in (MUC_DAT, MUC_CHUA_DAT, MUC_KHONG_DU_DU_LIEU)}
+    assert len(nhan) == 3
+    assert nhan_cua_muc(MUC_DAT).startswith("✅")
+    assert nhan_cua_muc(MUC_CHUA_DAT).startswith("❌")
+
+
+# ---------------------------------------------------------------------------
+# Mã thoát suy ra TỪ mức
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "muc, no_gate, doi, ma",
+    [
+        (MUC_DAT,              False, False, 0),
+        (MUC_DAT,              True,  True,  0),
+        (MUC_CHUA_DAT,         False, False, 1),
+        (MUC_CHUA_DAT,         False, True,  1),
+        # `--no-gate` tha CHƯA ĐẠT — dùng lúc đo baseline model gốc.
+        (MUC_CHUA_DAT,         True,  False, 0),
+        # Mặc định TẮT: ci.yml chưa gọi file này, không ai dựa vào hành vi cũ.
+        (MUC_KHONG_DU_DU_LIEU, False, False, 0),
+        (MUC_KHONG_DU_DU_LIEU, False, True,  2),
+    ],
+)
+def test_ma_thoat(muc, no_gate, doi, ma):
+    assert ma_thoat_cua(muc, no_gate=no_gate, doi_du_tap_do=doi) == ma
+
+
+def test_no_gate_KHONG_tha_viec_thieu_du_lieu():
+    """
+    `--no-gate` nói "tôi biết nó chưa đạt, đừng chặn". Nó không nói gì về việc
+    thiếu dữ liệu.
+
+    Để nó tha luôn cả hai thì bật `--no-gate` trong CI là tắt sạch cổng mà
+    không ai nhận ra.
+    """
+    assert ma_thoat_cua(
+        MUC_KHONG_DU_DU_LIEU, no_gate=True, doi_du_tap_do=True
+    ) == 2
