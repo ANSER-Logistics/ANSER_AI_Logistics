@@ -86,7 +86,13 @@ Ba nơi sau phải luôn khớp nhau. Sửa một nơi mà không sửa hai nơi
 | [`agent_middleware.py`](src/core/agent_middleware.py) | Danh mục node đưa vào prompt |
 | [`chat.py::_validate_workflow`](src/api/routes/chat.py) | Kiểm tra đầu ra |
 
-Tương tự với lược đồ DB: [`prompts.py::DB_SCHEMA`](src/core/prompts.py) và [`db_schema.txt`](offline_training/db_schema.txt) và SQL trong [`saas_api.py`](src/core/saas_api.py) phải khớp. Hiện đang lệch (`sales.amount` vs `sales.total_amount`) — xem [ARCHITECTURE.md §11.5](ARCHITECTURE.md).
+**Lược đồ DB: Brain KHÔNG giữ bản sao nào.** Body gửi lược đồ kèm ngữ cảnh người dùng; [`agent_middleware.get_db_schema()`](src/core/agent_middleware.py) trả về một placeholder, đúng như vậy, "để tránh định nghĩa lược đồ ở nơi thứ hai".
+
+Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_SCHEMA`, [`db_schema.txt`](offline_training/db_schema.txt), SQL trong [`saas_api.py`](src/core/saas_api.py) — và nêu lệch `sales.amount` vs `sales.total_amount`. **Chỉ dẫn đó sai hướng, và tranh luận đó đã vô nghĩa** (sửa 04/11/2026):
+
+- `Prompts.DB_SCHEMA` đã xoá. Nó không với tới được từ bất kỳ đường nào, và mô tả 10 bảng mà chỉ 3 còn tồn tại bên Body. Bảng `sales` không có — Body dùng `sales_invoices` / `sales_invoice_items` / `invoice_payments`. Lý do đầy đủ nằm ngay chỗ đã xoá trong [`prompts.py`](src/core/prompts.py).
+- Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn. Một nguồn nghĩa là **một**, và nguồn đó ở Body.
+- `db_schema.txt` và `SCHEMA MAP` trong `saas_api.py` còn lại — xem [ARCHITECTURE.md §11.5](ARCHITECTURE.md). Chưa xoá vì chúng chạm tới đường lấy dữ liệu thật, cần đối chiếu Body trước.
 
 ### R5 — Hardware-neutral
 

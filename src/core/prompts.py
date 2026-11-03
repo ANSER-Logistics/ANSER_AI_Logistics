@@ -23,18 +23,49 @@ class Prompts:
         "Trả lời bằng tiếng Việt."
     )
 
-    DB_SCHEMA = dedent("""\
-        products(id, code, name, category, unit, price, stock_quantity, description, image_url)
-        sales(id, user_id, total_amount, amount_given, change_amount, items, payment_method, workspace_id, category, created_at)
-        customers(id, code, name, phone, email, address, notes, created_by, created_at)
-        import_transactions(id, code, supplier_name, total_amount, notes, status, created_by, created_at)
-        import_details(id, import_id, product_id, quantity, unit_price, total_price)
-        export_transactions(id, code, customer_id, total_amount, notes, status, created_by, created_at)
-        export_details(id, export_id, product_id, quantity, unit_price, total_price)
-        warehouses(id, name, low_stock_threshold, discord_webhook_url, is_active, created_by)
-        warehouse_stock(id, warehouse_id, product_id, stock_quantity, updated_at)
-        workflows(id, user_id, name, description, data, created_at, updated_at)
-    """)
+    # DB_SCHEMA đã XOÁ (04/11/2026). Brain KHÔNG định nghĩa lược đồ DB.
+    #
+    # Lấy lại bằng `git show fb8a4d4:src/core/prompts.py` nếu cần đối chiếu.
+    #
+    # VÌ SAO XOÁ, CHỨ KHÔNG PHẢI ĐỒNG BỘ LẠI
+    # ---------------------------------------
+    # AGENTS.md §4 và GIAO_VIEC_BRAIN mục 4 đều bảo "cập nhật cả ba nơi cho
+    # khớp": DB_SCHEMA, `offline_training/db_schema.txt`, SQL trong
+    # `saas_api.py`. Đọc code thật thì cách đó sai hướng — chính kiến trúc đã
+    # chốt ngược lại:
+    #
+    #   `agent_middleware.get_db_schema()` trả "Schema provided in user
+    #   context." kèm comment "Trả placeholder để tránh định nghĩa lược đồ ở
+    #   nơi thứ hai (P4)".
+    #
+    # Nghĩa là Body gửi lược đồ kèm ngữ cảnh người dùng, và Brain không được
+    # giữ bản sao. DB_SCHEMA CHÍNH LÀ "nơi thứ hai" mà câu đó cấm. Đồng bộ ba
+    # bản chép tay là giữ nguyên thứ R4 cấm, chỉ là giữ cho gọn hơn.
+    #
+    # BA ĐIỀU ĐO ĐƯỢC, 04/11/2026
+    # ---------------------------
+    # 1. Khối này KHÔNG VỚI TỚI ĐƯỢC. Cả ba chỗ gọi trong `manager.py` đều nằm
+    #    sau một cổng không bao giờ mở: `answer_general` đòi "{context}" có
+    #    trong GENERAL_SYSTEM (không có), còn `answer_retrieval` /`answer_data`
+    #    chỉ rơi vào nhánh schema khi `.format(context=…)` ném KeyError —
+    #    RETRIEVAL_SYSTEM và DATA_SYSTEM đều có {context} và đều không có
+    #    {schema}, nên không ném.
+    #
+    # 2. Nội dung đã thành hư cấu. Đọc lược đồ thật của Body
+    #    (`Dgsonn/ANSER-logistics`, nhánh master, frontend/src/server/db/
+    #    schema.ts, 13 bảng): trong 10 bảng khối này mô tả, chỉ 3 còn tồn tại
+    #    — products, customers, warehouses. Bảy bảng kia (sales,
+    #    import_transactions, import_details, export_transactions,
+    #    export_details, warehouse_stock, workflows) KHÔNG CÓ. Body dùng
+    #    sales_invoices / sales_invoice_items / invoice_payments /
+    #    inventory_transactions.
+    #
+    # 3. Nên tranh luận "sales.amount hay sales.total_amount" mà AGENTS.md §4
+    #    ghi là lệch cần sửa đã vô nghĩa: bảng `sales` không tồn tại.
+    #
+    # Hệ quả nếu để lại: ngày nào một prompt bị đổi tên và `_get_prompt` lùi về
+    # CONSULT_SYSTEM, model nhận nguyên một lược đồ bịa rồi viết SQL theo nó.
+    # Hỏng ồn ào còn hơn hỏng êm — xem R1.
 
     # ------------------------------------------------------------------
     # Nhánh GENERAL — hội thoại tự do, tính toán, giải thích
