@@ -310,6 +310,19 @@ class PartnerIn(_ToolIn):
     )
     tax_id: str = ""
     phone: str = ""
+    # `role` Brain KHÔNG dùng: vai trò suy ra từ việc dòng này nằm ở `customers`
+    # hay `suppliers`, đó mới là tín hiệu có thẩm quyền.
+    #
+    # Nhận vào vì HỢP ĐỒNG CỦA BODY cho phép gửi. `brain.ts::auditPartners` khai
+    # `customers: Array<Partial<BrainPartner> & { code: string }>`, mà
+    # `BrainPartner` có `role: string` — nên Body được phép kèm trường này.
+    # Trước 04/11/2026 nó bị bỏ lặng lẽ nên không ai thấy; từ khi `_ToolIn` chặn
+    # trường lạ thì nó sẽ thành 422. Bỏ sót chỗ này là làm hỏng một lời gọi
+    # Body đang có quyền thực hiện.
+    #
+    # Phát hiện bằng cách đối chiếu từng trường `brain.ts` ↔ schema ở đây, sau
+    # khi Body chuyển vào org (ANSER-Logistics/ANSER-logistics-body).
+    role: str = ""
 
 
 class PartnerAuditRequest(_ToolIn):
@@ -593,9 +606,19 @@ async def tool_partner_audit(
     """
     require_api_token(x_api_token)
     try:
+        # `exclude={"role"}`: `PartnerIn` nhận `role` cho khớp hợp đồng Body,
+        # nhưng vai trò ở đây do DANH SÁCH quyết định — nằm ở `customers` thì là
+        # khách, nằm ở `suppliers` thì là nhà cung cấp. Đó mới là tín hiệu có
+        # thẩm quyền; `role` Body gửi kèm chỉ là thông tin thừa.
+        #
+        # Không loại ra thì `model_dump()` và tham số `role=` va nhau:
+        # "got multiple values for keyword argument 'role'" —
+        # `tests/test_body_contract.py` bắt được ngay khi thêm trường (04/11/2026).
         return rcv.audit_partners(
-            [pi.Partner(**p.model_dump(), role=pi.KHACH_HANG) for p in req.customers],
-            [pi.Partner(**p.model_dump(), role=pi.NHA_CUNG_CAP) for p in req.suppliers],
+            [pi.Partner(**p.model_dump(exclude={"role"}), role=pi.KHACH_HANG)
+             for p in req.customers],
+            [pi.Partner(**p.model_dump(exclude={"role"}), role=pi.NHA_CUNG_CAP)
+             for p in req.suppliers],
             gia_von_moi_ngay=req.cogs_per_day,
         )
     except ValueError as exc:

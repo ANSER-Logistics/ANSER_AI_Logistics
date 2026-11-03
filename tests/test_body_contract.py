@@ -421,3 +421,33 @@ def test_moi_duong_dan_body_goi_deu_ton_tai_o_brain():
         f"Body gọi {thieu} nhưng Brain không có route đó.\n"
         f"Brain đang có: {sorted(co_that)}"
     )
+
+
+def test_partner_role_tu_body_duoc_nhan_nhung_danh_sach_moi_quyet_dinh():
+    """
+    `brain.ts::auditPartners` khai `customers: Array<Partial<BrainPartner> &
+    { code: string }>`, mà `BrainPartner` có `role: string`. Tức Body ĐƯỢC PHÉP
+    kèm trường đó.
+
+    Trước 04/11/2026 `PartnerIn` không khai `role` nên pydantic bỏ lặng lẽ —
+    không ai thấy. Từ khi `_ToolIn` chặn trường lạ thì bỏ sót chỗ này là biến
+    một lời gọi Body hợp lệ thành 422.
+
+    Nhưng NHẬN không có nghĩa là DÙNG: vai trò do danh sách quyết định. Cùng một
+    dòng gắn `role="nhà cung cấp"` mà nằm trong `customers` thì vẫn là khách —
+    nếu không, Body gửi nhầm một chữ là lệch cả bảng công nợ.
+    """
+    resp = client.post(
+        "/tools/partner-audit",
+        json={
+            "customers": [
+                {"code": "KH01", "name": "A", "balance": 1_000_000,
+                 "role": "nhà cung cấp"},     # cố ý gắn SAI vai trò
+            ],
+            "suppliers": [],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    tom_tat = resp.json()["summary"]
+    assert tom_tat["số_khách_hàng"] == 1, "danh sách phải thắng role Body gửi"
+    assert tom_tat["số_nhà_cung_cấp"] == 0
