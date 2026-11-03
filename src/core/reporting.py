@@ -27,7 +27,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 # Ngưỡng phủ giá vốn: dưới mức này thì lãi gộp không đáng tin để ra quyết định.
 _COGS_COVERAGE_GOOD = 0.95
@@ -93,6 +93,30 @@ def _parse_day(value: str) -> Optional[date]:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+class _KyBaoCao(TypedDict):
+    """Một kỳ trong `periods[]` — đúng các khoá Body đang render.
+
+    Khai tường minh vì dict này trộn `str` với `float`, nên không khai thì bộ
+    kiểm kiểu suy ra mọi giá trị là `object` và `sum(p["revenue"] ...)` ở cuối
+    hàm hết kiểm được. Bốn khoá `Optional` là bốn chỗ R1 bắt buộc nói "chưa
+    biết" thay vì điền 0: tỷ lệ chia cho 0, và tăng trưởng ở kỳ đầu tiên vốn
+    không có kỳ trước để so.
+    """
+
+    period: str
+    revenue: float
+    cogs: float
+    gross_profit: float
+    operating_expenses: float
+    net_profit: float
+    gross_margin_pct: Optional[float]
+    net_margin_pct: Optional[float]
+    orders: int
+    cogs_coverage_pct: float
+    revenue_growth_pct: Optional[float]
+    net_profit_growth_pct: Optional[float]
 
 
 def _pct(part: float, whole: float) -> Optional[float]:
@@ -187,7 +211,7 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
     ordered = sorted(buckets, reverse=True)[: req.periods_back]
     ordered.reverse()
 
-    periods = []
+    periods: list[_KyBaoCao] = []
     prev_revenue: Optional[float] = None
     prev_net: Optional[float] = None
 

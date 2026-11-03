@@ -44,7 +44,7 @@ import json
 import logging
 import re
 import unicodedata
-from typing import Any
+from typing import Any, TypeGuard
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,9 @@ def _gia_tri_chu(tu: list[str]) -> int | None:
         elif t in _RUOI:
             if truoc in _TRAM:
                 nhom += 50                            # "trăm rưỡi" = 150
-            elif truoc in _DON_VI_CHU:
+            elif truoc is not None and truoc in _DON_VI_CHU:
+                # `truoc is not None` dư ở lúc chạy (None không nằm trong dict)
+                # nhưng cần cho bộ kiểm kiểu: `x in dict` không thu hẹp `x`.
                 tong += _DON_VI_CHU[truoc] // 2       # "năm triệu rưỡi"
             else:
                 return None
@@ -229,8 +231,14 @@ def doc_so_tien(cau: str) -> list[int]:
         # "5 triệu 200 nghìn" là MỘT khoản: gộp khi chỉ cách nhau khoảng trắng và
         # đơn vị sau nhỏ hơn đơn vị trước.
         hs = _HE_SO.get((m.group("dv") or "").lower())
-        hs_truoc = truoc is not None and _HE_SO.get((truoc.group("dv") or "").lower())
-        if (hs and hs_truoc and hs < hs_truoc and v < hs_truoc
+        hs_truoc = (
+            _HE_SO.get((truoc.group("dv") or "").lower())
+            if truoc is not None else None
+        )
+        # `truoc is not None` nhắc lại ở điều kiện dưới: `hs_truoc` đã hàm ý nó,
+        # nhưng bộ kiểm kiểu không suy được, mà `truoc.end()` thì cần biết chắc.
+        if (hs and hs_truoc and truoc is not None
+                and hs < hs_truoc and v < hs_truoc
                 and not q[truoc.end():m.start()].strip()):
             ra[-1] = (ra[-1][0], ra[-1][1] + v)
             truoc = None
@@ -307,7 +315,14 @@ def so_tien_khong_co_trong_cau(cau: str, args: dict, bo_qua: tuple[str, ...] = (
     trong_cau = set(doc_so_tien(cau))
     bia: list[int] = []
 
-    def la_so(x: Any) -> bool:
+    def la_so(x: Any) -> TypeGuard[float]:
+        """`TypeGuard` chứ không phải `bool`: hàm này là cổng thu hẹp kiểu duy
+        nhất trước khi `gia * sl` và `ghi(gia)` chạy. Khai `bool` thì bộ kiểm
+        kiểu không biết `gia` đã là số, nên không bắt được nếu có ai bỏ cổng.
+
+        `not isinstance(x, bool)` vì `True` là `int` trong Python — `price: true`
+        trong JSON hoá đơn bẩn sẽ thành 1 đồng chứ không phải lỗi.
+        """
         return isinstance(x, (int, float)) and not isinstance(x, bool)
 
     def ghi(v: float) -> None:
@@ -592,23 +607,26 @@ def tach_hoa_don(cau: str) -> list[dict] | None:
     q = cau or ""
     # 1. JSON — thử từ khối ngoặc lớn nhất trở xuống
     for m in re.finditer(r"[\[{]", q):
-        for dong in (q.rfind("}"), q.rfind("]")):
-            if dong > m.start():
+        for vi_tri_dong in (q.rfind("}"), q.rfind("]")):
+            if vi_tri_dong > m.start():
                 try:
-                    ra = _dong_tu_json(json.loads(q[m.start():dong + 1]))
+                    ra = _dong_tu_json(json.loads(q[m.start():vi_tri_dong + 1]))
                 except (ValueError, TypeError):
                     continue
                 if ra:
                     return ra
     # 2. Các dòng "tên: số"
     ra = []
+    # `khop` chứ không dùng lại tên `m` của vòng trên: ở đó `m` luôn là một
+    # Match, ở đây có thể là None. Một tên cho hai kiểu làm mất khả năng
+    # kiểm kiểu trên cả hai vòng.
     for dong in re.split(r"[\n;]", q):
-        m = _DONG_TEN_SO.match(dong)
-        if not m or _KHONG_PHAI_DONG_HANG.search(m.group("ten")):
+        khop = _DONG_TEN_SO.match(dong)
+        if not khop or _KHONG_PHAI_DONG_HANG.search(khop.group("ten")):
             continue
-        so = doc_so_tien(m.group("so"))
+        so = doc_so_tien(khop.group("so"))
         if len(so) == 1:
-            ra.append({"name": m.group("ten").strip(), "price": so[0], "qty": 1})
+            ra.append({"name": khop.group("ten").strip(), "price": so[0], "qty": 1})
     return ra if len(ra) >= 2 else None
 
 

@@ -318,7 +318,13 @@ class ModelEngine:
     def _nap_vision_trong_tien_trinh(self) -> None:
         """Vision qua transformers, nạp trong tiến trình. Dùng cả khi text đi server."""
         import torch
-        from transformers import AutoModelForVision2Seq, AutoProcessor
+
+        # `type: ignore` vì gói stub của transformers chưa khai `AutoModelForVision2Seq`,
+        # không phải vì lớp này không tồn tại — nó có thật từ transformers 4.39.
+        from transformers import (  # type: ignore[attr-defined]
+            AutoModelForVision2Seq,
+            AutoProcessor,
+        )
 
         # 2) Vision eye — transformers, load vào phần VRAM CÒN LẠI ngoài pool vLLM.
         #

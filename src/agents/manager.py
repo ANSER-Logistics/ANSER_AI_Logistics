@@ -30,6 +30,7 @@ CONSULT_SYSTEM — xem `_get_prompt()`.
 import logging
 import os
 import re
+from typing import Optional
 
 import numpy as np
 
@@ -376,8 +377,8 @@ class SemanticRouter:
     def route_with_score(
         self,
         query: str,
-        threshold: float = None,
-        margin: float = None,
+        threshold: Optional[float] = None,
+        margin: Optional[float] = None,
     ) -> dict:
         """
         Trả về dict: {route, score, margin, method}
@@ -447,7 +448,7 @@ class SemanticRouter:
             "margin": gap, "method": "embedding",
         }
 
-    def route(self, query: str, threshold: float = None) -> str:
+    def route(self, query: str, threshold: Optional[float] = None) -> str:
         """Giữ chữ ký cũ để code hiện có không gãy."""
         return self.route_with_score(query, threshold=threshold)["route"]
 
