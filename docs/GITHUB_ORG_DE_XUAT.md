@@ -59,7 +59,7 @@ Trang `Billing → Overview` hiện `$0` và không có khoản phải trả —
 | Repo | File ở đâu | Có tác dụng chưa |
 |---|---|---|
 | Brain | nhánh `feat/workflow-format-and-deterministic-core` | ❌ chưa — nhánh mặc định là `main` |
-| Body | đang nằm trong [PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) | ❌ chưa — chưa gộp |
+| Body | ✅ đã lên `master` ([PR #25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) đã gộp) | ⚠️ mời được người duyệt, chưa chặn được gộp — thiếu ruleset ở mục 2.3 |
 
 **GitHub chỉ đọc CODEOWNERS từ nhánh mặc định.** File nằm trên nhánh khác thì không tính. Đây là chỗ hay nhầm nhất.
 
@@ -72,6 +72,45 @@ Trang `Billing → Overview` hiện `$0` và không có khoản phải trả —
 3. **File này một mình không làm gì cả.** Nó chỉ là gợi ý người duyệt cho tới khi bật "Require review from Code Owners" ở mục 2.3.
 
 **Kiểm xem có chạy không:** mở một PR nháp sửa một dòng trong `AGENTS.md`. Ô "Reviewers" phải tự điền nhóm `brain`. Không tự điền thì sai ở quyền nhóm hoặc sai cú pháp — `Settings → Code owners` liệt kê lỗi cú pháp.
+
+#### Cần bao nhiêu người duyệt — đã thử thật
+
+Câu hỏi: nhóm có ba người thì phải cả ba duyệt, hay một người là đủ?
+
+Thử bằng [PR #26](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/26) trên repo Body, sửa một đường dẫn thuộc nhóm `body` (ba thành viên). GitHub trả về:
+
+```
+requested_reviewers : []
+requested_teams     : ["body"]
+```
+
+**GitHub yêu cầu NHÓM như một đơn vị**, không bung ra thành ba lời mời riêng. Và tài liệu chính thức viết: *"an approval from any of the owners is sufficient"*. Nên một chữ ký từ bất kỳ thành viên nào trong nhóm là đủ.
+
+Phần chưa chứng minh được bằng thực nghiệm: repo Body **chưa có ruleset**, nên chưa có gì *chặn* gộp. Phép thử mới chứng minh được việc **tự mời đúng nhóm**. Bật ruleset xong thì thử lại là đủ cả hai vế.
+
+#### Một cái bẫy đã sập, ghi lại để khỏi sập lần nữa
+
+File CODEOWNERS đầu tiên gửi sang Body có bốn dòng ghi hai chủ sở hữu:
+
+```
+/frontend/src/server/brain.ts    @ANSER-Logistics/body @ANSER-Logistics/brain
+```
+
+Ý định: để đội Brain **biết** khi hợp đồng giữa hai repo đổi. GitHub từ chối cả bốn dòng:
+
+> Unknown owner: make sure the team `@ANSER-Logistics/brain` exists, is publicly visible, and **has write access to the repository**
+
+Nhóm `brain` chỉ có quyền `pull` trên repo Body. Và **đó là chủ ý** — Brain đọc được lược đồ của Body để giữ hợp đồng khớp nhau, nhưng không sửa được. Cấp `push` chỉ để CODEOWNERS chạy là phá đúng cái ranh giới đang muốn bảo vệ.
+
+Bài học: **CODEOWNERS không phải công cụ báo tin.** Nó là danh sách người *có quyền duyệt*. Muốn một đội hay tin thì theo dõi repo hoặc nhắc tên trong PR.
+
+Kiểm file có lỗi loại này không:
+
+```
+gh api repos/ANSER-Logistics/ANSER-logistics-body/codeowners/errors
+```
+
+Trả về số lỗi. Giao diện web ở `Settings → Code owners` cũng liệt kê.
 
 ### 2.3. Bật cổng bảo vệ nhánh chính
 
