@@ -8,10 +8,28 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    # Chỉ import lúc KIỂM KIỂU, không import lúc chạy.
+    #
+    # Sáu trường của `RuntimeState` trước đây khai `Optional[object]`, nên mypy
+    # không kiểm được gì trên chúng: `runtime.vision.analyze_image(...)` và một
+    # dòng gõ sai tên hàm là y như nhau dưới mắt bộ kiểm kiểu.
+    #
+    # Lý do khai `object` thì chính đáng: import thẳng ở đây sẽ kéo `torch`,
+    # `transformers`, `chromadb` xuống NGAY LÚC IMPORT MODULE, phá đúng việc
+    # nạp lười mà `fb8a4d4` dựng lên. `TYPE_CHECKING` được cả hai — mypy thấy
+    # kiểu thật, còn lúc chạy khối này không tồn tại.
+    from src.agents.coder import CoderAgent
+    from src.agents.manager import ManagerAgent
+    from src.agents.vision import VisionAgent
+    from src.core.engine import ModelEngine
+    from src.core.knowledge import KnowledgeBase
+    from src.core.memory import MemoryManager
 
 logger = logging.getLogger("projecta.api")
 
@@ -54,12 +72,12 @@ _vision_load_lock = asyncio.Lock()
 
 @dataclass
 class RuntimeState:
-    memory: Optional[object] = None
-    engine: Optional[object] = None
-    kb: Optional[object] = None
-    manager: Optional[object] = None
-    coder: Optional[object] = None
-    vision: Optional[object] = None
+    memory: Optional["MemoryManager"] = None
+    engine: Optional["ModelEngine"] = None
+    kb: Optional["KnowledgeBase"] = None
+    manager: Optional["ManagerAgent"] = None
+    coder: Optional["CoderAgent"] = None
+    vision: Optional["VisionAgent"] = None
     engine_error: Optional[str] = None
     kb_error: Optional[str] = None
     vision_error: Optional[str] = None
