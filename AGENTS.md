@@ -285,7 +285,7 @@ Theo [ARCHITECTURE.md §12](ARCHITECTURE.md):
 |---|---|---|
 | S0 | Tài liệu chiến lược — ARCHITECTURE.md + AGENTS.md | ✅ Xong |
 | S1 | Chốt n8n làm định dạng duy nhất + bật `guided_json` + xoá vòng retry | ✅ Xong |
-| S1b | Pipeline fine-tune v3 (Qwen3-8B, reverse-generation) + khôi phục data v2 | ✅ Xong |
+| S1b | Pipeline fine-tune v3 (Qwen3-8B, reverse-generation) + khôi phục data v2 | ✅ Mã xong, **cổng đo chưa chạy đủ** — xem dưới |
 | S3 | Tầng tool + vòng lặp agentic + MCP bọc REST | ✅ Xong |
 | S4 | Metrics `ai_metrics_log` | ✅ Xong |
 | S7 | Hội thoại nhiều lượt (runtime + data đa lượt) | ✅ Xong |
@@ -295,3 +295,24 @@ Theo [ARCHITECTURE.md §12](ARCHITECTURE.md):
 | S6 | Lược đồ Logistics bên Body + API xuất dòng bán/chi phí cho `/tools/report` — **cần phối hợp repo Body** | ⚪ Chặn |
 
 Nghiệp vụ ưu tiên 1 là **logistics / báo giá vận tải**. Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
+
+### S1b — cổng đo chất lượng chưa chạy đủ (soát 04/11/2026)
+
+[`benchmark_v3.py`](offline_training/benchmark_v3.py) là cổng chặn chất lượng của pipeline. Nó cần bốn tập đo; **ba tập không có**:
+
+| Tập | Có? | Sinh bằng | Cần gì |
+|---|---|---|---|
+| `eval_n8n.jsonl` | ✅ 34 ca | `make_n8n_eval.py` | — |
+| `eval_extraction.jsonl` | ❌ | `reverse_generate.py` | `DEEPSEEK_API_KEY` |
+| `eval_narration.jsonl` | ❌ | `make_narration_pairs.py` | `DEEPSEEK_API_KEY` |
+| `eval_agent.jsonl` | ❌ | `make_agent_traces.py` | `DEEPSEEK_API_KEY` |
+
+Tập duy nhất còn lại đúng là tập duy nhất sinh được không cần khoá.
+
+**Mã nguồn xử lý chuyện này trung thực** — đây không phải lỗi che giấu. `benchmark_v3` in `"KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model đạt)"`, và câu kết luận của nó có điều kiện: *"Qua mọi ngưỡng ĐO ĐƯỢC — nhưng xem hai mục ⚠ ở trên trước khi kết luận là model đạt"*. `preflight_check.py` cũng cảnh báo.
+
+**Nhưng mã thoát vẫn là 0 khi thiếu tập đo.** Người đọc output thì hiểu đúng; một job CI đọc `$?` thì không. Hiện chưa ai đọc — `ci.yml` không gọi `benchmark_v3`. Nối nó vào CI thì phải xử chuyện này trước.
+
+Dùng DeepSeek ở ba generator trên **không phạm R2**: chúng sinh trên kịch bản hư cấu, con số do engine thật tính, không có dữ liệu khách nào rời hệ thống. Khác hẳn [`evaluate_system.py`](src/evaluate_system.py) đã chặn — cái đó gửi dữ liệu thật đi chấm điểm.
+
+Chi tiết và các hướng xử: xem việc trên bảng kanzo.
