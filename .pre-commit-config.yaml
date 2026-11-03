@@ -5,22 +5,30 @@
 #
 # VÌ SAO CÓ FILE NÀY
 # ------------------
-# BIEN_BAN_CHU_KY_01 mục 6: GitHub Actions của repo có 136 lượt và 0 lượt xanh,
-# mọi job dừng ở "your account is locked due to a billing issue". Nghĩa là
-# KHÔNG cổng tự động nào đang hoạt động, và mọi câu "CI xanh" trong tài liệu cũ
-# không có lượt chạy nào chứng minh.
+# Nó bắt lỗi hình thức TRƯỚC KHI commit, nên vòng phản hồi ngắn hơn chờ CI.
+# Lớp thứ hai, không phải lớp duy nhất.
 #
-# File này là phương án (c) mà biên bản nêu. Nó KHÔNG thay được CI: nó chỉ chạy
-# trên máy người nào đã `pre-commit install`, và bỏ qua được bằng `--no-verify`.
-# Giá trị của nó là bắt lỗi hình thức trước khi lên nhánh, trong lúc chờ chủ
-# repo gỡ khoá billing.
+# LỊCH SỬ — vì sao nó từng là lớp DUY NHẤT
+# ----------------------------------------
+# BIEN_BAN_CHU_KY_01 mục 6 (29/10/2026): GitHub Actions của repo có 136 lượt và
+# 0 lượt xanh, mọi job dừng ở "your account is locked due to a billing issue".
+# Lúc đó KHÔNG cổng tự động nào hoạt động, và mọi câu "CI xanh" trong tài liệu
+# cũ không có lượt chạy nào chứng minh. File này ra đời để lấp chỗ đó.
 #
-# `pre-commit` đã nằm trong requirements-dev.txt từ trước, chỉ là chưa ai dựng
-# config lẫn cài hook.
+# CI ĐÃ CHẠY LẠI — 03/11/2026 lúc 18:33
+# -------------------------------------
+# Đo 04/11: lượt đỏ cuối cùng 03/11 17:33, lượt xanh đầu tiên 18:33, và từ đó
+# 21 lượt xanh liên tiếp. Nguyên nhân cũ là
+# "Invalid payment method — authorization hold failed" ở trang Billing của tài
+# khoản chủ repo; chủ dự án đã xử lý.
 #
-# shortcut: không chạy pytest ở hook vì 1163 test mất khoảng hai phút, quá chậm
-#           cho mỗi lần commit. Chạy tay `ENV=LOCAL pytest -q` trước khi đẩy.
-#           Nâng cấp khi CI chạy lại được, hoặc khi có bộ test nhanh tách riêng.
+# Nên file này KHÔNG còn là phương án tạm. Nó vẫn đáng giữ: `--no-verify` bỏ
+# qua được, chỉ chạy trên máy ai đã `pre-commit install`, nhưng nó báo lỗi
+# trong vài giây thay vì vài phút.
+#
+# shortcut: không chạy pytest ở hook vì gần 1300 test mất khoảng một phút, quá
+#           chậm cho mỗi lần commit — và giờ CI chạy được thì phần đó để CI lo.
+#           Chạy tay `ENV=LOCAL pytest -q` trước khi đẩy nếu muốn chắc.
 
 default_install_hook_types: [pre-commit]
 fail_fast: false
