@@ -54,6 +54,17 @@ Kiểm tra nhanh trước khi commit: *nếu model đọc sai một chữ số, 
 
 **Thiếu dữ liệu thì nói thiếu, không điền 0.** `reporting.py` không coi giá vốn trống là 0 (làm thế thì lãi gộp = doanh thu — một con số sai mà trông rất đẹp); nó tính `cogs_coverage_pct`, hạ `confidence` và cảnh báo. Con số tài chính sai mà *nghe có vẻ đúng* là loại lỗi tệ nhất: không ai phát hiện tới lúc quyết toán.
 
+**Nhưng "nói thiếu" có hai cách, và chọn sai cách là tạo ra đúng cái lỗi đang tránh.** Hai ví dụ trong repo này cố ý làm ngược nhau — đừng "sửa" cho giống nhau:
+
+| Hàm | Nhánh thiếu dữ liệu | Vì sao |
+|---|---|---|
+| [`reporting.build_report`](src/core/reporting.py) | **Trả đủ khoá**, `cogs_coverage_pct: None`, `confidence: "không có dữ liệu"` | Body khai bốn trường này là bắt buộc và render chúng. Bỏ khoá đi thì `?? 0` bên Body hiện **0%** — một con số trông như kết quả đo. Có khoá kèm nhãn trung thực thì màn hình nói thật. |
+| [`mcp_server.validate_invoice_total`](src/core/mcp_server.py) | **Bỏ hẳn khoá** `calculated_total` / `difference`, chỉ giữ `is_valid: False` + `error` | Không tính lại được thì **không có con số nào** để ai đó lỡ tay đem đi dùng. Trả `calculated_total: None` là mời gọi một `?? 0` ở đâu đó rồi đẻ ra "hoá đơn lệch X đồng" — đúng thảm hoạ BR-01. |
+
+Quy tắc phân biệt: **khoá có mặt thì người đọc sẽ hiển thị nó.** Nếu người đọc *đòi* khoá đó (hợp đồng khai bắt buộc) thì trả khoá kèm giá trị tự nói ra mình là "chưa biết". Nếu khoá đó chỉ tồn tại để chứa một phép tính **đã không chạy** thì đừng tạo ra nó.
+
+Soát máy móc các chỗ một hàm trả về hai hình dạng khác nhau: `python offline_training/soat_hinh_dang_tra_ve.py`. Nó tìm *hình dạng*, không tìm *lỗi* — mỗi kết quả phải tự trả lời câu hỏi ở bảng trên.
+
 ### R2 — Chủ quyền dữ liệu
 
 **Không gửi dữ liệu khách hàng tới bất kỳ LLM bên thứ ba nào.** Không OpenAI, không Gemini, không Claude, không DeepSeek — kể cả "chỉ để test".
