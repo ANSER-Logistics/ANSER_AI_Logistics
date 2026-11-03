@@ -71,13 +71,54 @@ async def _doc_file(request: Request, file: UploadFile) -> bytes:
 # Schemas vào/ra
 # ===========================================================================
 
-class SurchargeIn(BaseModel):
+
+class _ToolIn(BaseModel):
+    """
+    Gốc chung cho mọi schema ĐẦU VÀO của /tools. Chỉ làm một việc: chặn trường lạ.
+
+    VÌ SAO (R1, và BR-01 đã trả giá để học)
+    ---------------------------------------
+    Pydantic mặc định LẶNG LẼ BỎ trường nó không biết. Nên model điền sai tên
+    một trường thì request vẫn 200, tool vẫn tính, và con số ra vẫn trông hợp
+    lý — chỉ là thiếu mất phần bị bỏ.
+
+    BR-01 đã gặp đúng chuyện này ở `/tools/vat`: gửi `unit_price` thay cho
+    `price` thì `MCPServer` đọc `price` khuyết thành 0, tính `calculated_total=0`
+    rồi kết luận hoá đơn "lệch 5.400.000đ" — một lời buộc tội sổ sách chính xác
+    tới từng đồng, và sai.
+
+    Soát 04/11/2026: bản vá đó CHỈ áp cho `VatItem`/`VatRequest`. Tám schema
+    còn lại vẫn hở, trong đó có `/tools/quote` — nghiệp vụ ưu tiên 1. Tái hiện:
+
+        QuoteRequest(carrier_cost=5_000_000,
+                     pricing_rule={"base_margin_pct": 15},
+                     extra_surcharges=[{"name": "Phí cầu đường",
+                                        "amount_vnd": 300_000}])
+        -> 200, và surcharge.amount == 0.0
+
+    Phụ phí 300.000đ biến mất không một lời cảnh báo, báo giá vẫn gửi đi được.
+    Đúng loại lỗi R1 gọi là tệ nhất: sai mà nghe có vẻ đúng.
+
+    Đổi 422 lấy một báo giá sai là đổi có lời. Lỗi 422 có người sửa trong năm
+    phút; một báo giá thiếu phụ phí thì tới lúc đối soát mới lộ.
+
+    KHÔNG đặt `strict=True` ở đây. BR-01 bật nó cho `VatItem` vì có lý do riêng
+    (`{"price": true}` thành 1 rồi đẻ ra "lệch 5.399.989đ"). Bật đại trà thì
+    `"5000000"` dạng chuỗi — thứ JSON thật hay có — cũng bị từ chối, tức đổi
+    một lỗi im lặng lấy một lỗi ồn ào ở chỗ KHÁC. Bật từng chỗ khi có bằng
+    chứng, không bật theo cảm giác.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SurchargeIn(_ToolIn):
     name: str
     amount: float = 0.0
     pct: float = Field(0.0, ge=0, le=100)
 
 
-class PricingRuleIn(BaseModel):
+class PricingRuleIn(_ToolIn):
     base_margin_pct: float = Field(..., ge=0)
     fuel_sensitivity: float = Field(0.35, ge=0, le=1)
     fuel_baseline_price: Optional[float] = Field(None, gt=0)
@@ -85,7 +126,7 @@ class PricingRuleIn(BaseModel):
     surcharges: list[SurchargeIn] = []
 
 
-class QuoteRequest(BaseModel):
+class QuoteRequest(_ToolIn):
     """POST /tools/quote — tính báo giá từ giá nhà xe + quy tắc + giá dầu."""
     carrier_cost: float = Field(..., gt=0, description="Giá nhà xe chào (VND)")
     pricing_rule: PricingRuleIn
@@ -93,7 +134,7 @@ class QuoteRequest(BaseModel):
     extra_surcharges: list[SurchargeIn] = []
 
 
-class CarrierIn(BaseModel):
+class CarrierIn(_ToolIn):
     id: str | int
     name: str
     vehicle_types: list[str] = []
@@ -105,13 +146,13 @@ class CarrierIn(BaseModel):
     on_time_rate: Optional[float] = Field(None, ge=0, le=1)
 
 
-class OfferIn(BaseModel):
+class OfferIn(_ToolIn):
     carrier_id: str | int
     price: float = Field(..., gt=0)
     valid_to: Optional[str] = None
 
 
-class RouteRequestIn(BaseModel):
+class RouteRequestIn(_ToolIn):
     origin: str
     destination: str
     vehicle_type: str
@@ -121,7 +162,7 @@ class RouteRequestIn(BaseModel):
     pickup_date: Optional[str] = None
 
 
-class CarrierSelectionRequest(BaseModel):
+class CarrierSelectionRequest(_ToolIn):
     """POST /tools/carrier-selection — xếp hạng hãng xe cho một chuyến."""
     carriers: list[CarrierIn]
     offers: list[OfferIn]
@@ -129,14 +170,14 @@ class CarrierSelectionRequest(BaseModel):
     weights: Optional[dict[str, float]] = None
 
 
-class ForecastItem(BaseModel):
+class ForecastItem(_ToolIn):
     sku: str
     series: list[float] = Field(..., description="Nhu cầu theo kỳ, cũ -> mới")
     current_stock: Optional[float] = None
     lead_time_periods: float = Field(..., ge=0)
 
 
-class ForecastRequest(BaseModel):
+class ForecastRequest(_ToolIn):
     """POST /tools/forecast-reorder — Croston/SBA + điểm đặt hàng lại theo lô."""
     items: list[ForecastItem]
     service_level: float = 0.95
@@ -211,7 +252,7 @@ class VatRequest(BaseModel):
     )
 
 
-class SaleLineIn(BaseModel):
+class SaleLineIn(_ToolIn):
     date: str = Field(..., description="Ngày bán, YYYY-MM-DD")
     revenue: float = Field(..., description="Tiền thu về, đã trừ chiết khấu (VND)")
     product: str = ""
@@ -221,13 +262,13 @@ class SaleLineIn(BaseModel):
     )
 
 
-class ExpenseLineIn(BaseModel):
+class ExpenseLineIn(_ToolIn):
     date: str = Field(..., description="Ngày phát sinh, YYYY-MM-DD")
     amount: float
     category: str = "khác"
 
 
-class ReportRequestIn(BaseModel):
+class ReportRequestIn(_ToolIn):
     """POST /tools/report — DT/CP/LN theo kỳ + xếp hạng mặt hàng."""
     granularity: str = Field("quarter", description="month | quarter | half | year")
     periods_back: int = Field(4, ge=1, le=40)
@@ -236,7 +277,7 @@ class ReportRequestIn(BaseModel):
     expenses: list[ExpenseLineIn] = []
 
 
-class InventoryLineIn(BaseModel):
+class InventoryLineIn(_ToolIn):
     """Một dòng bảng TỔNG HỢP TỒN KHO (bản xuất MISA/Fast/Bravo)."""
     code: str
     name: str = ""
@@ -251,7 +292,7 @@ class InventoryLineIn(BaseModel):
     closing_value: Optional[float] = None
 
 
-class InventoryAuditRequest(BaseModel):
+class InventoryAuditRequest(_ToolIn):
     """POST /tools/inventory-audit — soi lỗi sổ sách trên bảng tổng hợp tồn kho."""
     lines: list[InventoryLineIn]
     warehouse: str = ""
@@ -259,7 +300,7 @@ class InventoryAuditRequest(BaseModel):
     period_end: Optional[str] = Field(None, description="YYYY-MM-DD")
 
 
-class PartnerIn(BaseModel):
+class PartnerIn(_ToolIn):
     """Một dòng DANH SÁCH KHÁCH HÀNG hoặc NHÀ CUNG CẤP."""
     code: str
     name: str = ""
@@ -271,7 +312,7 @@ class PartnerIn(BaseModel):
     phone: str = ""
 
 
-class PartnerAuditRequest(BaseModel):
+class PartnerAuditRequest(_ToolIn):
     """POST /tools/partner-audit — soi công nợ từ số dư đối tác."""
     customers: list[PartnerIn] = []
     suppliers: list[PartnerIn] = []
@@ -282,7 +323,7 @@ class PartnerAuditRequest(BaseModel):
     )
 
 
-class ProductIn(BaseModel):
+class ProductIn(_ToolIn):
     """Một dòng DANH SÁCH HÀNG HÓA, DỊCH VỤ."""
     code: str
     name: str = ""
@@ -293,12 +334,12 @@ class ProductIn(BaseModel):
     value: Optional[float] = None
 
 
-class VatCatalogRequest(BaseModel):
+class VatCatalogRequest(_ToolIn):
     """POST /tools/vat-catalog-audit — đối chiếu cờ thuế với Nghị định 174/2025."""
     products: list[ProductIn]
 
 
-class PeriodSideIn(BaseModel):
+class PeriodSideIn(_ToolIn):
     """Một lần xuất báo cáo tồn kho, kèm kỳ và kho của chính nó."""
     lines: list[InventoryLineIn]
     warehouse: str = ""
@@ -306,7 +347,7 @@ class PeriodSideIn(BaseModel):
     period_end: Optional[str] = Field(None, description="YYYY-MM-DD")
 
 
-class PeriodDiffRequest(BaseModel):
+class PeriodDiffRequest(_ToolIn):
     """POST /tools/period-diff — so hai lần xuất CÙNG một kỳ."""
     truoc: PeriodSideIn = Field(..., description="Bản xuất SỚM hơn")
     sau: PeriodSideIn = Field(..., description="Bản xuất MUỘN hơn")

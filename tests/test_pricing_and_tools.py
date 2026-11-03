@@ -224,3 +224,96 @@ def test_tools_vat_endpoint():
     })
     assert resp.status_code == 200
     assert resp.json()["is_valid"] is True   # 240k + 10% = 264k
+
+
+# ===========================================================================
+# Trường lạ trong đầu vào /tools — 422, KHÔNG phải lặng lẽ bỏ
+#
+# Pydantic mặc định bỏ trường nó không biết. Nên model điền sai tên một trường
+# thì request vẫn 200, tool vẫn tính, con số ra vẫn trông hợp lý — chỉ là
+# thiếu mất phần bị bỏ.
+#
+# BR-01 đã trả giá để học điều này ở /tools/vat: `unit_price` thay cho `price`
+# -> `price` khuyết thành 0 -> "hoá đơn lệch 5.400.000đ", một lời buộc tội sổ
+# sách chính xác tới từng đồng, và sai.
+#
+# Soát 04/11/2026: bản vá đó chỉ áp cho VatItem/VatRequest. Tám schema còn lại
+# vẫn hở, trong đó có /tools/quote — nghiệp vụ ưu tiên 1.
+# ===========================================================================
+
+
+def test_phu_phi_sai_ten_truong_thi_422_chu_khong_bien_mat():
+    """
+    Ca đã tái hiện trước khi sửa: phụ phí 300.000đ biến mất, báo giá vẫn 200.
+
+    Đây là số đi thẳng vào email gửi khách cuối. Thiếu một dòng phụ phí thì
+    tới lúc đối soát mới lộ.
+    """
+    resp = client.post(
+        "/tools/quote",
+        json={
+            "carrier_cost": 5_000_000,
+            "pricing_rule": {"base_margin_pct": 15},
+            # `amount_vnd` thay vì `amount` — kiểu nhầm model rất dễ mắc
+            "extra_surcharges": [{"name": "Phí cầu đường", "amount_vnd": 300_000}],
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    assert "amount_vnd" in resp.text, "phải nói rõ TRƯỜNG NÀO sai, không chỉ 'invalid'"
+
+
+def test_quy_tac_gia_sai_ten_truong_thi_422():
+    """`fuel_sensitivity_pct` thay vì `fuel_sensitivity` — trước đây lặng lẽ về mặc định."""
+    resp = client.post(
+        "/tools/quote",
+        json={
+            "carrier_cost": 5_000_000,
+            "pricing_rule": {"base_margin_pct": 15, "fuel_sensitivity_pct": 35},
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    assert "fuel_sensitivity_pct" in resp.text
+
+
+def test_bao_gia_dung_truong_van_chay_binh_thuong():
+    """Chỉ SIẾT trường lạ. Request đúng không được vì thế mà hỏng."""
+    resp = client.post(
+        "/tools/quote",
+        json={
+            "carrier_cost": 5_000_000,
+            "pricing_rule": {"base_margin_pct": 15},
+            "extra_surcharges": [{"name": "Phí cầu đường", "amount": 300_000}],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def test_bao_cao_sai_ten_truong_thi_422():
+    """`/tools/report` ra doanh thu / chi phí / lợi nhuận — sổ sách, không được im."""
+    resp = client.post(
+        "/tools/report",
+        json={
+            "period": "2026-10",
+            # `revenue` thay vì tên thật của trường dòng bán
+            "sales": [{"revenue": 1_000_000}],
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.parametrize(
+    "duong_dan",
+    ["/tools/quote", "/tools/report", "/tools/carrier-selection",
+     "/tools/forecast-reorder", "/tools/inventory-audit",
+     "/tools/partner-audit", "/tools/vat-catalog-audit",
+     "/tools/period-diff", "/tools/vat"],
+)
+def test_moi_endpoint_tool_deu_chan_truong_la(duong_dan):
+    """
+    Phủ cả nhóm, không chỉ hai cái đã tái hiện.
+
+    Gửi MỘT trường chắc chắn không tồn tại. Dù phần còn lại của body có thiếu
+    thì vẫn phải là 422 — điều cần kiểm là trường lạ không BAO GIỜ đi lọt.
+    """
+    resp = client.post(duong_dan, json={"truong_khong_bao_gio_ton_tai": 1})
+    assert resp.status_code == 422, f"{duong_dan} -> {resp.status_code}"
