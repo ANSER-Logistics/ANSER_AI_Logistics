@@ -125,7 +125,82 @@ def numbers_in(text: str) -> set[str]:
     return ra
 
 
-def narration_numbers_ok(answer: str, context: str, min_digits: int = MIN_DIGITS):
+# ---------------------------------------------------------------------------
+# HÌNH DẠNG TIỀN (04/11/2026, brain#42) — CHƯA BẬT MẶC ĐỊNH
+# ---------------------------------------------------------------------------
+# `narration_numbers_ok` phân loại con số bằng ĐỘ DÀI (>= 4 chữ số). Ngưỡng đó
+# gộp ba thứ khác hẳn nhau vào một rổ:
+#
+#   "11.500.000 đồng"      — tiền. Phải có trong dữ liệu.
+#   "năm 2026"             — năm. Không phải đại lượng đo được.
+#   "Nghị định 72/2024"    — số hiệu văn bản. Càng không phải.
+#
+# Và nó BỎ SÓT theo chiều ngược lại: "45 triệu" chuẩn hoá ra "45" — hai chữ số,
+# dưới ngưỡng — nên bốn mươi lăm triệu đồng đi lọt chỉ vì nó được VIẾT ngắn. Đó
+# là chỗ hở thâm nhất, và `derived_ratios_ok` không bắt được vì câu không có từ
+# so sánh nào.
+#
+# Phép phân biệt dưới đây sắc hơn ngưỡng độ dài ở CẢ HAI chiều. Nó KHÔNG tái sử
+# dụng `retrieval_policy._SO_TIEN` dù hàm đó trông như làm đúng việc này: hàm
+# đó viết cho R2 — xoá bớt đi cho an toàn — nên nhánh cuối của nó bắt "mọi số
+# từ 4 chữ số", kể cả năm. Lệch pha không nằm ở biểu thức mà ở HƯỚNG THIÊN
+# LỆCH: R2 thà bắt quá, còn chốt neo số liệu thì bắt quá = chặn oan câu trả lời
+# đúng ngay trước mặt khách.
+#
+# Một số được coi là MANG HÌNH DẠNG TIỀN khi có ít nhất một trong bốn dấu hiệu:
+#
+#   1. Có hậu tố thang bậc       "45 triệu", "2tr", "4,2 tỷ"
+#   2. Có đơn vị tiền ngay sau   "18.500.000đ", "500000 VNĐ"
+#   3. Nhóm nghìn bằng dấu chấm  "3.450.000", "5.000"
+#   4. Số trần từ 5 chữ số       "50000000"   (năm chỉ có 4)
+#
+# Số trần đúng 4 chữ số thì KHÔNG: đó là vùng của năm, số hiệu văn bản, mã sản
+# phẩm. Một khoản tiền thật gần như luôn kèm đơn vị hoặc dấu nhóm nghìn — "3450000"
+# viết trần không dấu là cách không ai viết.
+#
+# CÒN SÓT, đã đo: `32k` bị đánh dấu là tiền vì `k` là hậu tố thang bậc, trong khi
+# trong tài liệu của dự án nó luôn là độ dài ngữ cảnh ("ctx 32k"). Giữ `k` lại vì
+# "25k" = 25.000đ là cách viết rất thường gặp của người Việt; 29 lượt trong tài
+# liệu kỹ thuật không đại diện cho câu trả lời gửi khách.
+_DON_VI_TIEN = re.compile(r"\s*(?:đ|vnd|vnđ|đồng)(?![^\W\d_])", re.IGNORECASE)
+
+# Dấu hiệu 3 phải là NHÓM NGHÌN thật: một đến ba chữ số, rồi một hoặc nhiều nhóm
+# đúng ba chữ số sau dấu chấm. "3.450.000" và "5.000" khớp; "5.1.", "2.5", "1.0",
+# "15,8" KHÔNG khớp.
+#
+# Bản đầu tôi viết dấu hiệu này là "có dấu chấm hoặc dấu phẩy". Đo trên 27 file
+# .md tiếng Việt của dự án cho thấy nó đánh dấu thêm 747 con số mà luật cũ tha —
+# phần lớn KHÔNG phải tiền: số mục (`5.1.`), số phiên bản (`2.5`, `1.0`), phần
+# trăm (`15,8%`), dung lượng (`12,4 GB`). Tiếng Việt dùng dấu chấm làm dấu nghìn
+# VÀ dấu phẩy làm dấu thập phân, nên "có dấu" không phân biệt được gì. Bảng 14 ca
+# tôi tự soạn KHÔNG bắt được lỗi này — chỉ văn bản thật bắt được.
+_NHOM_NGHIN = re.compile(r"^\d{1,3}(?:\.\d{3})+$")
+
+
+def la_hinh_dang_tien(tho: str, hau_to: str | None, sau: str = "") -> bool:
+    """
+    Con số này có mang hình dạng MỘT KHOẢN TIỀN không?
+
+    `tho` = chuỗi số như đã viết, `hau_to` = thang bậc nếu có, `sau` = văn bản
+    ngay sau con số (để thấy đơn vị tiền). Xem khối chú thích bên trên.
+    """
+    if hau_to:
+        return True
+    if _DON_VI_TIEN.match(sau or ""):
+        return True
+    if _NHOM_NGHIN.match(tho):
+        return True
+    # Đếm CHỮ SỐ, không đếm ký tự: `len("3.3.1")` là 5 nhưng đó là ba chữ số
+    # (một số phiên bản), không phải một khoản tiền năm chữ số.
+    return len(re.sub(r"\D", "", tho)) >= 5
+
+def narration_numbers_ok(
+    answer: str,
+    context: str,
+    min_digits: int = MIN_DIGITS,
+    *,
+    chi_kiem_so_tien: bool = False,
+):
     """
     Mọi con số >= `min_digits` chữ số trong `answer` PHẢI có trong `context`.
 
@@ -134,13 +209,21 @@ def narration_numbers_ok(answer: str, context: str, min_digits: int = MIN_DIGITS
     phép kiểm này chỉ NỚI so với bản trước, không bao giờ siết thêm: không có
     câu nào đang qua mà sau thay đổi lại bị chặn.
 
+    `chi_kiem_so_tien=True` thay nguong do dai bang phep phan biet hinh dang
+    tien (`la_hinh_dang_tien`). Sac hon o ca hai chieu — xem khoi chu thich cua
+    ham do. MAC DINH TAT: day la lop an toan huong ra khach, bat len la doi
+    hanh vi va can chu du an duyet (brain#42).
+
     Trả `(ok, con_số_vi_phạm | None)`.
     """
     ctx_numbers = numbers_in(context)
     for m in _SO_KEM_THANG.finditer(answer or ""):
         tho, hau_to = m.group(1), m.group(2)
         chinh = tho.replace(".", "").replace(",", "")
-        if len(chinh) < min_digits:
+        if chi_kiem_so_tien:
+            if not la_hinh_dang_tien(tho, hau_to, (answer or "")[m.end():]):
+                continue
+        elif len(chinh) < min_digits:
             continue
         if not ({chinh} | _nhan_thang(tho, hau_to)) & ctx_numbers:
             return False, chinh
@@ -310,6 +393,7 @@ __all__ = [
     "LOI_TU_CHOI_SUY_RA",
     "GuardVerdict",
     "customer_leak",
+    "la_hinh_dang_tien",
     "derived_ratios_ok",
     "guard_answer",
     "kiem_suy_bien",
