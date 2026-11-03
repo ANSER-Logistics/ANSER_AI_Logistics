@@ -50,7 +50,7 @@ Dữ liệu khách hàng gồm: tồn kho, doanh thu, công nợ, **bảng giá 
 
 Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham số chứa dữ liệu khách**: giá xăng dầu, thời tiết, tỷ giá, tìm kiếm web.
 
-> ⚠️ [`evaluate_system.py`](src/evaluate_system.py) hiện gọi DeepSeek API làm "judge". **Chỉ được chạy trên dữ liệu tổng hợp/mẫu**, tuyệt đối không trên dữ liệu khách thật. Ưu tiên thay bằng judge local.
+> ⚠️ [`evaluate_system.py`](src/evaluate_system.py) **đã chặn chạy** (04/11/2026) — nó đã bị [`benchmark_v3.py`](offline_training/benchmark_v3.py) thay thế. Ngoài rủi ro R2 (gửi prompt + ground truth + đầu ra model tới DeepSeek, không rào nào chặn việc lỡ chạy trên dữ liệu khách), judge của nó chấm theo **định dạng Make.com** — thứ R4 đã bỏ — nên mọi điểm số nó đưa ra đều đo sai thứ. `benchmark_v3` chấm n8n bằng chính `validate_workflow()` của runtime và chấm narration bằng `src/core/grounding.py`, tức phép kiểm lúc đo và lúc chạy là MỘT. Lý do đầy đủ ở docstring đầu file.
 
 > ⚠️ `requirements.txt` có `openai`. Nếu package này được dùng để gọi API ngoài với dữ liệu khách — đó là vi phạm R2. Dùng nó làm client cho vLLM OpenAI-compatible server **nội bộ** thì hợp lệ.
 
