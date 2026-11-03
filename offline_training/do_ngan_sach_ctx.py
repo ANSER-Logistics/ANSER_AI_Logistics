@@ -35,6 +35,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import httpx
 
@@ -147,7 +148,11 @@ def _tat(proc: subprocess.Popen | None) -> None:
         return
     for sig in (signal.SIGTERM, SIGKILL):
         try:
-            os.killpg(proc.pid, sig)
+            # `type: ignore` vi Windows khong co `os.killpg`. Script nay chi chay
+            # tren Colab (Linux) — xem docstring dau file. `SIGKILL` o dong 55 duoc
+            # rao bang `getattr` chi de module NAP duoc tren Windows, khong phai de
+            # chay duoc.
+            os.killpg(proc.pid, sig)  # type: ignore[attr-defined]
         except (ProcessLookupError, PermissionError):
             return
         try:
@@ -412,7 +417,11 @@ def _bang(ket_qua: list[dict]) -> str:
         if "p95_ms" not in p:
             return f"{p['dong_thoi']}× → lỗi"
         dau_tong = "✓" if p.get("tong_dat") else "✗"
-        dau_tok = {True: "✓", False: "✗"}.get(p.get("moi_token_dat"), "?")
+        # `dict[Any, str]` chu khong phai `dict[bool, str]`: ba ket qua khac nhau —
+        # dat (True), khong dat (False), va CHUA DO (khoa khuyet -> "?"). Ep ve
+        # bool se bien "chua do" thanh "khong dat".
+        bang_tok: dict[Any, str] = {True: "✓", False: "✗"}
+        dau_tok = bang_tok.get(p.get("moi_token_dat"), "?")
         return (f"{p['dong_thoi']}× → {p['p95_ms']} {dau_tong}; "
                 f"{p.get('p95_ms_moi_token')} {dau_tok}")
 

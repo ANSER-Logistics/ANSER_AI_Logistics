@@ -168,11 +168,18 @@ def _calibration_texts() -> list[str]:
     rows = [json.loads(line) for line in DATA_FILE.read_text(encoding="utf-8").splitlines()
             if line.strip()]
     random.Random(42).shuffle(rows)
-    texts = []
+    texts: list[str] = []
     for row in rows[:N_CALIB]:
         text = tokenizer.apply_chat_template(
             row["messages"], tokenize=False, enable_thinking=False
         )
+        # `tokenize=False` tra ve str, nhung chu ky cua transformers la union cho
+        # ca hai che do. Chan som thay vi de `text[:N]` cat mot list token roi
+        # quantize tren du lieu sai — buoc nay chay tren GPU tinh tien theo gio.
+        if not isinstance(text, str):
+            raise TypeError(
+                f"apply_chat_template tra {type(text).__name__}, cho str"
+            )
         texts.append(text[:CALIB_MAX_CHARS])
     return texts
 

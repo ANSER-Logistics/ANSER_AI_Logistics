@@ -291,6 +291,11 @@ async def process_seed(client, semaphore, seed: dict, out_path: Path,
 
             raw = (resp.choices[0].message.content or "").strip()
 
+            # Khai truoc vong if: hai nhanh duoi day gan hai hinh dang khac nhau
+            # vao `payload` (chuoi mot luot / cap hai luot), nen khong khai thi
+            # kieu cua no bi chot theo nhanh nao viet truoc.
+            reason: str | None
+            payload: str | tuple[str, str] | None
             if is_followup:
                 turn1, turn2 = split_two_turns(raw)
                 if turn1 is None:

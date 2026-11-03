@@ -120,15 +120,20 @@ QUESTIONS_REPORT = [
 
 
 def _make_quote_scenario(rng: random.Random) -> dict:
+    # Giu gia dau goc trong bien cuc bo roi dung lai, thay vi doc `rule.fuel_baseline_price`
+    # nguoc ra: truong do khai `Optional[float]` CO CHU DICH (R1 — thieu gia dau
+    # thi noi thieu, khong coi la 0), nen doc nguoc ra roi nhan vao mot so la
+    # lam mat dung cho canh bao ay.
+    fuel_baseline = rng.choice([23_000, 24_500, 25_000, 26_500])
     rule = PricingRule(
         base_margin_pct=rng.uniform(6, 15),
         fuel_sensitivity=rng.uniform(0.30, 0.40),
-        fuel_baseline_price=rng.choice([23_000, 24_500, 25_000, 26_500]),
+        fuel_baseline_price=fuel_baseline,
         min_margin_amount=rng.choice([0, 300_000, 500_000]),
         surcharges=rng.sample(_SURCHARGE_POOL, k=rng.randrange(0, 3)),
     )
     carrier_cost = rng.randrange(40, 360) * 50_000            # 2tr .. 18tr
-    current_fuel = rule.fuel_baseline_price * rng.uniform(0.88, 1.12)
+    current_fuel = fuel_baseline * rng.uniform(0.88, 1.12)
     result = compute_quote(carrier_cost, rule, current_fuel_price=round(current_fuel))
     origin, destination = rng.choice(_ROUTES)
     route = {"origin": origin, "destination": destination,

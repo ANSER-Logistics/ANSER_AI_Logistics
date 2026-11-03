@@ -27,20 +27,21 @@ jobs:
       # xong model. Script offline chạy trên GPU đắt tiền: lỗi phải chết ở đây.
       - name: Ruff
         run: ruff check src tests offline_training
-      # TOÀN BỘ src/ chứ không còn 5 file chọn tay (04/11/2026). Danh sách cũ
-      # soi 5 trên 83 file nguồn — 6% — nên bước này nhận xanh mà gần như
-      # không kiểm gì. Lỗi đáng giá nhất tìm được khi mở rộng KHÔNG nằm trong
-      # các lỗi mypy báo: nó nằm ở chỗ RuntimeState khai cả sáu trường là
-      # Optional[object], khiến bộ kiểm kiểu im lặng trên đúng sáu thứ quan
-      # trọng nhất của runtime. Khai kiểu thật xong thì nó chỉ ra ngay hai chỗ
-      # truy cập None không được chặn.
+      # CẢ HAI thư mục, không còn file nào chọn tay (04/11/2026). Lịch sử:
+      # danh sách cũ soi 5 trên 83 file nguồn — 6% — nên bước này nhận xanh
+      # mà gần như không kiểm gì.
       #
-      # offline_training/ vẫn là danh sách chọn tay: cả thư mục còn 31 lỗi, và
-      # `mypy offline_training` báo "Source file found twice" vì thư mục không
-      # có __init__.py trong khi code import `offline_training.dgen_common`.
-      # Cần MYPYPATH=. --explicit-package-bases. Ghi thành việc riêng.
+      # `mypy offline_training` chỉ chạy được nhờ `mypy_path` +
+      # `explicit_package_bases` trong pyproject.toml: thư mục không có
+      # __init__.py nhưng code trong nó import `offline_training.dgen_common`,
+      # nên mypy thấy cùng một file dưới hai tên module. Lý do chọn cách đó
+      # thay vì thêm __init__.py nằm ngay tại chỗ cấu hình.
+      #
+      # offline_training/ chạy trên GPU thuê tính tiền theo giờ (R3). Một
+      # NameError giữa phiên đo, sau khi đã nạp xong model, là tiền đã trả
+      # cho một phiên chết. Đúng loại lỗi bộ kiểm tĩnh bắt được miễn phí.
       - name: Mypy
-        run: mypy src offline_training/providers.py offline_training/chay_thu_live.py offline_training/bat_lai_brain.py
+        run: mypy src offline_training
       - name: Pytest
         env:
           ENV: LOCAL
