@@ -80,6 +80,89 @@ def is_public_knowledge_question(query: str) -> bool:
     return bool(_PUBLIC_KNOWLEDGE.search(query or ""))
 
 
+# ---------------------------------------------------------------------------
+# Lọc trước khi truy vấn RỜI KHỎI HỆ THỐNG (R2)
+# ---------------------------------------------------------------------------
+# `decide_web_fallback` quyết định CÓ TRA WEB KHÔNG. Nó không nói gì về thứ
+# được gửi đi — và thứ được gửi đi là NGUYÊN TIN NHẮN người dùng.
+#
+# AGENTS.md R2 cho đúng một ngoại lệ: "nguồn công khai, CHỈ ĐỌC, KHÔNG KÈM
+# THAM SỐ CHỨA DỮ LIỆU KHÁCH". Cổng chủ đề không đủ để thoả vế thứ hai.
+#
+# Đo 04/11/2026 — năm trên bảy câu thử mang dữ liệu khách lọt qua cổng:
+#
+#   "thuế suất VAT bao nhiêu nếu doanh thu 4,2 tỷ một năm"          -> cho qua
+#   "thuế GTGT áp cho cước 18.500.000đ tuyến Hà Nội Hải Phòng"      -> cho qua
+#   "thuế TNDN tính thế nào khi biên lợi nhuận 23%"                 -> cho qua
+#   "thủ tục kiện đòi nợ khách đang nợ 340 triệu"                   -> cho qua
+#
+# Doanh thu, bảng giá cước, tỷ lệ biên lợi nhuận, công nợ — R2 liệt kê đích
+# danh cả bốn. Chúng đang đi tới DuckDuckGo.
+# Số hiệu văn bản pháp quy PHẢI GIỮ LẠI: "72/2024/NĐ-CP", "123/2020/TT-BTC".
+# Đó là thứ công khai, và là thứ làm cho truy vấn tìm đúng văn bản. Bỏ nó đi là
+# đổi một lỗi R2 lấy một câu trả lời sai.
+_SO_VAN_BAN = re.compile(r"\b\d+\s*/\s*\d{4}\s*(?:/\s*[A-ZĐ][\w-]*)?", re.IGNORECASE)
+
+# Thứ tự các nhánh có ý nghĩa: nhánh DÀI đặt trước. Để "4,2" ở nhánh số trần
+# lên trước thì nó ăn mất phần số, bỏ lại chữ "tỷ" trơ ra — đã thấy khi đo.
+#
+# Và nhánh số trần KHÔNG kết thúc bằng `\b`: với "18.500.000đ", "0" và "đ" đều
+# là ký tự chữ nên không có ranh giới, regex lùi dần và chỉ bắt được "18.500.",
+# bỏ lại "000đ". Đúng cái bẫy đã sập một lần ở `src/core/grounding.py`.
+_SO_TIEN = re.compile(
+    # 1. Số kèm thang bậc: "4,2 tỷ", "340 triệu", "25 nghìn", "2tr"
+    r"\d[\d.,]*\s*(?:nghìn|ngàn|triệu|tỷ|tỉ|tr|k)(?![^\W\d_])"
+    # 2. Phần trăm: "23%", "23 phần trăm"
+    r"|\d[\d.,]*\s*(?:%|phần trăm)"
+    # 3. Số kèm đơn vị tiền: "18.500.000đ", "500000 VNĐ"
+    r"|\d[\d.,]*\d\s*(?:đ|vnd|vnđ|đồng)(?![^\W\d_])"
+    # 4. Số trần từ 4 chữ số trở lên (sau khi đã bỏ dấu phân tách)
+    r"|\d[\d.,]*\d|\d{4,}",
+    re.IGNORECASE,
+)
+
+
+def loc_truy_van_web(query: str) -> str:
+    """
+    Bỏ con số khỏi truy vấn trước khi gửi ra ngoài. Giữ nguyên phần chủ đề.
+
+    "thuế GTGT áp cho cước 18.500.000đ tuyến Hà Nội Hải Phòng"
+      -> "thuế GTGT áp cho cước tuyến Hà Nội Hải Phòng"
+
+    Tra cứu luật thuế cần BIẾT HỎI VỀ GÌ, không cần biết khách thu bao nhiêu.
+    Bỏ con số đi thì kết quả tìm kiếm không kém đi, mà dữ liệu thì ở lại.
+
+    KHÔNG PHẢI LỚP BẢO VỆ ĐẦY ĐỦ — đọc tiếp
+    ----------------------------------------
+    Hàm này bỏ được CON SỐ. Nó KHÔNG bỏ được TÊN RIÊNG:
+
+        "hoá đơn điện tử cho công ty Minh Long có bắt buộc không"
+
+    "Minh Long" là tên khách, và R2 liệt kê "danh sách khách" là dữ liệu khách
+    hàng. Không có cách tất định nào phân biệt tên khách với tên cơ quan nhà
+    nước trong một câu tiếng Việt — và đoán bằng model thì vi phạm R1.
+
+    Chưa xử, cố ý: xem việc trên bảng kanzo. Ghi ra đây vì một lớp lọc im lặng
+    bỏ sót còn nguy hơn không có lớp nào — người đọc sẽ tưởng đã an toàn.
+    """
+    goc = query or ""
+
+    # Giữ số hiệu văn bản pháp quy: thay bằng chỗ giữ chỗ trước khi lọc, trả
+    # lại sau. Không làm thế thì nhánh "số trần" ăn mất "72/2024".
+    giu: list[str] = []
+
+    def _cat(m: "re.Match[str]") -> str:
+        giu.append(m.group(0))
+        return f"\x00{len(giu) - 1}\x00"
+
+    sach = _SO_VAN_BAN.sub(_cat, goc)
+    sach = _SO_TIEN.sub(" ", sach)
+    # Đơn vị tiền tệ trơ lại sau khi số bị bỏ.
+    sach = re.sub(r"\s+(đ|vnd|vnđ|đồng)(?![^\W\d_])", " ", sach, flags=re.IGNORECASE)
+    sach = re.sub(r"\x00(\d+)\x00", lambda m: giu[int(m.group(1))], sach)
+    return " ".join(sach.split())
+
+
 def decide_web_fallback(query: str) -> WebDecision:
     """
     Kho tài liệu không trả về gì — có được tra web thay thế không?
@@ -112,6 +195,7 @@ KHONG_CO_TAI_LIEU = (
 __all__ = [
     "WebDecision",
     "decide_web_fallback",
+    "loc_truy_van_web",
     "is_internal_question",
     "is_public_knowledge_question",
     "KHONG_CO_TAI_LIEU",
