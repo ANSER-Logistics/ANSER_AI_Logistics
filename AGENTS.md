@@ -15,6 +15,20 @@
 
 Khi một việc cần Body đổi (ví dụ thêm bảng logistics ở [ARCHITECTURE.md §10](ARCHITECTURE.md)), agent viết bản đặc tả thay đổi và **dừng lại chờ người quyết định** — không tự ý mock hay giả định Body đã có.
 
+**Pull Request TÍNH LÀ đề xuất** (chủ dự án chốt 04/11/2026). Mở PR vào repo Body là hợp lệ, và với thay đổi nhỏ thì tốt hơn issue: issue là *nhờ họ làm việc*, PR là *nhờ họ đọc việc đã làm*. Quyền quyết vẫn ở họ — merge hoặc đóng.
+
+Ranh giới cụ thể, vì agent có quyền `admin` trên repo Body qua org:
+
+| ✅ Được | ❌ Không |
+|---|---|
+| Mở nhánh mới trên repo Body | Đẩy thẳng vào `master` |
+| Mở PR, mở issue, bình luận | **Tự merge PR của chính mình** |
+| Gắn sub-issue xuyên repo | Đổi cấu hình repo, xoá nhánh người khác |
+
+**Có quyền không có nghĩa là được phép.** Quyền admin đến từ việc tài khoản là owner của org, không phải từ việc ranh giới này được nới ra.
+
+Quy trình và bản nháp: [`docs/de-xuat-body/`](docs/de-xuat-body/).
+
 ### Bản sao mô tả
 
 [`agent_middleware.py`](src/core/agent_middleware.py) và các khối `SCHEMA MAP` trong [`memory.py`](src/core/memory.py), [`saas_api.py`](src/core/saas_api.py) là **bản sao mô tả** của thứ thuộc về Body. Chúng lệch được, và đã từng lệch. Trước khi tin vào chúng, đối chiếu lại với Body.
