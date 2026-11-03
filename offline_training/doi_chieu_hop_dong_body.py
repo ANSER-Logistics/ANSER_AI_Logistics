@@ -58,16 +58,29 @@ URL_BRAIN_TS = (
 
 DUONG_TOOLS = pathlib.Path(__file__).resolve().parent.parent / "src" / "api" / "routes" / "tools.py"
 
-# (type bên Body, class bên Brain). Chỉ liệt kê thứ Body THỰC SỰ GỬI ĐI —
+# (nguồn bên Body, class bên Brain). Chỉ liệt kê thứ Body THỰC SỰ GỬI ĐI —
 # kiểu trả về không cần đối chiếu chiều này.
+#
+# Nguồn bên Body có hai dạng, và dạng thứ hai mới là chỗ rủi ro ẩn:
+#
+#   "type:BrainSaleLine"        — `type X = { … }`, có tên, dễ soi
+#   "ham:auditInventory"        — khai INLINE trong chữ ký hàm, KHÔNG có tên
+#   "body:comparePeriods"       — object literal dựng ngay tại lời gọi
+#
+# Bản đầu của file này chỉ đọc dạng có tên, nên ba payload inline đi lọt — đúng
+# những payload không ai review vì chúng không xuất hiện ở đâu dưới dạng một
+# khai báo kiểu.
 CAP_DOI_CHIEU = [
-    ("BrainSaleLine", "SaleLineIn"),
-    ("BrainExpenseLine", "ExpenseLineIn"),
-    ("BrainReportRequest", "ReportRequestIn"),
-    ("BrainInventoryLine", "InventoryLineIn"),
-    ("BrainPartner", "PartnerIn"),
-    ("BrainPeriodSide", "PeriodSideIn"),
-    ("BrainProduct", "ProductIn"),
+    ("type:BrainSaleLine", "SaleLineIn"),
+    ("type:BrainExpenseLine", "ExpenseLineIn"),
+    ("type:BrainReportRequest", "ReportRequestIn"),
+    ("type:BrainInventoryLine", "InventoryLineIn"),
+    ("type:BrainPartner", "PartnerIn"),
+    ("type:BrainPeriodSide", "PeriodSideIn"),
+    ("type:BrainProduct", "ProductIn"),
+    ("ham:auditInventory", "InventoryAuditRequest"),
+    ("ham:auditPartners", "PartnerAuditRequest"),
+    ("body:comparePeriods", "PeriodDiffRequest"),
 ]
 
 
@@ -84,6 +97,62 @@ def truong_cua_type_ts(nguon: str, ten: str) -> set[str] | None:
     if "{" in than:          # type lồng nhau — ngoài tầm của so khớp văn bản
         return None
     return set(re.findall(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*\??\s*:", than))
+
+
+def truong_cua_ham_inline(nguon: str, ten_ham: str) -> set[str] | None:
+    """Trường của payload khai inline: `export async function X(req: { … })`."""
+    m = re.search(
+        rf"export\s+async\s+function\s+{re.escape(ten_ham)}\s*\(\s*\w+\s*:\s*\{{(.*?)\}}\s*\)",
+        nguon,
+        re.S,
+    )
+    if not m:
+        return None
+    than = m.group(1)
+    # Chỉ lấy trường ở TẦNG NGOÀI. `Array<Partial<X> & { code: string }>` có một
+    # `{` lồng bên trong — bỏ nó đi trước khi tách tên, nếu không `code` bị tính
+    # là trường của payload và sinh báo oan.
+    than = re.sub(r"\{[^{}]*\}", "", than)
+    return set(re.findall(r"^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\??\s*:", than, re.M))
+
+
+def truong_cua_body_literal(nguon: str, ten_ham: str) -> set[str] | None:
+    """
+    Trường của `body: { … }` dựng ngay tại lời gọi, trong thân `ten_ham`.
+
+    Bắt cả dạng viết tắt `{ truoc, sau }` lẫn dạng đủ `{ a: x, b: y }`.
+    """
+    m = re.search(
+        rf"export\s+async\s+function\s+{re.escape(ten_ham)}\s*\(.*?\{{(.*?)\n\}}",
+        nguon,
+        re.S,
+    )
+    if not m:
+        return None
+    mb = re.search(r"body\s*:\s*\{(.*?)\}", m.group(1), re.S)
+    if not mb:
+        return None
+    ra: set[str] = set()
+    for phan in mb.group(1).split(","):
+        phan = phan.strip()
+        if not phan:
+            continue
+        ten = phan.split(":")[0].strip()
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", ten):
+            ra.add(ten)
+    return ra or None
+
+
+def truong_ben_body(nguon: str, dac_ta: str) -> set[str] | None:
+    """Phân phối theo tiền tố `type:` / `ham:` / `body:`."""
+    loai, _, ten = dac_ta.partition(":")
+    if loai == "type":
+        return truong_cua_type_ts(nguon, ten)
+    if loai == "ham":
+        return truong_cua_ham_inline(nguon, ten)
+    if loai == "body":
+        return truong_cua_body_literal(nguon, ten)
+    return None
 
 
 def truong_cua_class_py(nguon: str, ten: str) -> set[str] | None:
@@ -124,10 +193,10 @@ def main(argv: list[str]) -> int:
     so_lech = 0
     so_bo_qua = 0
     for ts, py in CAP_DOI_CHIEU:
-        a = truong_cua_type_ts(body, ts)
+        a = truong_ben_body(body, ts)
         b = truong_cua_class_py(brain, py)
         if a is None:
-            print(f"  BỎ QUA  {ts:24s} — không đọc được ở brain.ts")
+            print(f"  BỎ QUA  {ts:28s} — không đọc được ở brain.ts")
             so_bo_qua += 1
             continue
         if b is None:
@@ -141,7 +210,7 @@ def main(argv: list[str]) -> int:
             print("          Với extra=\"forbid\" thì lời gọi này trả 422.")
             so_lech += 1
         else:
-            print(f"  ok      {ts:24s} → {py}")
+            print(f"  ok      {ts:28s} → {py}")
 
     print()
     if so_bo_qua:
