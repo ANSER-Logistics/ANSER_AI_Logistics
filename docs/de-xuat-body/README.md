@@ -54,3 +54,57 @@ Cài `gh` và `gh auth login` thì credential do chính `gh` giữ, agent chỉ 
 ## Quy ước đặt tên
 
 `NN-issue-body.md` theo số thứ tự của bản đề xuất trong `docs/DE_XUAT_BODY_NN.md`.
+
+---
+
+## Đã làm gì bằng kênh này (04/11/2026)
+
+Chủ dự án chốt: **PR tính là đề xuất** — xem AGENTS.md §1.
+
+| | |
+|---|---|
+| [Body#22](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/22) | PR sửa panel: `?? 0` biến "chưa đo được" thành 0% |
+| [Body#25](https://github.com/ANSER-Logistics/ANSER-logistics-body/pull/25) | PR thêm `CODEOWNERS` |
+| [Brain#2](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/2) | S6 — issue cha |
+| [Body#23](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/23) · [Body#24](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/24) | hai sub-issue con của Brain#2 |
+
+**Sub-issue xuyên repo chạy được** — kiểm chứng rồi, không phải suy đoán:
+
+```
+gh api repos/ANSER-Logistics/ANSER_AI_Logistics/issues/2/sub_issues
+```
+
+Trả về hai issue thuộc repo Body. Trước khi hai repo vào chung org, GitHub từ chối thẳng: issue cha và con phải cùng chủ sở hữu.
+
+**Gắn sub-issue bằng lệnh:**
+
+```
+gh api --method POST repos/OWNER/REPO-CHA/issues/SO/sub_issues -F sub_issue_id=ID
+```
+
+`sub_issue_id` là trường `id` của issue con — **số lớn**, không phải `number` (số nhỏ hiển thị trên giao diện). Lấy bằng:
+
+```
+gh api repos/OWNER/REPO-CON/issues/SO --jq .id
+```
+
+Nhầm hai số này là lỗi đầu tiên gặp phải, và API không báo gì rõ ràng.
+
+## Một việc phải chuẩn hoá trước khi sửa file .ts của Body
+
+`frontend/src/server/brain.ts` **đang lưu CRLF** trong git, trong khi `.gitattributes` của Body ghi `*.ts text eol=lf`. File đó được commit trước khi có quy tắc.
+
+Hậu quả: ai sửa nó trên Windows cũng tạo ra một diff **cả file** (1722 dòng), vì git chuẩn hoá lúc commit. PR #22 tách việc này thành commit riêng (`45ec2c1`) để commit nội dung đọc được.
+
+Gặp lại tình huống tương tự thì làm vậy: một commit `git add --renormalize <file>` riêng, rồi mới commit nội dung.
+
+## Còn thiếu một bước, cần chủ dự án
+
+Bảng Projects chung chưa dựng được — token `gh` thiếu scope `project`, và lệnh cấp thêm mở trình duyệt nên agent không chạy được:
+
+```powershell
+gh auth refresh -s project,read:project
+gh project create --owner ANSER-Logistics --title "ANSER - Brain & Body"
+```
+
+Dựng xong thì thêm cả hai repo vào board và bật **Hierarchy view** để thấy cây sub-issue.
