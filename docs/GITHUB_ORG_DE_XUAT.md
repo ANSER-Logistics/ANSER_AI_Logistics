@@ -86,7 +86,17 @@ requested_teams     : ["body"]
 
 **GitHub yêu cầu NHÓM như một đơn vị**, không bung ra thành ba lời mời riêng. Và tài liệu chính thức viết: *"an approval from any of the owners is sufficient"*. Nên một chữ ký từ bất kỳ thành viên nào trong nhóm là đủ.
 
-Phần chưa chứng minh được bằng thực nghiệm: repo Body **chưa có ruleset**, nên chưa có gì *chặn* gộp. Phép thử mới chứng minh được việc **tự mời đúng nhóm**. Bật ruleset xong thì thử lại là đủ cả hai vế.
+Vế thứ hai — *có chặn gộp không* — cũng đo được, và câu trả lời là **chưa**:
+
+```
+nhóm được mời duyệt : ["body"]
+số người đã duyệt   : 0
+mergeable_state     : clean      ← vẫn gộp được
+```
+
+Repo Body **chưa có ruleset nào**, nên CODEOWNERS hiện chỉ *mời* người duyệt. Không ai duyệt vẫn gộp được bình thường.
+
+Nói gọn: **file CODEOWNERS quyết định mời ai; ruleset quyết định có bắt buộc không.** Thiếu vế thứ hai thì vế thứ nhất chỉ là gợi ý lịch sự. Bật ruleset ở mục 2.3 rồi thử lại là xong.
 
 #### Một cái bẫy đã sập, ghi lại để khỏi sập lần nữa
 
