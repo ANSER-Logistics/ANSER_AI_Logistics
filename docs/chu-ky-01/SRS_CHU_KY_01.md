@@ -5,7 +5,7 @@
 **Phạm vi:** chỉ repo Brain (`PCBoiz/ANSER_AI`). Body có bản bàn giao riêng
 **Trạng thái:** bản thảo, chờ chủ dự án chốt §8.3
 
-> **Đính chính bản trước.** Bản SRS đầu (24/10, sáng) đặt trọng tâm vào việc triển khai lớp kế toán trên máy CPU, và đẩy **S2** cùng **phiên đo Colab** vào mục ngoài phạm vi. Đó là sai: [AGENTS.md §8](AGENTS.md) đặt S2 là việc **🔵 kế tiếp**, và [TIEN_TRINH_BRAIN.md §7](TIEN_TRINH_BRAIN.md) đặt phiên đo Colab là việc **số 1**. Bản này dựng lại quanh đúng hai thứ đó.
+> **Đính chính bản trước.** Bản SRS đầu (24/10, sáng) đặt trọng tâm vào việc triển khai lớp kế toán trên máy CPU, và đẩy **S2** cùng **phiên đo Colab** vào mục ngoài phạm vi. Đó là sai: [AGENTS.md §8](../../AGENTS.md) đặt S2 là việc **🔵 kế tiếp**, và [TIEN_TRINH_BRAIN.md §7](../ky-thuat/TIEN_TRINH_BRAIN.md) đặt phiên đo Colab là việc **số 1**. Bản này dựng lại quanh đúng hai thứ đó.
 >
 > Phần còn đúng của bản trước được giữ: khuyết tật `/tools/vat` (BR-01) và khoảng trống triển khai. Khoảng trống triển khai nay nằm ở §9 kèm lý do, thay vì chiếm chỗ của S2.
 
@@ -19,7 +19,7 @@
 
 Nó **chỉ nói về Brain**. Công việc của Body nằm ở bản bàn giao riêng của Body. Chỗ nào Brain phụ thuộc Body, tài liệu này nêu đúng thứ cần và để nguyên ở đó.
 
-Nó không thay [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md) (dựng môi trường, hiểu mã) hay [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) (bảy việc dài hạn kèm bối cảnh). Tài liệu này cắt ra đúng phần làm trong hai tuần tới, gán người và hạn.
+Nó không thay [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md) (dựng môi trường, hiểu mã) hay [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) (bảy việc dài hạn kèm bối cảnh). Tài liệu này cắt ra đúng phần làm trong hai tuần tới, gán người và hạn.
 
 ### 1.2. Khuôn một yêu cầu, dùng lại cho chu kỳ sau
 
@@ -67,17 +67,17 @@ Mục **Ngoài yêu cầu** hay bị bỏ nhất và cứu nhiều thời gian n
 
 Brain là dịch vụ FastAPI cung cấp năng lực AI qua HTTP: lõi tính toán tất định (`/tools/*`), hỏi đáp có vòng agentic (`/chat`), đọc tài liệu (`/knowledge`), đọc ảnh hoá đơn (`/ocr`). Body gọi vào, n8n gọi vào.
 
-Theo [AGENTS.md §1](AGENTS.md), người làm Brain **không sửa repo Body**. Chu kỳ này không có yêu cầu nào cần Body đổi.
+Theo [AGENTS.md §1](../../AGENTS.md), người làm Brain **không sửa repo Body**. Chu kỳ này không có yêu cầu nào cần Body đổi.
 
 ### 2.2. Lộ trình nói việc kế tiếp là gì
 
 Hai tài liệu kiểm soát, cùng chỉ một hướng:
 
-**[AGENTS.md §8](AGENTS.md)** liệt kê tám hạng mục đã xong và một hạng mục kế tiếp:
+**[AGENTS.md §8](../../AGENTS.md)** liệt kê tám hạng mục đã xong và một hạng mục kế tiếp:
 
 > **S2** · Hạ tầng: **vLLM server riêng, Qwen3-8B, ctx 32k, Redis, Cloudflare Tunnel** · 🔵 **Kế tiếp**
 
-**[TIEN_TRINH_BRAIN.md §7](TIEN_TRINH_BRAIN.md)** đề nghị thứ tự:
+**[TIEN_TRINH_BRAIN.md §7](../ky-thuat/TIEN_TRINH_BRAIN.md)** đề nghị thứ tự:
 
 | # | Việc | Chặn bởi |
 |---|---|---|
@@ -95,9 +95,9 @@ Việc 1 và 2 làm song song được, vì một cần GPU và một không.
 
 Model text là **`Qwen/Qwen3-8B`** ở định dạng AWQ 4-bit. Không có Qwen3.5 ở đâu trong repo; rà toàn bộ mã, tài liệu và notebook cho ra 22 lần nhắc `Qwen3-8B` và không lần nào nhắc 3.5.
 
-> ⚠️ **Bảng VRAM ở [ARCHITECTURE.md §5.1](ARCHITECTURE.md) đã lỗi thời.** Nó ghi vision `Qwen2.5-VL-3B AWQ ~3,0 GB` và tổng `~15,0 GB`. Mã không làm thế: [`engine.py`](src/core/engine.py) nạp vision bằng `torch_dtype=torch.bfloat16`, **không lượng tử hoá gì cả**. [RAG_VLM_KE_HOACH.md §B.2.4](RAG_VLM_KE_HOACH.md) đã tính lại ngày 03/08/2026 và bảng đó mới là bảng đúng. Dùng bảng dưới, đừng dùng §5.1.
+> ⚠️ **Bảng VRAM ở [ARCHITECTURE.md §5.1](../../ARCHITECTURE.md) đã lỗi thời.** Nó ghi vision `Qwen2.5-VL-3B AWQ ~3,0 GB` và tổng `~15,0 GB`. Mã không làm thế: [`engine.py`](../../src/core/engine.py) nạp vision bằng `torch_dtype=torch.bfloat16`, **không lượng tử hoá gì cả**. [RAG_VLM_KE_HOACH.md §B.2.4](../ky-thuat/RAG_VLM_KE_HOACH.md) đã tính lại ngày 03/08/2026 và bảng đó mới là bảng đúng. Dùng bảng dưới, đừng dùng §5.1.
 
-Ngân sách VRAM thật trên L4 22,5GB, theo [RAG_VLM_KE_HOACH.md §B.2.4](RAG_VLM_KE_HOACH.md):
+Ngân sách VRAM thật trên L4 22,5GB, theo [RAG_VLM_KE_HOACH.md §B.2.4](../ky-thuat/RAG_VLM_KE_HOACH.md):
 
 | Thành phần | VRAM | Ghi chú |
 |---|---|---|
@@ -109,7 +109,7 @@ Ngân sách VRAM thật trên L4 22,5GB, theo [RAG_VLM_KE_HOACH.md §B.2.4](RAG_
 
 Chuyển embedder với reranker sang CPU là cách đã dùng để lấy lại 2,4 GB. Truy vấn RAG thưa, vài lượt mỗi phút chứ không phải mỗi token, nên đổi ~200ms độ trễ lấy 2,4 GB là hời.
 
-**Hệ quả cho chu kỳ này.** `L4 22,5GB là sàn, T4 16GB không đủ` ([PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md) nêu thẳng). Và yêu cầu `ctx 32k` của S2 **chưa ai đo** trên cấu hình thật.
+**Hệ quả cho chu kỳ này.** `L4 22,5GB là sàn, T4 16GB không đủ` ([PHIEN_DO_COLAB.md](../ky-thuat/PHIEN_DO_COLAB.md) nêu thẳng). Và yêu cầu `ctx 32k` của S2 **chưa ai đo** trên cấu hình thật.
 
 Tính thử để biết nên trông đợi gì, **con số dưới là ước lượng cần BR-04 xác nhận**. KV cache của Qwen3-8B tốn khoảng `2 × số_lớp × số_đầu_KV × head_dim × 2 byte` mỗi token. Với 36 lớp, 8 đầu KV, head_dim 128 thì ra ~0,147 MB mỗi token, tức **~4,6 GB cho một chuỗi dài trọn 32k**. Cộng ~6 GB weights AWQ thì một chuỗi 32k chiếm ~10,6 GB trong bể 12,4 GB.
 
@@ -127,7 +127,7 @@ Tính thử để biết nên trông đợi gì, **con số dưới là ước l
 
 ### 2.5. Ràng buộc bất biến
 
-R1–R5 ở [AGENTS.md](AGENTS.md) áp cho mọi yêu cầu, không ngoại lệ. Bản rút gọn: LLM không tính toán; dữ liệu khách không tới LLM bên thứ ba; hạ tầng ≤ 5.000.000đ/tháng; một khái niệm một nguồn; không hardcode phần cứng.
+R1–R5 ở [AGENTS.md](../../AGENTS.md) áp cho mọi yêu cầu, không ngoại lệ. Bản rút gọn: LLM không tính toán; dữ liệu khách không tới LLM bên thứ ba; hạ tầng ≤ 5.000.000đ/tháng; một khái niệm một nguồn; không hardcode phần cứng.
 
 ---
 
@@ -143,7 +143,7 @@ chat.py ─► manager ─► ModelEngine.generate_chat
                            └─ run_in_executor ─► vllm.LLM.generate   ◄── TRONG TIẾN TRÌNH
 ```
 
-`vllm.LLM` là **API chạy lô ngoại tuyến**. Mỗi lệnh `.generate()` chạy trọn một vòng lập lịch cho đúng lô đưa vào. Đưa vào một prompt nghĩa là lô kích thước một, nên **continuous batching bị vô hiệu hoá hoàn toàn**. Thêm vào đó, `run_in_executor` cho nhiều luồng cùng gọi một đối tượng không thread-safe. Đó là nguyên nhân hiện tượng "quá tải, treo" mà [ARCHITECTURE.md §5.4](ARCHITECTURE.md) mô tả.
+`vllm.LLM` là **API chạy lô ngoại tuyến**. Mỗi lệnh `.generate()` chạy trọn một vòng lập lịch cho đúng lô đưa vào. Đưa vào một prompt nghĩa là lô kích thước một, nên **continuous batching bị vô hiệu hoá hoàn toàn**. Thêm vào đó, `run_in_executor` cho nhiều luồng cùng gọi một đối tượng không thread-safe. Đó là nguyên nhân hiện tượng "quá tải, treo" mà [ARCHITECTURE.md §5.4](../../ARCHITECTURE.md) mô tả.
 
 ### 3.2. Đích
 
@@ -162,9 +162,9 @@ chat.py ─► manager ─► ModelEngine.generate_chat
 
 | # | Bẫy | Đường trong tiến trình xử ra sao | Đường server |
 |---|---|---|---|
-| 1 | **Chat template** | `self.llm.get_tokenizer().apply_chat_template(...)` tại [`engine.py:354`](src/core/engine.py#L354) | Client chỉ có `complete()` gọi `/v1/completions` với **prompt thô**. Không có hàm chat |
-| 2 | **`enable_thinking=False`** | đặt tại [`engine.py:358`](src/core/engine.py#L358) | Chưa có. Qwen3 mặc định **bật** thinking, nên model xổ `<think>` trước mọi câu, trong khi grammar ép `{` là token đầu và dataset v3 train **không** think |
-| 3 | **`repetition_penalty` khi bật grammar** | hạ 1,25 → 1,0 tại [`engine.py:341`](src/core/engine.py#L341) | `CompletionRequest` mặc định 1,25 và không chỗ nào hạ. JSON **bắt buộc** lặp token (`"typeVersion"`, `"position"`, dấu ngoặc), nên phạt lặp sẽ cấm chính các token grammar đòi |
+| 1 | **Chat template** | `self.llm.get_tokenizer().apply_chat_template(...)` tại [`engine.py:354`](../../src/core/engine.py#L354) | Client chỉ có `complete()` gọi `/v1/completions` với **prompt thô**. Không có hàm chat |
+| 2 | **`enable_thinking=False`** | đặt tại [`engine.py:358`](../../src/core/engine.py#L358) | Chưa có. Qwen3 mặc định **bật** thinking, nên model xổ `<think>` trước mọi câu, trong khi grammar ép `{` là token đầu và dataset v3 train **không** think |
+| 3 | **`repetition_penalty` khi bật grammar** | hạ 1,25 → 1,0 tại [`engine.py:341`](../../src/core/engine.py#L341) | `CompletionRequest` mặc định 1,25 và không chỗ nào hạ. JSON **bắt buộc** lặp token (`"typeVersion"`, `"position"`, dấu ngoặc), nên phạt lặp sẽ cấm chính các token grammar đòi |
 
 > **Bẫy thứ tư, phát hiện ở BR-04 ngày 26/10/2026 — đã sửa.** Lược đồ quyết định của vòng agentic (`build_decision_schema`) đặt `properties` + `additionalProperties: false` cạnh `oneOf` + `not`. xgrammar, backend mặc định của vLLM 0.11, bỏ qua khoá đứng cạnh `oneOf`, nên grammar nhận cả câu trả lời tự do lẫn "vừa gọi tool vừa hỏi lại"; vLLM không cảnh báo. Câu soát hoá đơn ra `tool_calls=0` năm lần trên năm. Sửa ở `82e9e9c`: `anyOf` hai nhánh đóng; phép thử đo bằng xgrammar thật. Chi tiết ở [BAO_CAO_BR04.md](BAO_CAO_BR04.md) §5.1.
 
@@ -178,7 +178,7 @@ Bẫy 2 và 3 không làm chương trình đổ. Chúng làm chất lượng sin
 
 **Ưu tiên** P0 · **Người làm** Thành · **Hạn** Thứ Ba 27/10 · **Phụ thuộc** không
 
-**Vì sao.** `VatRequest.items` khai là `list[dict]` ([`tools.py:152`](src/api/routes/tools.py#L152)) nên pydantic không kiểm gì bên trong. Đo ngày 24/10/2026 trên chính endpoint đang chạy:
+**Vì sao.** `VatRequest.items` khai là `list[dict]` ([`tools.py:152`](../../src/api/routes/tools.py#L152)) nên pydantic không kiểm gì bên trong. Đo ngày 24/10/2026 trên chính endpoint đang chạy:
 
 | Gửi vào | `calculated_total` | Tool kết luận |
 |---|---|---|
@@ -248,7 +248,7 @@ Kèm test hồi quy phủ cả ba ca trong bảng. `pytest -q` PHẢI vẫn xanh
 4. `GET /health` PHẢI khai backend đang dùng và trạng thái sống của vLLM server.
 5. PHẢI có phép thử dựng **server giả**, gọi `generate_chat`, và **đòi server giả nhận được request**. Phép thử chỉ kiểm biến môi trường được đọc là không đủ.
 6. `tests/test_deploy_config.py` PHẢI cập nhật: `VLLM_BASE_URL` và `VLLM_MODEL` ra khỏi diện nghi vấn; `REDIS_URL` và `VLLM_VISION_*` ở lại `CHUA_NOI` kèm lý do.
-7. Giá trị `ENV: SERVER` trong compose PHẢI được hiểu tường minh hoặc gỡ bỏ. Mã hiện chỉ rẽ ở `== "LOCAL"` ([`engine.py:181`](src/core/engine.py#L181)), nên mọi giá trị khác đều rơi vào nhánh nạp model lên CUDA.
+7. Giá trị `ENV: SERVER` trong compose PHẢI được hiểu tường minh hoặc gỡ bỏ. Mã hiện chỉ rẽ ở `== "LOCAL"` ([`engine.py:181`](../../src/core/engine.py#L181)), nên mọi giá trị khác đều rơi vào nhánh nạp model lên CUDA.
 
 **Nghiệm thu.**
 ```bash
@@ -265,12 +265,12 @@ Và trên Colab ở BR-04: một câu hỏi thật đi trọn vòng qua `VLLM_BA
 
 **Ưu tiên** P0 · **Người làm** Thành · **Hạn** Thứ Tư 04/11 · **Phụ thuộc** BR-03
 
-**Vì sao.** S2 đòi **ctx 32k**, và [ARCHITECTURE.md §9.3](ARCHITECTURE.md) giải thích vì sao đó là điều kiện cần: vòng agentic nạp lại kết quả tool ở mỗi bước, nên ở `max_model_len` nhỏ thì context tràn sau khoảng ba lần gọi tool có kèm đoạn RAG. Chưa ai đo 32k trên phần cứng thật.
+**Vì sao.** S2 đòi **ctx 32k**, và [ARCHITECTURE.md §9.3](../../ARCHITECTURE.md) giải thích vì sao đó là điều kiện cần: vòng agentic nạp lại kết quả tool ở mỗi bước, nên ở `max_model_len` nhỏ thì context tràn sau khoảng ba lần gọi tool có kèm đoạn RAG. Chưa ai đo 32k trên phần cứng thật.
 
 **Hai ràng buộc đã chốt, không đưa ra thương lượng lại trong chu kỳ này:**
 
 1. **Vision ở lại.** Quyết định của chủ dự án ngày 24/10. ANSER cần vision cho một số tác vụ, nên mọi phương án lấy chỗ bằng cách tắt vision đều bị loại.
-2. **Không lượng tử hoá vision xuống 4-bit.** [RAG_VLM_KE_HOACH.md §B.2.4](RAG_VLM_KE_HOACH.md) đã bác phương án này với lý do đứng vững: việc của vision là đọc đúng con số tiền trên tờ giấy nhàu, đó là loại tác vụ mất mát lượng tử hoá gây hại nhất, và dự án **chưa có bộ ảnh thật nào** để đo xem mất bao nhiêu.
+2. **Không lượng tử hoá vision xuống 4-bit.** [RAG_VLM_KE_HOACH.md §B.2.4](../ky-thuat/RAG_VLM_KE_HOACH.md) đã bác phương án này với lý do đứng vững: việc của vision là đọc đúng con số tiền trên tờ giấy nhàu, đó là loại tác vụ mất mát lượng tử hoá gây hại nhất, và dự án **chưa có bộ ảnh thật nào** để đo xem mất bao nhiêu.
 
 Nên đánh đổi cần đo là **ctx so với số request đồng thời**, xem phép tính ở §2.3.
 
@@ -284,13 +284,13 @@ Nên đánh đổi cần đo là **ctx so với số request đồng thời**, x
 7. Nếu 32k không vừa, hướng xử đã chốt ngày 24/10 là **hạ ctx**, không phải đẩy vision sang tiến trình riêng. Lý do: dự án cần dựng được một môi trường **giả lập production để thử Brain**, và một tiến trình vLLM cộng vision nạp trong tiến trình thì dựng lại dễ hơn hẳn hai dịch vụ GPU trên cùng một máy. Thứ tự thử:
    - hạ `gpu_memory_utilization` rồi đo lại **trước**, vì weights AWQ chỉ ~6 GB nên phần giữ chỗ 12,4 GB có thể rộng hơn mức cần;
    - rồi mới hạ `max_model_len`.
-8. Ctx chọn ra PHẢI **đủ cho một kế hoạch 3 tool kèm đoạn RAG**, đo bằng một ca thật chứ không chọn theo con số tròn. `MAX_PLAN` là 3 và `DEFAULT_MAX_STEPS` là 4, nên cửa sổ phải chứa: system prompt, lịch sử hội thoại, ba kết quả tool, các đoạn RAG, và chỗ cho câu trả lời. [ARCHITECTURE.md §9.3](ARCHITECTURE.md) ghi ở 4096 thì tràn sau khoảng ba lần gọi tool có kèm RAG, nên đó là sàn tuyệt đối chứ không phải mức dùng được.
-9. Kết quả PHẢI thành một quyết định ghi vào [ARCHITECTURE.md](ARCHITECTURE.md) trong cùng PR, **kèm sửa bảng §5.1 đang lỗi thời** như §2.3 nêu.
+8. Ctx chọn ra PHẢI **đủ cho một kế hoạch 3 tool kèm đoạn RAG**, đo bằng một ca thật chứ không chọn theo con số tròn. `MAX_PLAN` là 3 và `DEFAULT_MAX_STEPS` là 4, nên cửa sổ phải chứa: system prompt, lịch sử hội thoại, ba kết quả tool, các đoạn RAG, và chỗ cho câu trả lời. [ARCHITECTURE.md §9.3](../../ARCHITECTURE.md) ghi ở 4096 thì tràn sau khoảng ba lần gọi tool có kèm RAG, nên đó là sàn tuyệt đối chứ không phải mức dùng được.
+9. Kết quả PHẢI thành một quyết định ghi vào [ARCHITECTURE.md](../../ARCHITECTURE.md) trong cùng PR, **kèm sửa bảng §5.1 đang lỗi thời** như §2.3 nêu.
 10. Cấu hình chốt lại PHẢI viết thành **runbook dựng lại được**, vì nó là nền của môi trường giả lập production. Một cấu hình chỉ dựng được một lần bởi một người thì không dùng để thử lặp đi lặp lại.
 
 **Nghiệm thu.** Một bảng trong PR, mỗi dòng một mức `max_model_len`, các cột: dựng được hay không, VRAM đỉnh, `GPU KV cache size`, số request 32k song song suy ra, p95. Kèm một đoạn log vLLM server cho thấy request của Brain đi tới nơi.
 
-**Ngoài yêu cầu.** Không phục vụ traffic thật từ Colab. [ARCHITECTURE.md §4.4](ARCHITECTURE.md): điều khoản Colab Paid cấm web service, nên Colab chỉ dùng để đo và thử nghiệm rời rạc. Không đổi model vision trong chu kỳ này.
+**Ngoài yêu cầu.** Không phục vụ traffic thật từ Colab. [ARCHITECTURE.md §4.4](../../ARCHITECTURE.md): điều khoản Colab Paid cấm web service, nên Colab chỉ dùng để đo và thử nghiệm rời rạc. Không đổi model vision trong chu kỳ này.
 
 ---
 
@@ -300,7 +300,7 @@ Nên đánh đổi cần đo là **ctx so với số request đồng thời**, x
 
 **Vì sao.** Chủ dự án chốt ngày 24/10: đo **bản fine-tune `anser-v3-awq`**, và mục đích là *"xem hổng chỗ nào để còn biết mà cải tiến"*. Nên việc này là **chẩn đoán**, không phải chấm điểm. Đầu ra có giá trị của nó là một **danh sách lỗ hổng theo loại**, đủ cụ thể để quyết vòng cải tiến sau sửa cái gì.
 
-Nó đồng thời đóng hai việc treo ở [TIEN_TRINH_BRAIN.md §3](TIEN_TRINH_BRAIN.md). Treo 1: `render_tools()` từng quảng cáo `sales`, `expenses`, `lines*` cho model trong khi lược đồ đã gạch chúng; sửa ở `0c82c4d` nhưng **chưa có số chứng minh nó kéo agentic lên**. Treo 2: `providers.py` ghi lại chế độ ràng buộc **dự định**, còn `smoke_test_guided()` kiểm chế độ đó có **thi hành** không.
+Nó đồng thời đóng hai việc treo ở [TIEN_TRINH_BRAIN.md §3](../ky-thuat/TIEN_TRINH_BRAIN.md). Treo 1: `render_tools()` từng quảng cáo `sales`, `expenses`, `lines*` cho model trong khi lược đồ đã gạch chúng; sửa ở `0c82c4d` nhưng **chưa có số chứng minh nó kéo agentic lên**. Treo 2: `providers.py` ghi lại chế độ ràng buộc **dự định**, còn `smoke_test_guided()` kiểm chế độ đó có **thi hành** không.
 
 Số phiên 15/08 để biết nên soi vào đâu trước:
 
@@ -313,7 +313,7 @@ Số phiên 15/08 để biết nên soi vào đâu trước:
 
 Tám ca bịa số ở narration là lỗi **R1**, và với sản phẩm kế toán thì đó là loại không được phép có.
 
-Runbook đầy đủ ở [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md). Khoảng một giờ, vì dữ liệu sinh phiên 15/08 còn trên Drive tại `ANSER_AI_Logistics/generated`.
+Runbook đầy đủ ở [PHIEN_DO_COLAB.md](../ky-thuat/PHIEN_DO_COLAB.md). Khoảng một giờ, vì dữ liệu sinh phiên 15/08 còn trên Drive tại `ANSER_AI_Logistics/generated`.
 
 **Yêu cầu.**
 1. PHẢI chạy `benchmark_v3.py` trên `anser-v3-awq`, qua **đường server** của BR-03. Đo đường không dùng nữa là đo một khâu không phục vụ ai.
@@ -341,12 +341,12 @@ Runbook đầy đủ ở [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md). Khoảng một 
 
 **Vì sao.** `src/core/knowledge.py` có 571 dòng và 70 test đơn vị, và **không một chỉ số recall, MRR hay faithfulness nào**. TIEN_TRINH §7 xếp việc này thứ hai và ghi rõ nó không cần GPU, nên nó chạy song song với mọi thứ trên.
 
-Bốn lỗ hổng chức năng mà [ARCHITECTURE.md §13b.3](ARCHITECTURE.md) liệt kê thì **đã vá hết**: `workspace_id` bắt buộc ở mọi lối vào, `Passage` có `source` và ngày hiệu lực, tài liệu hết hiệu lực bị loại hẳn, `ingest_folder` đã ra khỏi `__init__`. Việc còn lại thuần là đo.
+Bốn lỗ hổng chức năng mà [ARCHITECTURE.md §13b.3](../../ARCHITECTURE.md) liệt kê thì **đã vá hết**: `workspace_id` bắt buộc ở mọi lối vào, `Passage` có `source` và ngày hiệu lực, tài liệu hết hiệu lực bị loại hẳn, `ingest_folder` đã ra khỏi `__init__`. Việc còn lại thuần là đo.
 
 **Yêu cầu.**
 1. PHẢI báo cáo ít nhất một chỉ số tầng truy hồi và một chỉ số tầng sinh. Ngưỡng khởi điểm: **Recall@20 ≥ 0,8**, MRR càng gần 1 càng tốt.
 2. Bộ câu hỏi sinh từ tài liệu PHẢI có người rà lại **20% mẫu**. Câu hỏi sinh máy mà tự trả lời được không cần truy hồi thì phải loại.
-3. **PHẢI KHÔNG gửi tài liệu của khách tới DeepSeek.** [BAN_GIAO_VAN_TAI.md §E.3](BAN_GIAO_VAN_TAI.md) đề nghị dùng DeepSeek sinh câu hỏi từ "hợp đồng, bảng giá cước, chính sách công nợ", và đó là **dữ liệu khách**, vi phạm R2. DeepSeek chỉ dùng cho corpus công khai là nghị định và văn bản pháp luật. Tài liệu khách thì gõ tay hoặc sinh bằng model local.
+3. **PHẢI KHÔNG gửi tài liệu của khách tới DeepSeek.** [BAN_GIAO_VAN_TAI.md §E.3](../khach-hang/BAN_GIAO_VAN_TAI.md) đề nghị dùng DeepSeek sinh câu hỏi từ "hợp đồng, bảng giá cước, chính sách công nợ", và đó là **dữ liệu khách**, vi phạm R2. DeepSeek chỉ dùng cho corpus công khai là nghị định và văn bản pháp luật. Tài liệu khách thì gõ tay hoặc sinh bằng model local.
 4. `grounding.py` đã là một dạng faithfulness thu hẹp về **con số**. Yêu cầu là **mở rộng nó thành chỉ số báo cáo được**, không thay bằng thứ khác.
 5. NÊN thử ba cải tiến theo thứ tự của E.3: chỉnh cách chia đoạn trước (bge-m3 nhận tới 8192 token, chia theo 128 token của model cũ là phí), rồi bật tắt ViRanker để so, rồi tìm lai từ khoá cộng vector.
 
@@ -423,7 +423,7 @@ Cả bốn việc đầu nằm trên một đường. **BR-02 trượt là cả 
 
 | Ngày | Thành |
 |---|---|
-| **T2 26/10** | Dựng môi trường theo [sổ tay §2](SO_TAY_NGUOI_MOI.md), ra 1003 passed. **BR-01** |
+| **T2 26/10** | Dựng môi trường theo [sổ tay §2](../../SO_TAY_NGUOI_MOI.md), ra 1003 passed. **BR-01** |
 | **T3 27/10** | **BR-01 hạn**, có test hồi quy. Đọc `serving.py` và `engine.py`, chốt thiết kế rẽ nhánh backend |
 | **T4 28/10** | **BR-02** |
 | **T5 29/10** | **BR-02 hạn**. Bắt đầu **BR-03** |
@@ -512,7 +512,7 @@ Mỗi mục chưa đạt PHẢI có một dòng nêu lý do và người chịu 
 | # | Câu hỏi | Khi nào cần trả lời |
 |---|---|---|
 | 1 | **Ctx chốt ở mức nào**, và `ANSER_TEXT_MAX_CONCURRENT` theo đó là bao nhiêu | Khi BR-04 có số đo, dự kiến Thứ Tư 04/11. Hỏi trước lúc có số là đoán |
-| 2 | **Môi trường giả lập production đặt ở đâu** khi rời Colab | Chu kỳ 02. Colab không phục vụ traffic thật được ([ARCHITECTURE.md §4.4](ARCHITECTURE.md)) |
+| 2 | **Môi trường giả lập production đặt ở đâu** khi rời Colab | Chu kỳ 02. Colab không phục vụ traffic thật được ([ARCHITECTURE.md §4.4](../../ARCHITECTURE.md)) |
 
 ## 9. Ngoài phạm vi chu kỳ 01
 
@@ -536,14 +536,14 @@ Nêu ra để không ai làm, và để biết chúng chưa chết.
 
 | Cần gì | Đọc đâu |
 |---|---|
-| Dựng môi trường, hiểu mã, từ điển thuật ngữ | [SO_TAY_NGUOI_MOI.md](SO_TAY_NGUOI_MOI.md) |
+| Dựng môi trường, hiểu mã, từ điển thuật ngữ | [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md) |
 | Bảy việc dài hạn kèm bối cảnh đầy đủ | [GIAO_VIEC_BRAIN.md](GIAO_VIEC_BRAIN.md) |
-| Đang ở đâu, cái gì đã chắc, cái gì đang dở | [TIEN_TRINH_BRAIN.md](TIEN_TRINH_BRAIN.md) |
-| Năm ràng buộc R1–R5, thứ tự ưu tiên S0–S8 | [AGENTS.md](AGENTS.md) |
-| Quyết định kiến trúc, ngân sách VRAM, sổ lỗi | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| Chạy phiên đo Colab từng ô | [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md) |
-| Cổng ra từng giai đoạn | [ROADMAP.md](ROADMAP.md) |
-| Ba mảng nghiên cứu sâu, gồm phương án bộ đo RAG | [BAN_GIAO_VAN_TAI.md](BAN_GIAO_VAN_TAI.md) §E |
+| Đang ở đâu, cái gì đã chắc, cái gì đang dở | [TIEN_TRINH_BRAIN.md](../ky-thuat/TIEN_TRINH_BRAIN.md) |
+| Năm ràng buộc R1–R5, thứ tự ưu tiên S0–S8 | [AGENTS.md](../../AGENTS.md) |
+| Quyết định kiến trúc, ngân sách VRAM, sổ lỗi | [ARCHITECTURE.md](../../ARCHITECTURE.md) |
+| Chạy phiên đo Colab từng ô | [PHIEN_DO_COLAB.md](../ky-thuat/PHIEN_DO_COLAB.md) |
+| Cổng ra từng giai đoạn | [ROADMAP.md](../../ROADMAP.md) |
+| Ba mảng nghiên cứu sâu, gồm phương án bộ đo RAG | [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) §E |
 
 ---
 

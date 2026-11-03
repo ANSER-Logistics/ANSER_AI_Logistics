@@ -33,7 +33,7 @@ cánh cổng mà khách không có chìa, còn thứ tạo ra giá trị thì kh
 
 **Cập nhật 15/08/2026 — GĐ D đã xong.** Hai phiên đo đầy đủ trên Colab, so theo
 cặp bằng McNemar. Kết luận: **dùng model gốc, chưa cần train lại.** Chi tiết ở
-[PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md); tóm tắt ở GĐ D bên dưới.
+[PHIEN_DO_COLAB.md](docs/ky-thuat/PHIEN_DO_COLAB.md); tóm tắt ở GĐ D bên dưới.
 
 ---
 
@@ -151,7 +151,7 @@ Cụ thể ba chỗ đang tự khẳng định:
 | "Sửa hồi tố" | Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường |
 | Ngưỡng tập trung 20%/50% | Con số do ta đặt, chưa ai xác nhận là mức đáng lo |
 
-**Việc cần:** một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](HOANG_PHAT_SOAT_SO_1108.md)
+**Việc cần:** một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md)
 và nói từng phát hiện là đúng hay sai. Một buổi là đủ.
 
 ---
@@ -180,7 +180,7 @@ diễn giải kết quả (narration) và gọi tool (agentic) — đúng hai nh
 thứ P1 sinh ra để chặn, và với sản phẩm kế toán là lỗi không được phép có.
 
 **Không train lại lúc này.** Bản AWQ giữ trên Drive; khi nào quay lại vận tải
-thì lấy ra. Chi tiết và cách đọc lại kết quả: [PHIEN_DO_COLAB.md](PHIEN_DO_COLAB.md).
+thì lấy ra. Chi tiết và cách đọc lại kết quả: [PHIEN_DO_COLAB.md](docs/ky-thuat/PHIEN_DO_COLAB.md).
 
 **Ba lỗi mã tìm ra nhờ phiên đo** (không phải lỗi model):
 
@@ -217,7 +217,7 @@ một thất bại vô hình thành một dòng in ở phút thứ nhất.
 | Thuế suất thực tế trên hoá đơn | cần 3–5 hoá đơn bán ra sau 01/7/2025 |
 | Khách thứ hai | cần GĐ B + GĐ C xong |
 
-Danh sách đầy đủ ở [HOANG_PHAT_DU_LIEU_CAN_XIN.md](HOANG_PHAT_DU_LIEU_CAN_XIN.md).
+Danh sách đầy đủ ở [HOANG_PHAT_DU_LIEU_CAN_XIN.md](docs/khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md).
 
 ---
 

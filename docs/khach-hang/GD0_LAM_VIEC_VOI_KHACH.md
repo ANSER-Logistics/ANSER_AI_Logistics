@@ -1,6 +1,6 @@
 # Giai đoạn 0 — Buổi làm việc với khách
 
-> Việc này **chặn mọi giai đoạn khác** trong [ROADMAP.md](ROADMAP.md), dù nó không
+> Việc này **chặn mọi giai đoạn khác** trong [ROADMAP.md](../../ROADMAP.md), dù nó không
 > có một dòng code nào. Lý do: `fuel_sensitivity = 0.35` và bộ trọng số chọn nhà xe
 > hiện tại là **giả định đọc từ bản ghi phỏng vấn**, chưa một con số thật nào chạy
 > qua. Fine-tune giỏi mấy cũng không cứu được một công thức giá sai — model chỉ học

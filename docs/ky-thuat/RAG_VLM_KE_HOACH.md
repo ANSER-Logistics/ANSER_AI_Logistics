@@ -1,6 +1,6 @@
 # Kế hoạch RAG + VLM
 
-> Hai khối này nằm ở **Giai đoạn 3** của [ROADMAP.md](ROADMAP.md) — sau khi GĐ 0 chốt
+> Hai khối này nằm ở **Giai đoạn 3** của [ROADMAP.md](../../ROADMAP.md) — sau khi GĐ 0 chốt
 > công thức giá và GĐ 2 chạy được end-to-end. Kế hoạch viết trước để đội Body và
 > việc thu thập dữ liệu chạy song song, **không phải để bắt đầu code ngay**.
 
@@ -18,7 +18,7 @@ mà nghe như hiện tại. Đó là dạng sai nguy hiểm nhất — nghe đú
 
 ## A.1. `knowledge.py` hiện tại: 6 lỗ hổng, 1 cái là chặn
 
-Đã đọc lại toàn bộ [src/core/knowledge.py](src/core/knowledge.py). Bốn lỗ hổng
+Đã đọc lại toàn bộ [src/core/knowledge.py](../../src/core/knowledge.py). Bốn lỗ hổng
 ARCHITECTURE §13b.3 đã ghi, cộng hai cái mới phát hiện khi đọc kỹ.
 
 ### 🔴 A.1.1 — CHẶN: không có cách ly theo khách hàng
@@ -262,7 +262,7 @@ VLM thì báo cáo lãi lỗ mới có nghĩa. Hai đường cùng lấp một l
 
 ## B.2. Trạng thái hiện tại và bốn vấn đề
 
-Đọc [src/agents/vision.py](src/agents/vision.py) và [src/core/schemas.py](src/core/schemas.py).
+Đọc [src/agents/vision.py](../../src/agents/vision.py) và [src/core/schemas.py](../../src/core/schemas.py).
 
 ### 🔴 B.2.1 — Lược đồ đang là hoá đơn BÁN LẺ, không phải cước vận tải
 
@@ -311,7 +311,7 @@ phần này.
 
 #### ⚠ Bảng VRAM bản đầu SAI — tính lại theo code đang chạy (03/08/2026)
 
-Bảng cũ ghi "Qwen2.5-VL-3B **4-bit** ~2,5 GB". Nhưng [engine.py](src/core/engine.py#L160)
+Bảng cũ ghi "Qwen2.5-VL-3B **4-bit** ~2,5 GB". Nhưng [engine.py](../../src/core/engine.py#L160)
 nạp vision bằng `torch_dtype=torch.bfloat16` — **không lượng tử hoá gì cả**. Và
 `gpu_memory_utilization` là **phần trăm tổng VRAM cấp cho vLLM**, không phải phần
 vLLM thực dùng; 0,55 nghĩa là vLLM giữ chỗ 12,4 GB bất kể weights chỉ 6 GB.
@@ -375,7 +375,7 @@ Nếu khách **đã nhập tay** hoá đơn vào sổ kế toán, thì mỗi ả
 bản ghi đúng tương ứng. Ghép ảnh với dòng sổ theo số hoá đơn là ra **tập huấn luyện
 có nhãn, không tốn một đồng gán nhãn nào**.
 
-Đây là câu hỏi số 6 trong [GD0_LAM_VIEC_VOI_KHACH.md](GD0_LAM_VIEC_VOI_KHACH.md) —
+Đây là câu hỏi số 6 trong [GD0_LAM_VIEC_VOI_KHACH.md](../khach-hang/GD0_LAM_VIEC_VOI_KHACH.md) —
 hỏi ngay buổi đầu, vì câu trả lời quyết định GĐ 3b tốn một tuần hay một ngày.
 
 ---
