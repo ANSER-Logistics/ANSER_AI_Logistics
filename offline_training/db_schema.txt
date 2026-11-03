@@ -1,3 +1,21 @@
+# ⚠️ FILE NÀY KHÔNG ĐƯỢC MÃ NÀO ĐỌC, VÀ NỘI DUNG ĐÃ LỆCH KHỎI BODY.
+#
+# Soát 04/11/2026. Không file .py nào import nó — chỉ tài liệu nhắc tới.
+#
+# Đối chiếu lược đồ thật (Dgsonn/ANSER-logistics, master d389c68,
+# frontend/src/server/db/schema.ts, 13 bảng): phần lớn bảng liệt kê dưới đây
+# KHÔNG TỒN TẠI. Body dùng sales_invoices / sales_invoice_items /
+# invoice_payments / inventory_transactions, không có sales, không có
+# import_transactions, không có export_transactions, không có workspace.
+#
+# HAI CHỈ DẪN ĐANG NGƯỢC NHAU, CẦN CHỦ DỰ ÁN CHỐT:
+#   - ARCHITECTURE.md §11.5 nói đây là chỗ BỔ SUNG bảng logistics.
+#   - agent_middleware.get_db_schema() nói Brain KHÔNG giữ bản sao lược đồ,
+#     Body gửi kèm ngữ cảnh (R4). Prompts.DB_SCHEMA đã xoá vì lý do đó.
+#
+# Nếu chốt theo R4 thì file này nên xoá, không phải cập nhật.
+# Xem việc brain#20 trên bảng kanzo.
+
 [BẢNG CỐT LÕI — BÁN LẺ]
 products(id, code, name, category, unit, price, stock_quantity, description, created_by, created_at, updated_at, image_url)
 sales(id, user_id, total_amount, amount_given, change_amount, items, payment_method, workspace_id, category, created_at)
