@@ -48,14 +48,16 @@ Hệ thống có hai nửa, hai repo, hai ngôn ngữ.
 
 | | **Brain** (repo này) | **Body** |
 |---|---|---|
-| Repo | `PCBoiz/ANSER_AI_Logistics` | `Dgsonn/ANSER-logistics` |
+| Repo | `ANSER-Logistics/ANSER_AI_Logistics` | `Dgsonn/ANSER-logistics` |
 | Công nghệ | Python, FastAPI | Next.js, Neon Postgres, Drizzle |
 | Việc | Cung cấp năng lực AI qua HTTP: soi sổ sách, đọc hoá đơn, chat, sinh workflow | Giao diện, đăng nhập, dữ liệu nghiệp vụ, gọi Brain qua `brain.ts` |
 | Quyền của bạn | Sửa thoải mái | **Không sửa.** Chỉ được đề xuất bằng văn bản |
 
 Body chạy được khi Brain tắt. Lúc đó các tính năng AI hiện trạng "chưa cấu hình", phần còn lại vẫn dùng bình thường. Thiết kế như vậy có chủ đích: Brain đổi hạ tầng mà Body không sửa dòng nào.
 
-> **Cả hai repo đều đã đổi tên.** Brain `ANSER_AI` → `ANSER_AI_Logistics`; Body `ANSER-v2` → `ANSER-logistics` (đổi khoảng đầu 11/2026). GitHub redirect tên cũ nên link cũ chưa gãy, nhưng tài liệu viết trước thời điểm đó — biên bản, bản phân việc, SRS chu kỳ 01 — còn ghi tên cũ. Đó là tài liệu lịch sử, cố ý không sửa: sửa tên trong một biên bản đã ký là viết lại cái đã xảy ra. Bảng ngay trên là bảng tra cứu đang dùng, nên nó mới là chỗ phải đúng.
+> **Cả hai repo đã chuyển vào GitHub Organization [`ANSER-Logistics`](https://github.com/ANSER-Logistics)** (lập 03/11/2026). Brain đã transfer; Body đang chờ. Hướng dẫn và lý do ở [docs/GITHUB_ORG_DE_XUAT.md](docs/GITHUB_ORG_DE_XUAT.md).
+>
+> **Cả hai repo cũng đã đổi tên trước đó.** Brain `ANSER_AI` → `ANSER_AI_Logistics`; Body `ANSER-v2` → `ANSER-logistics` (đổi khoảng đầu 11/2026). GitHub redirect tên cũ nên link cũ chưa gãy, nhưng tài liệu viết trước thời điểm đó — biên bản, bản phân việc, SRS chu kỳ 01 — còn ghi tên cũ. Đó là tài liệu lịch sử, cố ý không sửa: sửa tên trong một biên bản đã ký là viết lại cái đã xảy ra. Bảng ngay trên là bảng tra cứu đang dùng, nên nó mới là chỗ phải đúng.
 
 Một nửa thứ ba nằm ngoài cả hai: **n8n** chạy các việc theo lịch, như gửi báo cáo email và cảnh báo tồn kho thấp. Brain sinh ra JSON workflow cho n8n, và n8n gọi ngược vào `/tools/*` của Brain khi cần tính toán.
 
