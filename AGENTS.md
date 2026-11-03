@@ -29,6 +29,10 @@ Ranh giới cụ thể, vì agent có quyền `admin` trên repo Body qua org:
 
 Quy trình và bản nháp: [`docs/de-xuat-body/`](docs/de-xuat-body/).
 
+**Viết cho Body thì giả định họ không biết gì về Brain.** Hai đội, hai repo, hai bộ nghiệp vụ. Người bên Body không biết `R1` là gì, `BR-01` là sự cố nào, `reporting.py` làm gì. Mỗi PR hoặc issue gửi sang phải **tự đứng được** — không bắt ai mở repo Brain ra tra. Thuật ngữ riêng thì giải thích ngay tại chỗ, một câu.
+
+Luật đầy đủ, áp cho **mọi** tài liệu trong đội lẫn ngoài đội: [`docs/VIET-CHO-AI-DOC.md`](docs/VIET-CHO-AI-DOC.md).
+
 ### Bản sao mô tả
 
 [`agent_middleware.py`](src/core/agent_middleware.py) và các khối `SCHEMA MAP` trong [`memory.py`](src/core/memory.py), [`saas_api.py`](src/core/saas_api.py) là **bản sao mô tả** của thứ thuộc về Body. Chúng lệch được, và đã từng lệch. Trước khi tin vào chúng, đối chiếu lại với Body.
