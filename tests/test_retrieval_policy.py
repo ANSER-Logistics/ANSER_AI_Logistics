@@ -165,3 +165,66 @@ def test_duong_gui_that_dung_bo_loc():
     nguon = inspect.getsource(web_search_fallback)
     assert "loc_truy_van_web" in nguon, "web_search_fallback phải tự lọc"
     assert "ddgs.text(truy_van" in nguon, "phải gửi bản ĐÃ LỌC, không phải bản gốc"
+
+
+# ---------------------------------------------------------------------------
+# Tên riêng — R2 liệt kê "danh sách khách" là dữ liệu khách hàng
+#
+# Chỉ xoá chuỗi từ viết hoa đứng NGAY SAU một từ đánh dấu đối tác. Không xoá
+# mọi từ viết hoa: "Sở Kế hoạch Đầu tư", "Bộ Tài chính", "Tổng cục Thuế" là cơ
+# quan nhà nước, công khai, và là thứ làm truy vấn tìm đúng văn bản.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "cau, ten_phai_biet_mat",
+    [
+        ("hoá đơn điện tử cho công ty Minh Long có bắt buộc không", "Minh"),
+        ("thuế suất cho nhà xe Hoàng Phát Logistics", "Hoàng"),
+        ("hợp đồng với đối tác Phúc Thịnh cần giấy tờ gì", "Phúc"),
+        # Ca này bắt được một lỗi thật: bản đầu để "VIỆT"/"NAM" vào danh sách
+        # từ chung (nghĩ tới "Việt Nam"), nên vòng lặp dừng ngay ở "Nam" và
+        # TÊN NGƯỜI ĐI LỌT. Phép thử "câu có đổi không" vẫn xanh — chỉ khi đòi
+        # chính cái tên biến mất mới lộ ra.
+        ("thủ tục kiện khách Trần Văn Nam đòi nợ 340 triệu", "Nam"),
+    ],
+)
+def test_ten_rieng_khong_roi_khoi_he_thong(cau, ten_phai_biet_mat):
+    ra = loc_truy_van_web(cau)
+    assert ten_phai_biet_mat not in ra, f"còn sót tên trong {ra!r}"
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        # Cơ quan nhà nước — công khai, và cần cho truy vấn.
+        "thủ tục đăng ký với Sở Kế hoạch Đầu tư",
+        "nghị định của Bộ Tài chính về hoá đơn",
+        "quy định của Tổng cục Thuế về hoá đơn điện tử",
+        # Hình thức pháp nhân, không phải tên riêng.
+        "công ty TNHH có phải nộp thuế môn bài không",
+        # Từ chung sau từ đánh dấu.
+        "khách hàng cá nhân có được xuất hoá đơn không",
+    ],
+)
+def test_khong_xoa_ten_co_quan_nha_nuoc(cau):
+    """Xoá nhầm cơ quan nhà nước là đổi một lỗi R2 lấy một câu trả lời sai."""
+    assert loc_truy_van_web(cau) == cau
+
+
+def test_khong_an_nham_tu_thuong_chua_don_vi_tien():
+    """
+    "hợp đồng" có chữ "đồng" nhưng không phải đơn vị tiền.
+
+    Bản đầu có một bước dọn đơn vị tiền riêng và nó biến "hợp đồng với đối tác"
+    thành "hợp với đối tác". Đã bỏ bước đó — nhánh số của `_SO_TIEN` vốn đã
+    nuốt cả đơn vị đi kèm số.
+    """
+    ra = loc_truy_van_web("hợp đồng với đối tác Phúc Thịnh cần giấy tờ gì")
+    assert "hợp đồng" in ra
+    assert "Phúc" not in ra
+
+    # Đơn vị tiền ĐI KÈM SỐ thì vẫn phải biến mất.
+    ra2 = loc_truy_van_web("thuế GTGT cho khoản 5.000.000 đồng")
+    assert "5.000.000" not in ra2 and "đồng" not in ra2
+
