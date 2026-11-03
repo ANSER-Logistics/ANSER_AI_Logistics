@@ -12,16 +12,36 @@ Thư mục này giữ phần "văn bản" đó ở dạng dùng lại được.
 
 Cả hai repo giờ cùng org `ANSER-Logistics`, nên issue bên Body **liên kết được** với issue bên Brain bằng sub-issue — thứ trước khi có org không làm được.
 
-**Cách một — có `gh`, một lệnh:**
+**Cách một — có `gh`, một lệnh.**
 
-```bash
-gh issue create \
-  --repo ANSER-Logistics/ANSER-logistics-body \
-  --title "Panel lợi nhuận hiện 0% khi phủ giá vốn là 'không đo được' (?? 0)" \
-  --body-file docs/de-xuat-body/01-issue-body.md
+> ⚠️ Bản trước của file này viết lệnh nhiều dòng nối bằng `\`. Đó là cú pháp
+> **bash**; PowerShell không hiểu và báo
+> `ParserError: ParentContainsErrorRecordException`. Lệnh dưới đây viết **một
+> dòng**, chạy được ở cả hai shell. (AGENTS.md §3.2: không phụ thuộc lệnh bash.)
+
+```
+gh issue create --repo ANSER-Logistics/ANSER-logistics-body --title "Panel lợi nhuận hiện 0% khi phủ giá vốn là 'không đo được' (?? 0)" --body-file docs/de-xuat-body/01-issue-body.md
 ```
 
-Chưa có `gh` thì: `winget install GitHub.cli` rồi `gh auth login`.
+**Chuẩn bị `gh` — một lần:**
+
+```powershell
+winget install GitHub.cli
+```
+
+Cài xong mà gõ `gh` vẫn báo *"not recognized"* thì **PATH của cửa sổ đang mở chưa được nạp lại** — không phải cài hỏng. `winget` báo *"Found an existing package already installed"* là dấu hiệu đúng của tình huống này. Hoặc đóng/mở lại terminal, hoặc thêm cho riêng phiên đang chạy:
+
+```powershell
+$env:Path += ";C:\Program Files\GitHub CLI"
+```
+
+Rồi đăng nhập. **Bước này phải người làm** — nó mở trình duyệt, agent chạy không tương tác nên không qua được:
+
+```powershell
+gh auth login
+```
+
+Chọn `GitHub.com` → `HTTPS` → `Login with a web browser`.
 
 **Cách hai — không cài gì:** mở trang New issue của repo Body, dán nội dung `01-issue-body.md`.
 
