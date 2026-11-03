@@ -1,9 +1,10 @@
 """
 src/core/saas_api.py — Tra cứu dữ liệu nghiệp vụ trực tiếp từ DB của Body.
 
-⚠️ SCHEMA MAP (ngay dưới): tên bảng/cột PHẢI khớp core/db/connection.py bên Body.
+⚠️ SCHEMA MAP (ngay dưới): tên bảng/cột PHẢI khớp frontend/src/server/db/schema.ts bên Body.
    Nếu Body đặt tên khác, CHỈ sửa khối hằng số dưới đây — toàn bộ SQL tự đúng theo.
-   (Bản cũ truy vấn bảng 'items' + cột JSON 'metadata' — KHÔNG tồn tại trong Body.)
+   (Bản cũ truy vấn bảng 'items' + cột JSON 'metadata' — KHÔNG tồn tại trong Body.
+    Soát 04/11/2026: 5/10 định danh sai, đã sửa — chi tiết ở khối SCHEMA MAP.)
 """
 import json
 import logging
@@ -18,19 +19,51 @@ from src.core.config import Config
 logger = logging.getLogger(__name__)
 
 # =====================================================================
-# SCHEMA MAP — đối chiếu với Body/core/db/connection.py rồi chỉnh nếu cần
+# SCHEMA MAP — đối chiếu với lược đồ THẬT của Body
+# ---------------------------------------------------------------------
+# Nguồn: `Dgsonn/ANSER-logistics`, nhánh `master`, commit `d389c68` (01/11/2026),
+# `frontend/src/server/db/schema.ts`. Đã chọn `master` vì nó MỚI HƠN cả hai
+# nhánh tính năng (`chore/merge-feat-database-application` 26/10,
+# `feat/database-application` 18/09).
+#
+# Soát lại 04/11/2026: 5 trong 10 định danh ở bản trước SAI. Không phải sai
+# vặt — SQL dựng từ chúng sẽ hỏng ở bảng không tồn tại hoặc trả cột không có:
+#
+#   bản cũ              lược đồ thật       hậu quả nếu chạy
+#   ------------------  -----------------  ---------------------------------
+#   sales               sales_invoices     bảng không tồn tại
+#   amount              total              cột không tồn tại
+#   stock_quantity      stock              cột không tồn tại
+#   workspace_id        warehouse_id       KHÁI NIỆM không tồn tại
+#
+# `workspace` là chỗ nặng nhất: Body KHÔNG có khái niệm workspace nào cả — tìm
+# cả file không ra một chữ. Thứ Body có là `warehouse` (kho). Và lược đồ của họ
+# ghi hẳn một dòng cho Brain ngay tại `sales_invoices.warehouse_id`:
+#
+#   "B6 — Brain nhận `X-Store-Id` (là warehouse) và cần lọc doanh số theo kho.
+#    Không có cột này thì báo cáo doanh thu theo kho không dựng được."
+#
+# Tức Body đã dựng sẵn cột này CHO Brain, còn Brain vẫn gọi nó bằng tên cũ.
+#
+# Đây là bản sao mô tả thứ gì đó thuộc về Body (AGENTS.md §1). Nó lệch được, và
+# đã lệch. Trước khi tin nó, đối chiếu lại schema.ts.
 # =====================================================================
 PRODUCTS_TABLE = "products"
 P_ID = "id"
 P_NAME = "name"
-P_PRICE = "price"
-P_STOCK = "stock_quantity"      # value-chain của Body có products.stock_quantity
-P_WORKSPACE = "workspace_id"
+P_PRICE = "price"               # integer, VNĐ
+P_STOCK = "stock"               # numeric(14,3) — KHÔNG phải 'stock_quantity'
+P_WAREHOUSE = "warehouse_id"    # uuid -> warehouses.id, NOT NULL
 
-SALES_TABLE = "sales"
-S_AMOUNT = "amount"             # tổng tiền 1 giao dịch POS
-S_DATE = "created_at"           # cột thời gian (bản cũ dùng 'date' — KIỂM TRA lại)
-S_WORKSPACE = "workspace_id"
+SALES_TABLE = "sales_invoices"  # KHÔNG phải 'sales' — bảng đó không tồn tại
+S_AMOUNT = "total"              # integer, tổng tiền 1 hoá đơn
+S_DATE = "created_at"           # timestamptz, NOT NULL
+S_WAREHOUSE = "warehouse_id"    # uuid -> warehouses.id (xem ghi chú B6 ở trên)
+
+# Tên cũ, giữ để không vỡ chỗ gọi chưa kịp đổi. Trỏ vào cùng giá trị đúng —
+# KHÔNG phải vào giá trị cũ, vì giá trị cũ là sai, không phải là một bí danh.
+P_WORKSPACE = P_WAREHOUSE
+S_WORKSPACE = S_WAREHOUSE
 # =====================================================================
 
 
@@ -130,7 +163,7 @@ class SaasAPI:
                 sql = text(f"""
                     SELECT {P_ID}, {P_NAME}, {P_PRICE}, {P_STOCK}
                     FROM {PRODUCTS_TABLE}
-                    WHERE {P_WORKSPACE} = :ws_id
+                    WHERE {P_WAREHOUSE} = :ws_id
                       AND LOWER({P_NAME}) LIKE LOWER(:query)
                     LIMIT 20
                 """)
@@ -165,7 +198,7 @@ class SaasAPI:
                 sql = text(f"""
                     SELECT COALESCE(SUM({S_AMOUNT}), 0), COUNT(*)
                     FROM {SALES_TABLE}
-                    WHERE {S_WORKSPACE} = :ws_id
+                    WHERE {S_WAREHOUSE} = :ws_id
                       AND {_period_filter(period)}
                 """)
                 res = conn.execute(sql, {"ws_id": workspace_id}).fetchone()
@@ -191,7 +224,7 @@ class SaasAPI:
                 sql_find = text(f"""
                     SELECT {P_ID}, {P_PRICE}
                     FROM {PRODUCTS_TABLE}
-                    WHERE LOWER({P_NAME}) LIKE LOWER(:name) AND {P_WORKSPACE} = :ws_id
+                    WHERE LOWER({P_NAME}) LIKE LOWER(:name) AND {P_WAREHOUSE} = :ws_id
                     LIMIT 1
                 """)
                 item = conn.execute(

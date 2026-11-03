@@ -349,6 +349,33 @@ class Prompts:
     # ------------------------------------------------------------------
     # Hóa đơn (giữ nguyên — nhánh này đang chạy ổn)
     # ------------------------------------------------------------------
+    # ⚠️ KHỐI [LƯỢC ĐỒ] BÊN DƯỚI KHÔNG KHỚP BODY — soát 04/11/2026.
+    #
+    # Đây là bản sao lược đồ CÒN LẠI sau khi xoá `DB_SCHEMA`, và khác ở chỗ
+    # nguy hiểm hơn: prompt này ĐANG CHẠY, nên model đang thực sự đọc nó.
+    #
+    # Đối chiếu `Dgsonn/ANSER-logistics` master `d389c68`,
+    # frontend/src/server/db/schema.ts:
+    #
+    #   products.stock_quantity      -> cột thật tên `stock`
+    #   import_transactions          -> KHÔNG TỒN TẠI
+    #   import_details               -> KHÔNG TỒN TẠI
+    #
+    # Body không tách phiếu nhập/xuất thành hai bảng. Họ dùng MỘT sổ cái có
+    # dấu: `inventory_transactions(product_id, warehouse_id, type, quantity,
+    # unit_cost, source_type, source_id, supplier_id, …)` với
+    # `type IN ('import','export','adjustment','transfer')` ép ở tầng DB, và
+    # `quantity` mang dấu (`+` tăng kho, `−` giảm kho).
+    #
+    # CHƯA SỬA, CÓ CHỦ Ý. Viết lại khối này là đổi một prompt đang chạy, mà
+    # cách biểu diễn đúng cho nhánh hoá đơn còn phụ thuộc S5 (XAI hoá đơn:
+    # `reconciliation.py` + `InvoiceFieldValidator` + gộp prompt hoá đơn —
+    # AGENTS.md §8). Sửa bây giờ rồi S5 sửa lại lần nữa là đổi hai lần, và lần
+    # đầu không ai đo được.
+    #
+    # Khi làm S5: bỏ hẳn khối [LƯỢC ĐỒ] nếu Body gửi lược đồ kèm ngữ cảnh
+    # (xem `agent_middleware.get_db_schema`), chứ đừng chép lại cho đúng —
+    # chép đúng hôm nay vẫn là nơi-thứ-hai để lệch tiếp ngày mai (R4).
     INVOICE_SYSTEM = dedent("""\
         Bạn là ANSER Brain — xử lý dữ liệu hóa đơn do Qwen2-VL trích xuất từ ảnh.
 
