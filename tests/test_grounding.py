@@ -18,6 +18,7 @@ from src.core.grounding import (
     customer_leak,
     derived_ratios_ok,
     guard_answer,
+    la_hinh_dang_tien,
     narration_numbers_ok,
     numbers_in,
 )
@@ -322,3 +323,117 @@ def test_derived_ratios_ok_dung_doc_lap_duoc():
     assert not ok and cum == "Tăng 20%"
     ok, cum = derived_ratios_ok("Tăng 20% so với kỳ trước.", CTX_CO_TY_LE)
     assert ok and cum is None
+
+
+# ---------------------------------------------------------------------------
+# HÌNH DẠNG TIỀN (brain#42) — CHƯA BẬT MẶC ĐỊNH
+# ---------------------------------------------------------------------------
+# Ngưỡng "4 chữ số" gộp tiền với năm, số hiệu văn bản và mã đơn vào một rổ, và
+# đồng thời bỏ sót "45 triệu" (chuẩn hoá ra hai chữ số). Phép phân biệt theo
+# hình dạng tiền sắc hơn ở cả hai chiều.
+#
+# Các test dưới đây truyền `chi_kiem_so_tien=True` TƯỜNG MINH. Mặc định vẫn là
+# luật cũ, nên đổi hành vi hướng ra khách chưa xảy ra — chờ chủ dự án duyệt.
+
+
+# (nhãn, chuỗi số như đã viết, hậu tố thang bậc, văn bản ngay sau)
+CO_HINH_DANG_TIEN = [
+    ("thang bậc", "45", "triệu", ""),
+    ("thang bậc dính liền", "2", "tr", ""),
+    ("đơn vị tiền", "18.500.000", None, "đ"),
+    ("đơn vị tiền viết tắt", "500000", None, " VNĐ"),
+    ("đơn vị tiền viết chữ", "11500000", None, " đồng"),
+    ("nhóm nghìn", "3.450.000", None, ""),
+    ("nhóm nghìn ngắn", "5.000", None, ""),
+    ("trần 5 chữ số", "50000000", None, ""),
+]
+
+KHONG_PHAI_TIEN = [
+    ("năm", "2026", None, ""),
+    ("năm trong số hiệu văn bản", "2024", None, "/NĐ-CP"),
+    ("mã đơn 4 chữ số", "4821", None, ""),
+    ("số đếm", "3", None, " chuyến"),
+    ("ngày trong tháng", "15", None, "."),
+    # Ba ca dưới là lý do dấu hiệu "có dấu chấm/phẩy" bị thay bằng nhóm nghìn.
+    ("số mục", "5.1", None, "."),
+    ("số phiên bản", "2.5", None, "-VL"),
+    ("số thập phân có phẩy", "15,8", None, "%"),
+]
+
+
+@pytest.mark.parametrize("nhan,tho,hau_to,sau", CO_HINH_DANG_TIEN)
+def test_nhan_ra_hinh_dang_tien(nhan, tho, hau_to, sau):
+    assert la_hinh_dang_tien(tho, hau_to, sau), nhan
+
+
+@pytest.mark.parametrize("nhan,tho,hau_to,sau", KHONG_PHAI_TIEN)
+def test_khong_nham_thu_khac_la_tien(nhan, tho, hau_to, sau):
+    assert not la_hinh_dang_tien(tho, hau_to, sau), nhan
+
+
+def test_dem_chu_so_khong_dem_ky_tu():
+    """`len("3.3.1")` là 5 ký tự nhưng chỉ ba chữ số — không phải tiền."""
+    assert not la_hinh_dang_tien("3.3.1", None, "")
+    assert la_hinh_dang_tien("12345", None, "")
+
+
+def test_che_do_tien_tha_nam_va_so_hieu_van_ban():
+    """Hai ca luật cũ CHẶN OAN. Chặn một trích dẫn pháp luật đúng còn tệ hơn
+    chỗ hở ban đầu, vì khách thấy hệ thống từ chối một câu hoàn toàn chuẩn.
+    """
+    cau_nam = "Hôm nay là ngày 4 tháng 11 năm 2026."
+    cau_vb = "Nghị định 72/2024/NĐ-CP quy định rõ điều này."
+
+    # Luật hiện tại: chặn cả hai
+    assert narration_numbers_ok(cau_nam, "")[0] is False
+    assert narration_numbers_ok(cau_vb, "")[0] is False
+
+    # Luật hình dạng tiền: cho qua cả hai
+    assert narration_numbers_ok(cau_nam, "", chi_kiem_so_tien=True)[0] is True
+    assert narration_numbers_ok(cau_vb, "", chi_kiem_so_tien=True)[0] is True
+
+
+def test_che_do_tien_bat_duoc_so_viet_ngan():
+    """"45 triệu" chuẩn hoá ra "45" — hai chữ số, dưới ngưỡng cũ nên đi lọt.
+
+    Đây là chỗ hở thâm nhất: một con số bốn mươi lăm triệu đồng không có trong
+    dữ liệu, đi ra màn hình chỉ vì nó được viết ngắn. `derived_ratios_ok` cũng
+    không bắt được vì câu không có từ so sánh nào.
+    """
+    cau = "Doanh thu khoảng 45 triệu."
+    assert narration_numbers_ok(cau, "")[0] is True          # lọt
+    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=True)[0] is False
+
+    # Có trong dữ liệu thì vẫn cho qua — đây là diễn giải, không phải bịa số.
+    assert narration_numbers_ok(cau, "doanh_thu: 45000000",
+                                chi_kiem_so_tien=True)[0] is True
+
+
+def test_che_do_tien_bat_duoc_phep_cong_model_tu_lam():
+    """R1: LLM không bao giờ tính toán. Câu này không có từ so sánh nào nên
+    `derived_ratios_ok` không thấy, và mọi con số đều hai chữ số nên ngưỡng cũ
+    cũng không thấy.
+    """
+    cau = "8 triệu cộng 3 triệu là 11 triệu."
+    assert narration_numbers_ok(cau, "")[0] is True          # lọt
+    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=True)[0] is False
+
+
+def test_mac_dinh_khong_doi_hanh_vi():
+    """Cổng mặc định phải GIỐNG HỆT luật cũ: bật lên là đổi hành vi hướng ra
+    khách, cần chủ dự án duyệt (brain#42). Test này là thứ sẽ đỏ nếu có ai
+    lặng lẽ đổi mặc định.
+    """
+    for cau in (
+        "Hôm nay là ngày 4 tháng 11 năm 2026.",
+        "Doanh thu khoảng 45 triệu.",
+        "8 triệu cộng 3 triệu là 11 triệu.",
+        "Lãi là 11.500.000 đồng.",
+    ):
+        assert narration_numbers_ok(cau, "") == narration_numbers_ok(
+            cau, "", chi_kiem_so_tien=False
+        )
+
+    # Và `guard_answer` chưa có đường nào bật chế độ này.
+    assert guard_answer("Hôm nay là năm 2026.", "").blocked
+
