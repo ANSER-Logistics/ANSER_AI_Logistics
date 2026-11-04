@@ -53,9 +53,13 @@ import time
 import urllib.error
 import urllib.request
 
-REPO = "/content/ANSER_AI"
-DUONG_LOG = "/content/brain.log"
-DUONG_DO = "/content/ai_metrics.jsonl"
+# Mặc định là đường dẫn Colab, đọc được từ env (R5: không hardcode đường dẫn).
+# Giữ nguyên mặc định nên trong một phiên Colab bình thường KHÔNG có gì đổi.
+# Đặt biến khi checkout nằm chỗ khác — ví dụ mount Drive, hoặc đổi tên repo:
+# thiếu phép này thì script chết với "không tìm thấy file" và không gợi ý gì.
+REPO = os.getenv("ANSER_REPO_DIR", "/content/ANSER_AI")
+DUONG_LOG = os.getenv("ANSER_BRAIN_LOG", "/content/brain.log")
+DUONG_DO = os.getenv("ANSER_METRICS_LOG", "/content/ai_metrics.jsonl")
 NGUONG_SACH_MB = 1024          # dưới mức này coi như GPU đã trống
 
 # SIGKILL chỉ có trên POSIX. Colab là Linux nên luôn có; khai kiểu này để mypy
