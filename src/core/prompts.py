@@ -347,12 +347,32 @@ class Prompts:
         return out
 
     # ------------------------------------------------------------------
-    # Hóa đơn (giữ nguyên — nhánh này đang chạy ổn)
+    # Hóa đơn — KHÔNG CHẠY. Không nơi nào tham chiếu `INVOICE_SYSTEM`.
     # ------------------------------------------------------------------
     # ⚠️ KHỐI [LƯỢC ĐỒ] BÊN DƯỚI KHÔNG KHỚP BODY — soát 04/11/2026.
     #
-    # Đây là bản sao lược đồ CÒN LẠI sau khi xoá `DB_SCHEMA`, và khác ở chỗ
-    # nguy hiểm hơn: prompt này ĐANG CHẠY, nên model đang thực sự đọc nó.
+    # Đây là bản sao lược đồ CÒN LẠI sau khi xoá `DB_SCHEMA`.
+    #
+    # SỬA LẠI MỘT KHẲNG ĐỊNH SAI (cùng ngày, muộn hơn). Bản trước của chính
+    # khối này viết "prompt này ĐANG CHẠY, nên model đang thực sự đọc nó", và
+    # AGENTS.md §2 R4 cũng ghi "Prompt đó đang chạy". Cả hai SAI.
+    #
+    # Đo bằng cách tìm `INVOICE_SYSTEM` trong src/, tests/ và
+    # offline_training/: KHÔNG MỘT THAM CHIẾU NÀO ngoài chính dòng khai báo
+    # dưới đây. 11 trong 12 hằng số của `Prompts` có người dùng; đây là cái
+    # duy nhất bằng 0. ARCHITECTURE.md §15 nói đúng ngay từ đầu —
+    # "code chết, không có trong luồng chạy" — nhưng hai chỗ kia nói ngược
+    # lại và không ai đối chiếu.
+    #
+    # VÌ SAO ĐIỀU NÀY ĐỔI CÁCH XỬ. Cả lập luận "chưa sửa, có chủ ý" bên dưới
+    # dựng trên tiền đề "đổi một prompt đang chạy thì rủi ro". Tiền đề đó
+    # không còn, nên phép tính đảo chiều: xoá hẳn khối [LƯỢC ĐỒ] hôm nay
+    # KHÔNG có rủi ro chạy nào. Thứ còn lại chỉ là câu hỏi S5 nên biểu diễn
+    # nhánh hoá đơn thế nào.
+    #
+    # Nguy hiểm thật của việc để nguyên là NGƯỢC với điều đã ghi: người làm S5
+    # đọc "đang chạy" sẽ coi đây là một ca di trú cần cẩn trọng, trong khi
+    # thực tế họ xoá được ngay.
     #
     # Đối chiếu `Dgsonn/ANSER-logistics` master `d389c68`,
     # frontend/src/server/db/schema.ts:
@@ -367,8 +387,9 @@ class Prompts:
     # `type IN ('import','export','adjustment','transfer')` ép ở tầng DB, và
     # `quantity` mang dấu (`+` tăng kho, `−` giảm kho).
     #
-    # CHƯA SỬA, CÓ CHỦ Ý. Viết lại khối này là đổi một prompt đang chạy, mà
-    # cách biểu diễn đúng cho nhánh hoá đơn còn phụ thuộc S5 (XAI hoá đơn:
+    # CHƯA SỬA, CÓ CHỦ Ý — nhưng KHÔNG phải vì rủi ro chạy (không có). Lý do
+    # duy nhất còn lại: cách biểu diễn đúng cho nhánh hoá đơn phụ thuộc S5
+    # (XAI hoá đơn:
     # `reconciliation.py` + `InvoiceFieldValidator` + gộp prompt hoá đơn —
     # AGENTS.md §8). Sửa bây giờ rồi S5 sửa lại lần nữa là đổi hai lần, và lần
     # đầu không ai đo được.
