@@ -36,10 +36,17 @@ def _vision_backend() -> str:
 
 
 def _safe_unlink(path: str) -> None:
+    """Xoá file tạm. Thất bại thì KHÔNG ném, nhưng phải nói ra.
+
+    `except OSError: pass` trần không vi phạm nguyên văn AGENTS §4.1 quy tắc 4
+    (điều luật nêu `except Exception: pass`), nhưng hậu quả thì có thật: file
+    tạm xoá không được sẽ tích lại trên đĩa, và ở bậc T0/T1 — GPU thuê, đĩa
+    nhỏ — đĩa đầy làm cả service chết mà không có dòng log nào dẫn về đây.
+    """
     try:
         os.unlink(path)
-    except OSError:
-        pass
+    except OSError as loi:
+        logger.warning("Không xoá được file tạm %s: %s", path, loi)
 
 
 async def _read_upload_to_tmp(request: Request, file: UploadFile) -> str:
