@@ -398,3 +398,84 @@ def test_khong_con_thuoc_tinh_nguong_p95_chet_trong_config():
         f"Config gán {gan}. Nếu p95 nay ĐƯỢC dùng thật thì xoá test này và ghi "
         f"rõ chỗ đọc; nếu chưa, đừng gán."
     )
+
+
+# ---------------------------------------------------------------------------
+# Biến ĐỔI HÀNH VI phải có mặt trong .env.example
+# ---------------------------------------------------------------------------
+# Chiều ngược của phép kiểm ở trên. Hai chiều, hai lớp lỗi khác nhau:
+#
+#   .env.example dạy đặt một biến không đi tới đâu  -> người ta đặt, không gì đổi
+#   code đọc một biến triển khai không bao giờ đặt  -> tính năng chết, không ai biết
+#
+# Đo 04/11/2026: `src/` đọc 31 biến môi trường, 22 trong số đó không xuất hiện ở
+# compose lẫn .env.example. Nhưng KHÔNG phải cả 22 đều đáng khai: phần lớn là núm
+# tinh chỉnh có mặc định an toàn (`LOG_LEVEL`, `MAX_HISTORY_TURNS`, `KB_DEVICE`,
+# `TEXT_REPETITION_PENALTY`). Đòi khai hết 22 là việc bận tay, không phải phép
+# kiểm.
+#
+# Quy tắc hẹp hơn, và là quy tắc thật sự bắt lỗi: biến mà THIẾU NÓ ĐỔI HÀNH VI
+# theo cách người vận hành không đoán được thì phải có trong .env.example.
+#
+# Không có cách máy móc nào phân biệt "núm tinh chỉnh" với "công tắc tính năng",
+# nên đây là danh sách KHAI BÁO. Nó trung thực chừng nào mỗi dòng nói rõ thiếu nó
+# thì hỏng cái gì.
+DOI_HANH_VI: dict[str, str] = {
+    "N8N_QUOTE_WEBHOOK_URL": (
+        "Thiếu thì nhánh LOGISTICS trả lời 'Hệ thống báo giá chưa được nối với "
+        "n8n' — nghiệp vụ ƯU TIÊN 1 (AGENTS §8) chết."
+    ),
+    "KB_WORKSPACE_ID": (
+        "Phải khớp BRAIN_KB_WORKSPACE bên Body. Lệch thì Brain tra một kho, Body "
+        "nạp vào kho khác, và không có lỗi nào — chỉ 'không tìm thấy tài liệu'."
+    ),
+    "N8N_TEMPLATES_DIR": (
+        "Thiếu thì dùng catalog dự phòng; typeVersion có thể không khớp n8n của "
+        "Body, và lỗi đó chỉ lộ ra lúc import workflow."
+    ),
+    "BODY_CALLBACK_URL": (
+        "Đặt URL là BẬT một lời gọi ra ngoài mang theo câu trả lời của AI. Rỗng "
+        "là tắt. Phải tài liệu hoá vì hậu quả của việc điền nó không hiển nhiên."
+    ),
+}
+
+
+@pytest.mark.parametrize("ten", sorted(DOI_HANH_VI))
+def test_bien_doi_hanh_vi_co_trong_env_mau(ten):
+    """Biến đổi hành vi phải có trong `.env.example`, và phải tới được container.
+
+    Chỉ một trong hai là chưa đủ: có trong `.env.example` mà compose không truyền
+    thì người ta đặt rồi không gì đổi (đúng lớp lỗi sửa ở 07131e6); compose
+    truyền mà `.env.example` không ghi thì không ai biết tên biến mà đặt.
+    """
+    assert ten in _khoa_env_mau(), (
+        f"'{ten}' đổi hành vi thật nhưng .env.example không ghi: "
+        f"{DOI_HANH_VI[ten]}"
+    )
+    assert ten in _khoa_compose_thay_the(), (
+        f"'{ten}' có trong .env.example nhưng compose không truyền đi đâu"
+    )
+
+
+@pytest.mark.parametrize("ten", sorted(DOI_HANH_VI))
+def test_bien_doi_hanh_vi_duoc_code_doc(ten):
+    """Và code phải thực sự đọc nó.
+
+    Chiều này chặn việc danh sách trên thành nơi chứa tên biến đã bỏ: xoá tính
+    năng mà quên xoá khỏi đây thì `.env.example` dạy người ta đặt một biến vô
+    nghĩa, và phép kiểm còn lại vẫn xanh.
+    """
+    assert ten in _env_code_doc(), (
+        f"'{ten}' nằm trong DOI_HANH_VI nhưng không chỗ nào trong src/ đọc. "
+        f"Tính năng đã bỏ thì xoá khỏi đây, khỏi .env.example và khỏi compose."
+    )
+
+
+def test_danh_sach_doi_hanh_vi_khong_rong():
+    """Chốt chống xanh suông cho hai phép kiểm tham số hoá ở trên.
+
+    `parametrize` trên một dict rỗng sinh ra ZERO test và pytest vẫn xanh. Đã gặp
+    đúng lớp lỗi này hai lần trong ngày 04/11 — xem 0c11d8f và 9efad94.
+    """
+    assert len(DOI_HANH_VI) >= 4
+    assert all(ly_do.strip() for ly_do in DOI_HANH_VI.values())
