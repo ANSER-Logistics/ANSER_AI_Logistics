@@ -490,6 +490,53 @@ async def get_task_status(task_id: str, x_user_id: Optional[str] = Header(None))
     return task
 
 
+def _webhook_headers(task_id: str, request_id: str = "") -> dict[str, str]:
+    """
+    Header cho webhook gọi về Body. KHÔNG bịa token khi chưa cấu hình.
+
+    Bản trước truyền một chuỗi mặc định viết thẳng trong mã nguồn làm đối số
+    thứ hai của `os.getenv("API_AUTH_TOKEN", ...)`. Ba chỗ sai trong một dòng:
+
+    1. R2b.1 — credential hardcode trong mã nguồn, mà repo này công khai.
+       Chuỗi đó ai cũng đọc được.
+    2. Trái với quy ước của chính dự án: `require_api_token` coi
+       `API_AUTH_TOKEN` rỗng là TẮT xác thực, còn ở đây rỗng lại thành "gửi
+       đúng chuỗi này".
+    3. Làm một cấu hình THIẾU trông như đã cấu hình xong. Body nhận một header
+       đúng hình dạng; nếu Body cũng mặc định cùng chuỗi đó thì xác thực
+       "qua" bằng một giá trị nằm trên GitHub. Nếu Body từ chối thì lỗi hiện
+       ra là "token sai", không phải "Brain chưa có token".
+
+    Chưa có token thì BỎ HẲN header và nói ra trong log. Mọi triển khai đúng
+    đều có token (compose dùng `${API_TOKEN:?}`, tức thiếu là dựng không lên),
+    nên ở đó hành vi KHÔNG đổi.
+
+    Cân nhắc đã bỏ: dừng hẳn việc gửi khi không có token. An toàn hơn, nhưng
+    làm mất kết quả Body đang chờ — đổi một lỗi cấu hình thành một lượt chat
+    không có hồi đáp.
+
+    Là hàm cấp module chứ không nằm trong closure của `chat_endpoint`, vì một
+    luật bảo mật nằm trong closure thì không test được tại chỗ — và đường
+    webhook này trước 04/11/2026 KHÔNG có test nào.
+
+    Cố ý KHÔNG chép chuỗi mặc định cũ vào đây: để nguyên thì mọi lần quét bí
+    mật sau này lại bắt được nó trong một chú thích. Xem `git log -S` nếu cần.
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "X-Task-ID": task_id,
+    }
+    api_token = os.getenv("API_AUTH_TOKEN", "").strip()
+    if api_token:
+        headers["X-Webhook-Token"] = api_token
+    else:
+        logger.warning(
+            "Webhook gửi KHÔNG kèm token: API_AUTH_TOKEN chưa đặt",
+            extra={"request_id": request_id},
+        )
+    return headers
+
+
 @router.post("/chat")
 async def chat_endpoint(
     req: ChatRequest,
@@ -880,12 +927,7 @@ async def chat_endpoint(
                 parsed, _ = _extract_json_block(cleaned)
                 payload = {"task_id": task_id, "result": parsed or cleaned}
 
-                api_token = os.getenv("API_AUTH_TOKEN", "default-secret")
-                headers = {
-                    "Content-Type": "application/json",
-                    "X-Webhook-Token": api_token,
-                    "X-Task-ID": task_id,
-                }
+                headers = _webhook_headers(task_id, request_id)
 
                 client = HttpClientPool.get_client()
                 await client.post(callback_url, json=payload, headers=headers)

@@ -195,3 +195,109 @@ def test_logistics_workflows_are_valid_n8n_structure():
                     assert link["node"] in names, (
                         f"{f.name}: {src} trỏ tới node lạ {link['node']!r}"
                     )
+
+
+# ---------------------------------------------------------------------------
+# Webhook gọi về Body — header xác thực (R2b)
+# ---------------------------------------------------------------------------
+# Đường `BODY_CALLBACK_URL` trong `chat_endpoint` trước 04/11/2026 KHÔNG có test
+# nào, và nó bịa một token: `os.getenv("API_AUTH_TOKEN", <chuỗi viết sẵn>)`.
+#
+# Logic đó nằm trong closure của `chat_endpoint` nên không test được tại chỗ —
+# đã tách thành `_webhook_headers()` ở cấp module. Một luật bảo mật nằm trong
+# closure là một luật không ai kiểm được.
+
+
+def test_webhook_khong_bia_token_khi_chua_cau_hinh(monkeypatch):
+    """Chưa đặt `API_AUTH_TOKEN` -> KHÔNG có header token, không phải token bịa.
+
+    Quy ước của chính dự án: `require_api_token` coi rỗng là TẮT xác thực. Gửi
+    một chuỗi mặc định viết sẵn trong mã nguồn làm một cấu hình THIẾU trông như
+    đã cấu hình xong — và chuỗi đó nằm trong một repo công khai.
+    """
+    from src.api.routes import chat as chat_mod
+
+    monkeypatch.delenv("API_AUTH_TOKEN", raising=False)
+    h = chat_mod._webhook_headers("task-1", "req-1")
+
+    assert "X-Webhook-Token" not in h
+    assert h["X-Task-ID"] == "task-1"
+    assert h["Content-Type"] == "application/json"
+
+
+def test_webhook_khong_bia_token_khi_dat_chuoi_rong(monkeypatch):
+    """Đặt rỗng (hoặc toàn khoảng trắng) cũng là CHƯA cấu hình.
+
+    `API_AUTH_TOKEN=` trong .env là cách người ta tắt xác thực, và
+    `.env.example` ghi đúng như vậy. Không `.strip()` thì một dòng
+    `API_AUTH_TOKEN= ` (lỡ thừa dấu cách) biến thành một token bằng ký tự trắng.
+    """
+    from src.api.routes import chat as chat_mod
+
+    for gia_tri in ("", "   ", "\t"):
+        monkeypatch.setenv("API_AUTH_TOKEN", gia_tri)
+        assert "X-Webhook-Token" not in chat_mod._webhook_headers("t", "r")
+
+
+def test_webhook_gui_dung_token_khi_da_cau_hinh(monkeypatch):
+    """Đã đặt token -> gửi NGUYÊN VĂN. Đây là trạng thái của mọi triển khai đúng.
+
+    Compose dùng `${API_TOKEN:?}`, tức thiếu là `docker compose up` chết ngay —
+    nên ở môi trường thật nhánh này luôn chạy, và hành vi không đổi so với bản
+    trước.
+    """
+    from src.api.routes import chat as chat_mod
+
+    monkeypatch.setenv("API_AUTH_TOKEN", "  abc123  ")
+    h = chat_mod._webhook_headers("task-9")
+
+    assert h["X-Webhook-Token"] == "abc123"       # cắt khoảng trắng hai đầu
+    assert h["X-Task-ID"] == "task-9"
+
+
+def test_webhook_khong_con_chuoi_mac_dinh_nao_trong_ma_nguon():
+    """Chốt chặn thẳng vào mã nguồn: `getenv` của token xác thực không được có
+    đối số thứ hai khác rỗng.
+
+    Phép kiểm hành vi ở trên đỏ nếu ai sửa `_webhook_headers`; test này đỏ nếu
+    có ai thêm lại một mặc định ở MỘT CHỖ KHÁC trong repo — `chat.py` không phải
+    nơi duy nhất đọc biến này.
+    """
+    import ast
+    import pathlib
+    import re
+
+    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
+    xau = []
+    for p in goc.rglob("*.py"):
+        nguon = p.read_text(encoding="utf-8")
+
+        # BỎ MỌI DOCSTRING rồi mới soi. Lần đầu viết test này nó ĐỎ, và thứ nó
+        # bắt được là docstring của `_webhook_headers` — chỗ cố ý nhắc lại lời
+        # gọi `getenv` cũ để giải thích vì sao không được làm thế. Chốt chặn bắt
+        # nhầm chính lời cảnh báo của nó.
+        #
+        # Đúng cái bẫy đã ghi sẵn ở test_agent_middleware.py::
+        # test_khong_dinh_nghia_lai_gi_trong_file_nay. Chú thích `#` không nằm
+        # trong AST nên tự khắc được loại.
+        try:
+            cay = ast.parse(nguon)
+        except SyntaxError:          # không chặn cả bộ vì một file lỗi cú pháp
+            continue
+        for nut in ast.walk(cay):
+            if isinstance(nut, (ast.Module, ast.ClassDef,
+                                ast.FunctionDef, ast.AsyncFunctionDef)):
+                tai_lieu = ast.get_docstring(nut, clean=False)
+                if tai_lieu:
+                    nguon = nguon.replace(tai_lieu, "")
+
+        mau = re.compile(r"""getenv\(\s*["']API_AUTH_TOKEN["']\s*,\s*([^)]*)\)""")
+        for m in mau.finditer(nguon):
+            mac_dinh = m.group(1).strip()
+            if mac_dinh not in ('""', "''"):
+                xau.append(f"{p.name}: mặc định {mac_dinh}")
+
+    assert not xau, (
+        f"token xác thực có mặc định viết sẵn trong mã nguồn: {xau}. "
+        f"Rỗng nghĩa là CHƯA cấu hình, không phải 'dùng chuỗi này'."
+    )
