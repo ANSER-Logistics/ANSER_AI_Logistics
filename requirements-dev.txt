@@ -1,4 +1,8 @@
-pytest
+# Khoảng đã kiểm, không phải một con số đoán: bộ test chạy xanh trên 9.0.3
+# (đo 04/11/2026). Sàn 8.2 giữ lại vì đó là bản `requirements.txt` từng ghim
+# — ai đang ở đó thì không bị buộc nâng. Trần <10 vì major sau chưa ai thử,
+# và pytest đổi cách thu test ở các mốc major.
+pytest>=8.2,<10
 pytest-cov
 # tests/test_server.py::test_chat_background_task dùng @pytest.mark.asyncio nhưng
 # thiếu plugin -> test này FAIL im lặng suốt (không phải skip, mà là fail).
