@@ -1,9 +1,12 @@
 import json
+import logging
 import re
 import unicodedata
 from typing import Any, Optional
 
 import httpx
+
+logger = logging.getLogger("projecta.utils")
 
 
 def bo_dau(value: Any) -> str:
@@ -100,8 +103,25 @@ def extract_json_block(text: str) -> tuple[Optional[dict], Optional[str]]:
                         repaired: Any = repair_json(candidate, return_objects=True)
                         if isinstance(repaired, dict) and repaired:
                             return repaired, None
-                    except Exception:
-                        pass
+                    except ImportError:
+                        # Thiếu gói `json_repair` -> lớp sửa lỗi nhẹ KHÔNG chạy.
+                        #
+                        # Bản trước là `except Exception: pass`, đúng y nguyên văn
+                        # điều AGENTS §4.1 quy tắc 4 cấm. Hậu quả không phải sai kết
+                        # quả — hàm vẫn trả lỗi ngay dưới đây — mà là MỘT TRIỂN KHAI
+                        # THIẾU GÓI trông giống hệt một đầu ra model hỏng: cả hai đều
+                        # báo `JSONDecodeError`. Tỷ lệ phải đi đường dự phòng tăng lên
+                        # và không có gì cho thấy vì sao.
+                        logger.warning(
+                            "json_repair không nạp được — lớp sửa JSON nhẹ KHÔNG "
+                            "chạy. Cài gói này (có trong requirements.txt) nếu đang "
+                            "thấy nhiều lỗi JSONDecodeError."
+                        )
+                    except Exception as loi_sua:
+                        # Gói có nhưng sửa không nổi. Ghi ở mức debug: với đầu ra
+                        # model hỏng thật thì đây là đường chạy BÌNH THƯỜNG, nên
+                        # warning ở đây sẽ thành nhiễu che mất ca ImportError trên.
+                        logger.debug("json_repair không sửa được: %s", loi_sua)
                     return None, f"JSONDecodeError: {exc.msg} tại vị trí {exc.pos}"
 
     return None, "unbalanced braces (thiếu dấu })"

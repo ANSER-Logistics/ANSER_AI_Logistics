@@ -93,6 +93,10 @@ def _hai_cach_doc(tho: str) -> set[float]:
         try:
             ra.add(float(tho.replace(",", ".")))
         except ValueError:
+            # Im lặng ở đây là ĐÚNG, không phải nuốt lỗi: cả hàm này là phép
+            # "thử đọc theo cách thứ hai". Chuỗi không đọc được thành số thì
+            # cách đọc đó không tồn tại, và đó là kết quả bình thường — log ở
+            # đây sẽ nổ trên mọi đầu vào thường gặp rồi che mất log thật.
             pass
     return ra
 
