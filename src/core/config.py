@@ -157,7 +157,17 @@ class Config:
             "enforce_eager":          True,   # fix vLLM + Qwen CUDA graph bug
         }
 
-        # Ngưỡng p95 (NFR-03): hai ngưỡng, chốt 28/10/2026 — ms/token đo sức
-        # khoẻ server, tổng ms đo thứ người dùng cảm thấy. Xem nguong_p95.py.
-        from src.core.nguong_p95 import doc_nguong
-        self.p95_nguong_ms, self.p95_ms_moi_token = doc_nguong()
+        # KHÔNG nạp ngưỡng p95 ở đây. Hai dòng cũ gọi `nguong_p95.doc_nguong()`
+        # rồi gán vào `self.p95_nguong_ms` / `self.p95_ms_moi_token` — và soát
+        # 04/11/2026 cho thấy KHÔNG NƠI NÀO đọc hai thuộc tính đó: không trong
+        # `src/`, không trong `tests/`, không trong tài liệu. `metrics.py` tính
+        # ra con số p95 nhưng không so với ngưỡng nào.
+        #
+        # Để lại thì `Config` trông như đã áp ngưỡng NFR-03, mà thực ra không.
+        # Người đọc config sẽ tưởng p95 đang được kiểm — đúng loại tin sai mà
+        # AGENTS §4.2 bảo xoá thay vì giữ.
+        #
+        # Ngưỡng vẫn sống ở `src/core/nguong_p95.py`, và có người dùng thật:
+        # `offline_training/do_ngan_sach_ctx.py` gọi `danh_gia()` để kết luận
+        # đạt/vượt trong phiên đo. Nối ngưỡng vào /health là việc riêng trên
+        # bảng kanzo, không phải thứ xoá dòng này làm mất.
