@@ -559,7 +559,7 @@ Vấn đề thật nằm ở chỗ khác: **VLM chỉ được yêu cầu trích
 
 Nguyên nhân gốc là **vi phạm P4 — prompt hóa đơn tồn tại ở hai nơi, hai nội dung khác nhau**:
 
-- [`prompts.py::INVOICE_SYSTEM`](src/core/prompts.py#L134) mô tả lược đồ đầy đủ + quy trình kiểm tra 4 bước + quy tắc an toàn (`status` luôn `pending_review`). Nhưng nó là **code chết** — chỉ được tham chiếu trong `apply_v2_fixes.py` (script migration ở gốc repo), **không có trong luồng chạy**.
+- [`prompts.py::INVOICE_SYSTEM`](src/core/prompts.py#L134) mô tả lược đồ đầy đủ + quy trình kiểm tra 4 bước + quy tắc an toàn (`status` luôn `pending_review`). Nhưng nó là **code chết** — **không một tham chiếu nào** trong `src/`, `tests/` hay `offline_training/` (đo 04/11/2026). Câu này nói đúng từ đầu, trong khi `AGENTS.md` §R4 và chú thích trong `prompts.py` đều ghi ngược lại là "đang chạy" — cả hai đã sửa cùng ngày. Tham chiếu duy nhất từng có là `apply_v2_fixes.py`, một script migration thời Make.com đã **xoá** (lấy lại bằng `git show c9fc6bc:apply_v2_fixes.py`).
 - [`vision.py:28-35`](src/agents/vision.py#L28-L35) tự định nghĩa prompt inline, lược đồ chỉ `{items:[{name, price, qty}], total}`. **Đây mới là prompt thực sự chạy.**
 
 Hệ quả kéo theo: ca kiểm thử T4 trong [`benchmark_integration.py:92-100`](offline_training/benchmark_integration.py#L92-L100) nạp payload có `supplier_name`, `items[].amount`, `subtotal`, `vat_rate`, `vat_amount` — **`InvoicePayload` sẽ loại bỏ toàn bộ các trường này**. Benchmark và schema đang mô tả hai hệ thống khác nhau.

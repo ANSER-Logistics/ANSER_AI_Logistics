@@ -44,7 +44,7 @@ DEV = GOC / "requirements-dev.txt"
 CHUA_GHIM: frozenset[str] = frozenset({
     "chromadb", "decord", "ddgs", "einops", "fastapi", "json_repair",
     "lm-format-enforcer", "lunardate", "nest_asyncio", "numpy", "openai",
-    "openpyxl", "pdf2image", "pillow", "protobuf", "psycopg2-binary", "pypdf",
+    "openpyxl", "pillow", "protobuf", "psycopg2-binary", "pypdf",
     "pyngrok", "python-docx", "python-multipart", "pytz", "qwen_vl_utils",
     "requests", "scikit-learn", "sentence-transformers", "sentencepiece",
     "sqlalchemy", "timm", "uvicorn",

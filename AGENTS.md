@@ -145,7 +145,7 @@ Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_S
 - Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn. Một nguồn nghĩa là **một**, và nguồn đó ở Body.
 - `offline_training/db_schema.txt` **đã xoá** (04/11/2026). Không file `.py` nào import nó, và nội dung đã lệch khỏi Body. Lấy lại bằng `git show f77096c:offline_training/db_schema.txt`.
 - `SCHEMA MAP` trong `saas_api.py` **đã sửa** theo lược đồ thật của Body (04/11/2026): 5 trong 10 định danh sai, trong đó `workspace_id` ánh xạ tới một khái niệm Body không có. Lý do đầy đủ nằm trong chính khối đó.
-- Còn một bản sao nữa chưa xử: khối `[LƯỢC ĐỒ]` trong `Prompts.INVOICE_SYSTEM`. Prompt đó **đang chạy**. Để lại có chủ ý, chờ S5 gộp prompt hoá đơn — cảnh báo và chỉ dẫn nằm ngay cạnh nó trong [`prompts.py`](src/core/prompts.py).
+- Còn một bản sao nữa chưa xử: khối `[LƯỢC ĐỒ]` trong `Prompts.INVOICE_SYSTEM`. **Bản trước của dòng này ghi "Prompt đó đang chạy" — SAI** (sửa 04/11/2026). Đo bằng cách tìm `INVOICE_SYSTEM` trong `src/`, `tests/`, `offline_training/`: **không một tham chiếu nào** ngoài chính dòng khai báo. 11 trong 12 hằng số của `Prompts` có người dùng; đây là cái duy nhất bằng 0. Nên xoá khối đó **không có rủi ro chạy nào** — cái chặn chỉ còn là câu hỏi S5 nên biểu diễn nhánh hoá đơn thế nào. Chỉ dẫn đầy đủ nằm ngay cạnh nó trong [`prompts.py`](src/core/prompts.py).
 
 ### R5 — Hardware-neutral
 
