@@ -301,3 +301,100 @@ def test_ten_phan_vram_giong_compose():
     """
     assert "TEXT_GPU_FRACTION" in COMPOSE.read_text(encoding="utf-8")
     assert "TEXT_GPU_FRACTION" in _env_code_doc()
+
+
+# ---------------------------------------------------------------------------
+# .env.example — mỗi khoá phải thực sự tới được một chỗ nào đó
+# ---------------------------------------------------------------------------
+# `.env.example` là thứ người triển khai COPY rồi điền. Một khoá nằm trong đó mà
+# không đi tới đâu là lời hứa suông ở mức tệ nhất: người ta đặt giá trị, khởi
+# động lại, và không có gì đổi — không lỗi, không cảnh báo.
+#
+# Soát 04/11/2026 tìm thấy đúng một ca như vậy, và nó đứt ở HAI chỗ cùng lúc:
+# `P95_NGUONG_MS` / `P95_MS_MOI_TOKEN` được `src/core/nguong_p95.py` đọc và
+# `Config.__init__` gán vào `self.p95_*`, nhưng (1) compose không truyền hai biến
+# đó vào container `brain`, và (2) không nơi nào đọc `self.p95_*`. Chuỗi có bốn
+# khâu và hỏng ở khâu 3 lẫn khâu 4.
+#
+# Phép kiểm cũ ở trên không thấy được: nó soi KHOÁ trong khối `environment:` của
+# service `brain` — tức tên biến mà tiến trình Brain nhận. Đúng cho mục đích của
+# nó, nhưng `.env.example` là một không gian tên KHÁC (những gì người ta gõ vào
+# `.env`), và không có phép kiểm nào cho không gian tên đó.
+
+# Khoá `.env.example` mà compose CỐ Ý không truyền, kèm nơi nó thật sự có tác
+# dụng. Danh sách này là lời khai, không phải ngoại lệ miễn phí: mỗi dòng phải
+# nói ai đọc biến đó.
+ENV_MAU_NGOAI_COMPOSE: dict[str, str] = {
+    "P95_MS_MOI_TOKEN": (
+        "Chỉ offline_training/do_ngan_sach_ctx.py dùng, đọc từ env của phiên "
+        "Colab. Service đang chạy không so p95 với ngưỡng nào."
+    ),
+    "P95_NGUONG_MS": "Cùng lý do với P95_MS_MOI_TOKEN.",
+}
+
+
+def _khoa_env_mau() -> list[str]:
+    """Tên khoá trong deploy/.env.example."""
+    return re.findall(r"^([A-Z_][A-Z0-9_]*)=", ENV_MAU.read_text(encoding="utf-8"), re.M)
+
+
+def _khoa_compose_thay_the() -> set[str]:
+    """Khoá .env mà compose thay thế vào, tức `${TEN}` ở bất kỳ service nào."""
+    return set(re.findall(r"\$\{([A-Z_][A-Z0-9_]*)", COMPOSE.read_text(encoding="utf-8")))
+
+
+def test_moi_khoa_env_mau_den_duoc_mot_cho():
+    """Khoá trong `.env.example` phải được compose truyền đi, hoặc được khai báo.
+
+    Chú ý: đây là `${TEN}` ở MỌI service, không riêng `brain` — `TEXT_GPU_FRACTION`
+    đi vào `command:` của container vLLM, và đó là một đích đến hợp lệ.
+    """
+    treo = [k for k in _khoa_env_mau()
+            if k not in _khoa_compose_thay_the() and k not in ENV_MAU_NGOAI_COMPOSE]
+    assert not treo, (
+        f".env.example dạy người ta đặt {treo} nhưng compose không truyền đi đâu. "
+        f"Nối vào compose, hoặc thêm vào ENV_MAU_NGOAI_COMPOSE kèm nơi nó có tác dụng."
+    )
+
+
+def test_moi_khoa_compose_can_deu_co_trong_env_mau():
+    """Chiều ngược lại: compose đòi một khoá mà `.env.example` không khai.
+
+    Với khoá dùng `${TEN:?...}` thì thiếu nó làm `docker compose up` chết ngay —
+    đỡ hơn im lặng, nhưng người triển khai chỉ biết sau khi đã thử dựng.
+    """
+    thieu = [k for k in sorted(_khoa_compose_thay_the()) if k not in _khoa_env_mau()]
+    assert not thieu, f"compose cần {thieu} nhưng .env.example không khai"
+
+
+@pytest.mark.parametrize("ten", sorted(ENV_MAU_NGOAI_COMPOSE))
+def test_khoa_khai_ngoai_compose_dung_la_ngoai_compose(ten):
+    """Nối vào compose rồi mà quên xoá khỏi danh sách thì danh sách thành sai."""
+    assert ten not in _khoa_compose_thay_the(), (
+        f"'{ten}' nay đã được compose truyền — xoá khỏi ENV_MAU_NGOAI_COMPOSE."
+    )
+    assert ENV_MAU_NGOAI_COMPOSE[ten].strip(), f"'{ten}' phải kèm nơi nó có tác dụng"
+
+
+def test_khong_con_thuoc_tinh_nguong_p95_chet_trong_config():
+    """`Config` không được gán ngưỡng p95 mà không ai đọc.
+
+    Trước 04/11/2026 `Config.__init__` gán `self.p95_nguong_ms` và
+    `self.p95_ms_moi_token`, và không nơi nào trong repo đọc chúng. Để lại thì
+    `Config` trông như đã áp ngưỡng NFR-03 trong khi service không kiểm gì.
+
+    Test này đỏ theo CẢ HAI chiều, và chiều thứ hai mới là chiều đáng giá: nối
+    ngưỡng vào /health thật thì nó cũng đỏ, buộc người làm quay lại xoá nó đi
+    thay vì để một phép kiểm lỗi thời chặn việc đúng.
+    """
+    import inspect
+
+    from src.core import config as mod_config
+
+    nguon = inspect.getsource(mod_config)
+    gan = [d for d in nguon.splitlines()
+           if "self.p95_" in d and not d.lstrip().startswith("#")]
+    assert not gan, (
+        f"Config gán {gan}. Nếu p95 nay ĐƯỢC dùng thật thì xoá test này và ghi "
+        f"rõ chỗ đọc; nếu chưa, đừng gán."
+    )
