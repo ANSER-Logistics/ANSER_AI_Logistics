@@ -97,3 +97,99 @@ def test_khong_dinh_nghia_lai_gi_trong_file_nay():
             f"{dau_hieu!r} xuất hiện trong agent_middleware.py — định dạng "
             "workflow phải chỉ được định nghĩa ở workflow_schema.py (P4)."
         )
+
+
+# ---------------------------------------------------------------------------
+# R4 — ba nơi AGENTS.md nói phải khớp nhau
+# ---------------------------------------------------------------------------
+# AGENTS.md §2 R4 liệt kê ba nơi: prompt dạy model định dạng, danh mục node đưa
+# vào prompt, và lớp kiểm đầu ra. Trong mã nguồn hôm nay cả ba đã dựng TỪ MỘT
+# nguồn (`workflow_schema`), nên chuyện "sửa một nơi quên hai nơi kia" không
+# còn xảy ra được bằng cách sửa ba file.
+#
+# Nhưng nó VẪN xảy ra được bằng một cách khác, và chưa có test nào chặn: hai
+# hàm cùng đọc catalog mà trình bày lệch nhau. `render_node_catalog()` viết ra
+# thứ MODEL ĐƯỢC DẠY; `validate_workflow()` kiểm thứ MODEL PHẢI LÀM. Hai hàm đó
+# ở cùng file nên trông như không thể lệch — nhưng chúng là hai vòng lặp riêng
+# trên cùng một dict, và một lần lọc thêm điều kiện ở một trong hai là dạy model
+# một định dạng mà lớp kiểm từ chối. Đó là đúng lớp lỗi R4 sinh ra để diệt, chỉ
+# là ở quy mô nhỏ hơn ba file.
+#
+# `test_deterministic_core` đã kiểm grammar guided_json khớp `allowed_types()`.
+# Hai test dưới đây kiểm chân còn lại: PROMPT khớp lớp KIỂM.
+
+
+def test_prompt_day_dung_nhung_node_lop_kiem_cho_phep():
+    """Tập node trong prompt == tập node `validate_workflow` nhận.
+
+    Lệch một chiều nào cũng hỏng, theo hai cách khác nhau:
+      - prompt có mà lớp kiểm không  -> model làm đúng lời dạy rồi bị từ chối
+      - lớp kiểm có mà prompt không  -> mất một node dùng được, không ai biết
+    """
+    import re
+
+    trong_prompt = set(
+        re.findall(r"n8n-nodes-base\.[A-Za-z0-9_]+",
+                   workflow_schema.render_node_catalog())
+    )
+    lop_kiem = set(workflow_schema.get_node_catalog())
+
+    assert trong_prompt == lop_kiem, (
+        f"prompt thừa: {sorted(trong_prompt - lop_kiem)}, "
+        f"prompt thiếu: {sorted(lop_kiem - trong_prompt)}"
+    )
+    assert trong_prompt == set(workflow_schema.allowed_types())
+
+
+def test_prompt_day_dung_typeVersion_lop_kiem_doi():
+    """typeVersion trong prompt == typeVersion lớp kiểm báo khi node sai.
+
+    `validate_workflow` chỉ đòi `typeVersion` là một con số, nhưng khi báo lỗi nó
+    nói RÕ con số đúng là bao nhiêu, lấy từ catalog. Nếu prompt dạy một số khác,
+    model sinh workflow import vào n8n của Body không chạy — mà lớp kiểm vẫn cho
+    qua, vì nó chỉ kiểm kiểu. Không có test này thì lệch đó im lặng tới lúc
+    workflow chạy thật.
+    """
+    import re
+
+    cap_trong_prompt = dict(
+        re.findall(r"(n8n-nodes-base\.[A-Za-z0-9_]+) \(typeVersion ([0-9.]+)\)",
+                   workflow_schema.render_node_catalog())
+    )
+    catalog = workflow_schema.get_node_catalog()
+
+    assert set(cap_trong_prompt) == set(catalog)
+    for ntype, meta in catalog.items():
+        assert cap_trong_prompt[ntype] == str(meta["typeVersion"]), ntype
+
+
+def test_node_bi_chan_khong_nam_trong_danh_muc():
+    """Node bị chặn KHÔNG được xuất hiện trong prompt, và phải bị lớp kiểm loại.
+
+    `n8n-nodes-base.code` cho chạy mã tuỳ ý. Dạy model nó rồi chặn ở lớp sau là
+    tạo ra một vòng retry chắc chắn thất bại; tệ hơn, nó dạy model rằng node đó
+    hợp lệ, và dữ liệu fine-tune sinh từ prompt này mang theo điều đó.
+    """
+    # KHÔNG lặp suông trên tập rỗng. Đột biến thử nghiệm 04/11: đổi
+    # `BLOCKED_NODE_TYPES` thành `set()` làm vòng lặp dưới đây không chạy lần
+    # nào và test VẪN XANH — đúng lớp lỗi "test không thể đỏ". Chốt số lượng và
+    # gọi tên node nguy hiểm nhất ra để nó không thể biến mất trong im lặng.
+    assert len(workflow_schema.BLOCKED_NODE_TYPES) >= 3
+    assert "n8n-nodes-base.code" in workflow_schema.BLOCKED_NODE_TYPES
+
+    trong_prompt = workflow_schema.render_node_catalog()
+    for xau in workflow_schema.BLOCKED_NODE_TYPES:
+        assert xau not in trong_prompt
+        assert xau not in workflow_schema.get_node_catalog()
+
+        ok, ly_do = workflow_schema.validate_workflow({
+            "action": "create_workflow",
+            "name": "thử",
+            "payload": {"nodes": [{
+                "name": "N", "type": xau, "typeVersion": 1,
+                "position": [0, 0], "parameters": {},
+            }], "connections": {}},
+        })
+        assert not ok
+        # Lý do phải NÓI RA node nào — nó đi thẳng vào feedback retry.
+        assert xau in ly_do

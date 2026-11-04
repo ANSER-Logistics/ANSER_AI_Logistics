@@ -119,13 +119,23 @@ Không có 3 mục này ⇒ PR bị từ chối.
 
 **Định dạng workflow duy nhất: n8n.** Make.com và engine nội bộ Body không phải đích sinh code.
 
-Ba nơi sau phải luôn khớp nhau. Sửa một nơi mà không sửa hai nơi kia là lỗi:
+**Nguồn duy nhất: [`workflow_schema.py`](src/core/workflow_schema.py).** Cả ba chân — prompt dạy model, lớp kiểm đầu ra, và grammar `guided_json` — đều **dựng từ cùng một `catalog`** trong file đó.
 
-| Nơi | Vai trò |
+| Nơi | Thực tế trong mã nguồn hôm nay |
 |---|---|
-| [`prompts.py::CODER_SYSTEM`](src/core/prompts.py) | Dạy model định dạng |
-| [`agent_middleware.py`](src/core/agent_middleware.py) | Danh mục node đưa vào prompt |
-| [`chat.py::_validate_workflow`](src/api/routes/chat.py) | Kiểm tra đầu ra |
+| [`prompts.py::CODER_SYSTEM`](src/core/prompts.py) | Chỉ có chỗ giữ chỗ `{tools}` / `{example}`. Không chứa tên node nào. |
+| [`agent_middleware.py`](src/core/agent_middleware.py) | Lớp mỏng, 6 hàm, mỗi hàm một dòng `return workflow_schema.…`. Không giữ trạng thái. |
+| [`chat.py`](src/api/routes/chat.py) | `_validate_workflow = validate_workflow` — một dòng gán bí danh. |
+
+Bản trước của mục này ghi *"Ba nơi sau phải luôn khớp nhau. Sửa một nơi mà không sửa hai nơi kia là lỗi"*. **Chỉ dẫn đó sai hướng** (sửa 04/11/2026) — nó bảo người đọc *bảo trì ba bản sao*, đúng thứ R4 cấm. Đoạn lược đồ DB ngay dưới đây đã tự nhận ra điều đó cho trường hợp của nó ("Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn") nhưng bảng n8n thì chưa ai soát lại. Mã nguồn đã hợp nhất xong từ 27/07/2026 — chỉ tài liệu còn kẹt lại ở cấu trúc cũ.
+
+**Đối chiếu bằng lệnh, đừng nhớ.** Đo 04/11/2026: 10 node type, cả bốn chỗ (catalog, prompt, `allowed_types()`, grammar) khớp tuyệt đối; `BLOCKED_NODE_TYPES` rời khỏi catalog.
+
+```bash
+pytest tests/test_agent_middleware.py tests/test_deterministic_core.py -q
+```
+
+Lệch pha còn có thể xảy ra ở quy mô nhỏ hơn ba file: `render_node_catalog()` viết ra thứ **model được dạy**, `validate_workflow()` kiểm thứ **model phải làm**. Hai hàm cùng file, cùng đọc một dict, nhưng là hai vòng lặp riêng — thêm một điều kiện lọc ở một bên là dạy model một định dạng mà bên kia từ chối. Ba test chặn đúng chỗ đó: tập node khớp, `typeVersion` khớp, và node bị chặn không lọt vào prompt.
 
 **Lược đồ DB: Brain KHÔNG giữ bản sao nào.** Body gửi lược đồ kèm ngữ cảnh người dùng; [`agent_middleware.get_db_schema()`](src/core/agent_middleware.py) trả về một placeholder, đúng như vậy, "để tránh định nghĩa lược đồ ở nơi thứ hai".
 
