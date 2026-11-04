@@ -144,3 +144,115 @@ def test_file_bo_qua_dung_la_da_chan_chay(ten):
         f"{ten} nằm trong BO_QUA nhưng không thấy chốt chặn chạy nào. Nếu nó đã "
         f"hoạt động lại thì xoá khỏi BO_QUA và sửa các vi phạm trong đó."
     )
+
+
+# ---------------------------------------------------------------------------
+# Hằng số `Prompts` — có ai dùng không
+# ---------------------------------------------------------------------------
+# AGENTS §4.1 quy tắc 7: "Prompt chỉ sống trong prompts.py." Phép kiểm cho CHIỀU
+# ĐÓ đã thử và bỏ (xem docstring đầu file). Nhưng chiều NGƯỢC lại thì soát được,
+# và nó vừa bắt một thứ đáng giá hơn.
+#
+# Soát 04/11/2026: `Prompts.INVOICE_SYSTEM` không được tham chiếu Ở ĐÂU CẢ. 11
+# trong 12 hằng số có người dùng; đây là cái duy nhất bằng 0.
+#
+# Điều đáng kể không phải một hằng số chết — mà là HAI tài liệu khẳng định ngược
+# lại. Chú thích trong `prompts.py` viết "prompt này ĐANG CHẠY, nên model đang
+# thực sự đọc nó", và `AGENTS.md` §R4 viết "Prompt đó đang chạy". Cả hai dùng
+# chính khẳng định đó để biện minh cho việc KHÔNG sửa một khối lược đồ đã lệch
+# khỏi Body: "đổi một prompt đang chạy thì rủi ro".
+#
+# Tiền đề sai thì kết luận sai theo: xoá khối đó không có rủi ro chạy nào. Và
+# nguy hiểm thật thì NGƯỢC với điều đã ghi — người làm S5 đọc "đang chạy" sẽ coi
+# đây là ca di trú cần cẩn trọng, trong khi họ xoá được ngay.
+#
+# `ARCHITECTURE.md` nói đúng từ đầu ("code chết"). Ba tài liệu, hai nói sai, và
+# không ai đối chiếu — đúng loại lỗi một lệnh bắt được trong một giây.
+
+
+# Hằng số `Prompts` cố ý KHÔNG có người dùng, kèm lý do VÀ kèm điều phải đúng để
+# giữ nó. Danh sách này không phải chỗ miễn trừ: nó là nơi khai rằng một prompt
+# đang nằm chờ, chứ không phải đang chạy.
+PROMPT_CHUA_DUNG: dict[str, str] = {
+    "INVOICE_SYSTEM": (
+        "Chờ S5 (XAI hoá đơn: reconciliation.py + InvoiceFieldValidator + gộp "
+        "prompt hoá đơn, AGENTS §8). Khối [LƯỢC ĐỒ] trong nó ĐÃ LỆCH khỏi Body "
+        "(products.stock_quantity, import_transactions, import_details đều sai) "
+        "nhưng vì prompt không chạy nên lệch đó không đến được người dùng."
+    ),
+}
+
+
+def _hang_so_prompts() -> list[str]:
+    nguon = (SRC / "core" / "prompts.py").read_text(encoding="utf-8")
+    cay = ast.parse(nguon)
+    ra = []
+    for nut in ast.walk(cay):
+        if isinstance(nut, ast.ClassDef) and nut.name == "Prompts":
+            for than in nut.body:
+                if isinstance(than, ast.Assign):
+                    for dich in than.targets:
+                        # Bỏ tên bắt đầu bằng `_`: đó là hằng phụ dùng NỘI BỘ
+                        # trong prompts.py, không phải prompt. `_VN_WEEKDAYS`
+                        # (bảng tên thứ) lọt qua lần đầu vì
+                        # `"_VN_WEEKDAYS".isupper()` là True — dấu gạch dưới
+                        # không có hoa/thường.
+                        if (isinstance(dich, ast.Name)
+                                and dich.id.isupper()
+                                and not dich.id.startswith("_")):
+                            ra.append(dich.id)
+    return ra
+
+
+def _co_ai_dung(ten: str) -> list[str]:
+    import re
+
+    thu_muc = [SRC, GOC / "tests", GOC / "offline_training"]
+    ra = []
+    for d in thu_muc:
+        for p in d.rglob("*.py"):
+            if p.name == "prompts.py" or p.name == pathlib.Path(__file__).name:
+                continue
+            if re.search(rf"\b{ten}\b", p.read_text(encoding="utf-8")):
+                ra.append(p.name)
+    return ra
+
+
+def test_tim_duoc_hang_so_prompts():
+    """Chốt chống xanh suông: hai phép kiểm dưới lặp trên danh sách hằng số.
+
+    Đổi `Prompts` thành dataclass, hay chỉ đổi tên class, làm `_hang_so_prompts`
+    trả về [] và cả hai xanh mà không đọc gì.
+    """
+    hs = _hang_so_prompts()
+    assert len(hs) >= 10, f"chỉ thấy {len(hs)} hằng số trong Prompts — đổi cấu trúc?"
+    assert "CODER_SYSTEM" in hs
+
+
+def test_moi_prompt_hoac_co_nguoi_dung_hoac_duoc_khai_la_chua_dung():
+    """Prompt không ai dùng phải được KHAI, không được nằm im như thể đang chạy.
+
+    Một prompt chết nằm im thì vô hại. Một prompt chết mà tài liệu nói là đang
+    chạy thì có hại: nó làm mọi phán đoán rủi ro về nó sai theo.
+    """
+    treo = [h for h in _hang_so_prompts()
+            if h not in PROMPT_CHUA_DUNG and not _co_ai_dung(h)]
+    assert not treo, (
+        f"hằng số Prompts không nơi nào dùng: {treo}. Xoá nó, hoặc thêm vào "
+        f"PROMPT_CHUA_DUNG kèm lý do và kèm điều phải đúng để giữ nó."
+    )
+
+
+@pytest.mark.parametrize("ten", sorted(PROMPT_CHUA_DUNG))
+def test_prompt_khai_chua_dung_dung_la_chua_dung(ten):
+    """Chiều ngược: nối vào luồng chạy rồi mà quên xoá khỏi danh sách.
+
+    Khi đó danh sách nói một prompt đang nằm chờ trong khi nó đã chạy — đúng lớp
+    lỗi mà file này vừa được viết ra để chặn, chỉ đổi chiều.
+    """
+    dung = _co_ai_dung(ten)
+    assert not dung, (
+        f"'{ten}' nay ĐÃ có người dùng ({dung}) — xoá khỏi PROMPT_CHUA_DUNG, và "
+        f"soát lại khối [LƯỢC ĐỒ] trong nó vì giờ nó đến được người dùng."
+    )
+    assert PROMPT_CHUA_DUNG[ten].strip(), f"'{ten}' phải kèm lý do"

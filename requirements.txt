@@ -21,7 +21,6 @@ lunardate
 nest_asyncio
 numpy
 openai
-pdf2image
 pillow
 protobuf
 pyngrok
