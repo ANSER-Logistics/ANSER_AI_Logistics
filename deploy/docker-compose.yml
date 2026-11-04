@@ -137,6 +137,28 @@ services:
       # compose và đối chiếu với tên biến mà code gọi os.getenv.
       API_AUTH_TOKEN: ${API_TOKEN:?thiếu API_TOKEN trong .env}
       VLLM_API_KEY: ${VLLM_API_KEY:-}
+      # Bốn biến dưới đây ĐỔI HÀNH VI THẬT, và trước 04/11/2026 không có mặt
+      # ở compose lẫn .env.example — nên đặt chúng trong .env KHÔNG có tác
+      # dụng gì, vì chúng không tới được container.
+      #
+      # Rỗng = đúng hành vi hiện tại. Truyền qua đây chỉ làm chúng CẤU HÌNH
+      # ĐƯỢC, không bật gì cả — cùng nếp với DATABASE_URL và VLLM_API_KEY ở
+      # trên.
+      #
+      # Nặng nhất là cái đầu: thiếu nó thì nhánh LOGISTICS trả lời "Hệ thống
+      # báo giá chưa được nối với n8n" — tức nghiệp vụ ƯU TIÊN 1 (AGENTS §8)
+      # chết, trong khi tên biến cần đặt không xuất hiện ở bất kỳ file triển
+      # khai nào.
+      N8N_QUOTE_WEBHOOK_URL: ${N8N_QUOTE_WEBHOOK_URL:-}
+      # Phải KHỚP `BRAIN_KB_WORKSPACE` bên Body. Lệch thì tra sai kho tri
+      # thức — xem cảnh báo đầu src/api/routes/knowledge.py.
+      KB_WORKSPACE_ID: ${KB_WORKSPACE_ID:-default}
+      # Trỏ tới workflow_templates/ của Body. Rỗng = dùng catalog dự phòng,
+      # typeVersion có thể không khớp n8n instance của Body (có log cảnh báo).
+      N8N_TEMPLATES_DIR: ${N8N_TEMPLATES_DIR:-}
+      # Rỗng = TẮT webhook chủ động. Đặt URL là BẬT một lời gọi ra ngoài mang
+      # theo câu trả lời của AI — đọc kỹ trước khi điền.
+      BODY_CALLBACK_URL: ${BODY_CALLBACK_URL:-}
     volumes:
       - ../src/data/docs:/app/src/data/docs:ro
       - vector-db:/app/data/vector_db
