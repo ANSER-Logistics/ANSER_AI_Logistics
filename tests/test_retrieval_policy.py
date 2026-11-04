@@ -187,6 +187,14 @@ def test_duong_gui_that_dung_bo_loc():
         # TÊN NGƯỜI ĐI LỌT. Phép thử "câu có đổi không" vẫn xanh — chỉ khi đòi
         # chính cái tên biến mất mới lộ ra.
         ("thủ tục kiện khách Trần Văn Nam đòi nợ 340 triệu", "Nam"),
+        # Ba ca dưới bắt một lỗ R2 ở ĐÚNG cách viết tên doanh nghiệp thường
+        # gặp nhất. Bản 517d232 để hình thức pháp nhân ở nhánh `break`, nên
+        # vòng quét dừng ngay ở "TNHH" và tên khách đứng sau đi nguyên ra bộ
+        # tìm kiếm. Mười ca cũ không có ca nào viết hình thức pháp nhân, nên
+        # cả bộ test vẫn xanh trong khi lớp lọc hở ở cách viết phổ biến nhất.
+        ("công ty TNHH Minh Long phải làm gì", "Minh"),
+        ("công ty TNHH Minh Long phải làm gì", "Long"),
+        ("công ty CP XNK Đại Việt xuất hoá đơn thế nào", "Đại"),
     ],
 )
 def test_ten_rieng_khong_roi_khoi_he_thong(cau, ten_phai_biet_mat):
@@ -228,3 +236,24 @@ def test_khong_an_nham_tu_thuong_chua_don_vi_tien():
     ra2 = loc_truy_van_web("thuế GTGT cho khoản 5.000.000 đồng")
     assert "5.000.000" not in ra2 and "đồng" not in ra2
 
+
+def test_giu_hinh_thuc_phap_nhan_nhung_xoa_ten():
+    """Hình thức pháp nhân Ở LẠI, tên riêng sau nó thì KHÔNG.
+
+    Hai yêu cầu ngược nhau trong cùng một câu. "TNHH" là thông tin công khai và
+    một câu hỏi thuế có thể cần biết nó; "Minh Long" là tên khách, mà R2 liệt kê
+    danh sách khách là dữ liệu khách hàng.
+    """
+    ra = loc_truy_van_web("công ty TNHH Minh Long phải làm gì")
+    assert "TNHH" in ra
+    assert "Minh" not in ra and "Long" not in ra
+
+    # Hình thức pháp nhân đứng SAU tên cũng phải ở lại.
+    ra = loc_truy_van_web("công ty Minh Long TNHH phải làm gì")
+    assert "TNHH" in ra
+    assert "Minh" not in ra and "Long" not in ra
+
+    # Nhiều hình thức pháp nhân liền nhau.
+    ra = loc_truy_van_web("công ty CP XNK Đại Việt xuất hoá đơn thế nào")
+    assert "CP" in ra and "XNK" in ra
+    assert "Đại" not in ra and "Việt" not in ra
