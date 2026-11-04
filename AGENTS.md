@@ -151,18 +151,22 @@ Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_S
 
 **Không hardcode giả định phần cứng.** Không tên GPU, không con số VRAM, không đường dẫn `/content/drive/...` trong code.
 
-Mọi tham số phần cứng đọc từ biến môi trường, có mặc định an toàn:
+Mọi tham số phần cứng đọc từ biến môi trường, có mặc định an toàn. **Tên dưới đây là tên THẬT trong code** — đã đối chiếu 04/11/2026:
 
 ```python
-TEXT_MODEL_ID          # đường dẫn hoặc HF id
-VISION_MODEL_ID
+TEXT_MODEL_ID          # đường dẫn hoặc HF id. KHÔNG có mặc định, cố ý
+VISION_MODEL_ID        # Qwen/Qwen2.5-VL-3B-Instruct
 VLLM_BASE_URL          # http://127.0.0.1:8001/v1
-GPU_MEMORY_UTILIZATION
-MAX_MODEL_LEN
-QUANTIZATION
+TEXT_GPU_FRACTION      # 0.55 (compose: 0.62, vì vision là container riêng)
+TEXT_MAX_MODEL_LEN     # 32768
+TEXT_QUANTIZATION      # rỗng = để vLLM tự nhận từ config.json của model
 ENV                    # LOCAL | GPU | COLAB | SERVER
 VLLM_MODEL             # khớp --served-model-name của vLLM server
 ```
+
+Bản trước của danh sách này ghi `GPU_MEMORY_UTILIZATION`, `MAX_MODEL_LEN`, `QUANTIZATION`. **Ba tên đó không tồn tại trong code** — đo 04/11/2026: `grep getenv` trên `src/` cho 0 lần cho cả ba. Ai đọc AGENTS rồi đặt `GPU_MEMORY_UTILIZATION` trong `.env` sẽ thấy không có gì xảy ra, và tin rằng mình đã cấu hình xong. Một cái tên sai trong tài liệu cấu hình tệ hơn không ghi gì: không ghi thì người ta đi đọc code.
+
+`TEXT_GPU_FRACTION` cũng **chưa từng được code đọc** cho tới 04/11/2026 — `config.py` hardcode `0.55`, con số đo trên L4 22,5GB. Đường server đọc được từ env từ trước (compose truyền `--gpu-memory-utilization`), chỉ đường trong-tiến-trình còn kẹt. Nên tiêu chí nghiệm thu bên dưới **đang không đạt** ở đúng đường đó: chuyển sang 3090 24GB thì phải sửa code. Đã nối vào env, mặc định giữ `0.55` nên hành vi không đổi.
 
 Cặp `ENV` + `VLLM_BASE_URL` chọn backend ở đúng một chỗ, `engine.py::chon_backend()`. Có `VLLM_BASE_URL` thì text đi vLLM server ở mọi `ENV`. `SERVER` nghĩa là Brain không nạp model nào: bắt buộc có `VLLM_BASE_URL`, vision tắt có tuyên bố. Giá trị `ENV` lạ là lỗi cấu hình, không lặng lẽ nạp CUDA. Bảng đầy đủ ở [SO_TAY_NGUOI_MOI.md §2.4](SO_TAY_NGUOI_MOI.md).
 

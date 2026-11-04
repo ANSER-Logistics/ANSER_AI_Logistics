@@ -87,6 +87,8 @@ class Config:
         #  vLLM CONFIG
         # -----------------------------------------------------------------
         #  gpu_memory_utilization = PHẦN TỔNG VRAM dành cho vLLM
+        #     Đọc từ `TEXT_GPU_FRACTION`, mặc định 0.55. Con số dưới đây là
+        #     phép tính CHO MẶC ĐỊNH TRÊN L4 22,5GB, không phải hằng số:
         #     0.55 × 22.5GB ≈ 12.4GB cho vLLM
         #       ├─ weights 7B-AWQ ........ ~5.5GB
         #       └─ KV-cache + activation . ~6.5GB
@@ -132,7 +134,22 @@ class Config:
         #  Xem BAO_CAO_BR04.md.
         forced_quant = os.getenv("TEXT_QUANTIZATION", "").strip() or None
         self.vllm_config = {
-            "gpu_memory_utilization": 0.55,
+            # R5: đọc từ env, mặc định 0.55 — KHÔNG hardcode phần cứng.
+            #
+            # Cùng TÊN BIẾN với `docker-compose.yml` (`TEXT_GPU_FRACTION`), vì
+            # hai đường chạy cùng một tham số thì phải cùng một tên: đặt biến
+            # một chỗ, cả đường server lẫn đường trong-tiến-trình đi theo.
+            # Compose mặc định 0.62 (tách riêng container vision, 0.20); ở đây
+            # 0.55 vì MỘT tiến trình giữ cả text lẫn vision.
+            #
+            # Trước 04/11/2026 dòng này là hằng số `0.55`, đo trên L4 22,5GB.
+            # Nghiệm thu của R5 là "đổi sang máy tự sở hữu chỉ đổi .env, không
+            # sửa dòng code nào" — mà chuyển sang 3090 24GB thì phải sửa đúng
+            # dòng này. Đường server đã đọc được từ env từ trước; chỉ đường
+            # trong-tiến-trình còn kẹt.
+            "gpu_memory_utilization": float(
+                os.getenv("TEXT_GPU_FRACTION", "0.55")
+            ),
             "max_model_len":          int(os.getenv("TEXT_MAX_MODEL_LEN", "32768")),
             "dtype": os.getenv("TEXT_DTYPE", "").strip()
                      or ("half" if forced_quant == "awq" else "auto"),
