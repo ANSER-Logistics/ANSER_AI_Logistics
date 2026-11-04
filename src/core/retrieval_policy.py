@@ -134,7 +134,8 @@ _DANH_DAU_DOI_TAC = re.compile(
     re.IGNORECASE,
 )
 
-# Hình thức pháp nhân: viết hoa nhưng KHÔNG phải tên riêng.
+# Hình thức pháp nhân: viết hoa nhưng KHÔNG phải tên riêng — nên vòng quét BỎ
+# QUA chúng rồi đi tiếp, chứ không dừng lại ở chúng.
 #
 # CỐ Ý KHÔNG có "VIỆT"/"NAM" ở đây. Bản đầu có, và nó làm lọt một tên người:
 # "khách Trần Văn Nam" -> "khách Nam", vì vòng lặp dừng ngay ở "Nam". Giữa
@@ -165,7 +166,23 @@ def _xoa_ten_rieng(query: str) -> str:
         j = i + dai
         while j < len(tu):
             w = tu[j].strip(".,;:!?")
-            if not w or not w[0].isupper() or w.upper() in _HINH_THUC_PHAP_NHAN:
+            if not w:
+                break
+            # Hình thức pháp nhân: GIỮ LẠI rồi đi tiếp, không dừng và không xoá.
+            #
+            # Bản 517d232 để nó ở nhánh `break`, và đó là một lỗ R2 ở đúng cách
+            # viết thường gặp nhất: "công ty TNHH Minh Long" dừng ngay ở "TNHH"
+            # nên "Minh Long" — tên khách — đi nguyên ra bộ tìm kiếm. Tên riêng
+            # đứng SAU hình thức pháp nhân, nên dừng ở đó là dừng trước đúng thứ
+            # cần xoá.
+            #
+            # Giữ lại chứ không xoá: "công ty TNHH" là hình thức pháp nhân, một
+            # câu hỏi thuế có thể cần biết nó. Nó công khai, không phải tên ai.
+            if w.upper() in _HINH_THUC_PHAP_NHAN:
+                ra.append(tu[j])
+                j += 1
+                continue
+            if not w[0].isupper():
                 break
             j += 1
         i = j
@@ -182,18 +199,29 @@ def loc_truy_van_web(query: str) -> str:
     Tra cứu luật thuế cần BIẾT HỎI VỀ GÌ, không cần biết khách thu bao nhiêu.
     Bỏ con số đi thì kết quả tìm kiếm không kém đi, mà dữ liệu thì ở lại.
 
-    KHÔNG PHẢI LỚP BẢO VỆ ĐẦY ĐỦ — đọc tiếp
-    ----------------------------------------
-    Hàm này bỏ được CON SỐ. Nó KHÔNG bỏ được TÊN RIÊNG:
+    CÒN HỞ GÌ — đọc tiếp
+    --------------------
+    Hàm này bỏ con số, VÀ bỏ tên riêng viết hoa đứng sau một từ đánh dấu đối
+    tác (`_xoa_ten_rieng`, thêm 03/11/2026):
 
         "hoá đơn điện tử cho công ty Minh Long có bắt buộc không"
+          -> "hoá đơn điện tử cho công ty có bắt buộc không"
 
-    "Minh Long" là tên khách, và R2 liệt kê "danh sách khách" là dữ liệu khách
-    hàng. Không có cách tất định nào phân biệt tên khách với tên cơ quan nhà
-    nước trong một câu tiếng Việt — và đoán bằng model thì vi phạm R1.
+    Chỉ xoá SAU từ đánh dấu, nên `Bộ Tài chính` / `Tổng cục Thuế` ở lại — đó là
+    cơ quan nhà nước, công khai, và là thứ làm truy vấn tìm đúng văn bản.
 
-    Chưa xử, cố ý: xem việc trên bảng kanzo. Ghi ra đây vì một lớp lọc im lặng
-    bỏ sót còn nguy hơn không có lớp nào — người đọc sẽ tưởng đã an toàn.
+    CÒN SÓT, cố ý, một chỗ: **tên viết thường**.
+
+        "công ty minh long có bắt buộc không"   -> KHÔNG đổi
+
+    Quy tắc dựa vào chữ viết hoa. Xoá N từ sau từ đánh dấu bất kể hoa thường thì
+    `"công ty của tôi"` và `"công ty vận tải"` cũng bị cắt — đổi một lỗi R2 lấy
+    một truy vấn hỏng. Cần chủ dự án cân, xem việc trên bảng kanzo.
+
+    Ghi ra đây vì một lớp lọc im lặng bỏ sót còn nguy hơn không có lớp nào:
+    người đọc sẽ tưởng đã an toàn. Bản trước của chính đoạn này nói ngược lại —
+    nó ghi "KHÔNG bỏ được TÊN RIÊNG" và "chưa xử" trong khi `_xoa_ten_rieng` đã
+    chạy — tức là nói lớp lọc yếu hơn thực tế. Lệch theo chiều nào cũng sai.
     """
     goc = query or ""
 
