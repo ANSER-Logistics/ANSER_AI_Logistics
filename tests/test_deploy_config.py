@@ -211,3 +211,93 @@ def test_redis_chay_nhung_task_registry_van_trong_RAM():
         "redis" in p.read_text(encoding="utf-8").lower()
         for p in (GOC / "src").rglob("*.py")
     ), "đã có code dùng Redis — cập nhật CHUA_NOI và xoá test này"
+
+
+# ---------------------------------------------------------------------------
+# R5 — danh sách biến trong AGENTS.md phải là tên THẬT
+# ---------------------------------------------------------------------------
+# AGENTS.md §2 R5 liệt kê các biến "tham số phần cứng đọc từ biến môi trường".
+# Soát 04/11/2026: BA trong TÁM tên đó không tồn tại trong code —
+# `GPU_MEMORY_UTILIZATION`, `MAX_MODEL_LEN`, `QUANTIZATION`. Tên thật là
+# `TEXT_GPU_FRACTION`, `TEXT_MAX_MODEL_LEN`, `TEXT_QUANTIZATION`.
+#
+# Một cái tên sai trong tài liệu cấu hình tệ hơn không ghi gì: ai đặt
+# `GPU_MEMORY_UTILIZATION` trong .env sẽ thấy KHÔNG CÓ GÌ xảy ra và tin rằng
+# mình đã cấu hình xong. Không ghi thì người ta đi đọc code.
+
+AGENTS_MD = GOC / "AGENTS.md"
+
+_MO_KHOI_R5 = "Mọi tham số phần cứng đọc từ biến môi trường"
+
+
+def _bien_trong_khoi_r5() -> list[str]:
+    """Tên biến trong khối mã của mục R5 trong AGENTS.md."""
+    text = AGENTS_MD.read_text(encoding="utf-8")
+    i = text.find(_MO_KHOI_R5)
+    assert i != -1, "không tìm thấy mục R5 trong AGENTS.md"
+    dau = text.find("```python", i)
+    assert dau != -1, "mục R5 không còn khối ```python"
+    cuoi = text.find("```", dau + len("```python"))
+    khoi = text[dau + len("```python"):cuoi]
+    return re.findall(r"^([A-Z_][A-Z0-9_]*)", khoi, re.M)
+
+
+def test_moi_bien_r5_trong_agents_la_ten_that():
+    """Mỗi tên trong khối R5 phải thực sự được `src/` đọc.
+
+    Đây là phép kiểm mà nếu có từ trước thì ba cái tên sai kia không sống nổi
+    tới 04/11/2026.
+    """
+    doc = _env_code_doc()
+    treo = [x for x in _bien_trong_khoi_r5() if x not in doc]
+    assert not treo, (
+        f"AGENTS.md §R5 hứa {treo} nhưng không chỗ nào trong src/ đọc. "
+        f"Sửa tên trong AGENTS.md cho khớp code, hoặc nối vào code."
+    )
+
+
+def test_khoi_r5_khong_rong():
+    """Chốt chặn cho chính phép kiểm trên: nó lặp trên một danh sách.
+
+    Khối R5 rỗng (hoặc regex không khớp nữa) làm `test_moi_bien_r5...` xanh
+    suông. Đã gặp đúng lớp lỗi này ngày 04/11 ở một test khác — xem
+    `tests/test_agent_middleware.py::test_node_bi_chan_khong_nam_trong_danh_muc`.
+    """
+    bien = _bien_trong_khoi_r5()
+    assert len(bien) >= 6, bien
+    assert "TEXT_GPU_FRACTION" in bien
+    assert "TEXT_MODEL_ID" in bien
+
+
+def test_phan_vram_doc_tu_env_khong_hardcode(monkeypatch):
+    """`gpu_memory_utilization` đến từ env, mặc định 0.55, và ĐỔI được.
+
+    Tiêu chí nghiệm thu của R5: "chuyển từ GPU thuê sang máy tự sở hữu chỉ đổi
+    .env, không sửa dòng code nào". Trước 04/11/2026 dòng này là hằng số 0.55 —
+    con số đo trên L4 22,5GB — nên chuyển sang 3090 24GB thì phải sửa code.
+
+    Kiểm cả hai chiều: thiếu biến thì giữ nguyên 0.55 (không đổi hành vi), và
+    đặt biến thì giá trị phải đi theo (đọc rồi bỏ cũng là một cách hỏng).
+    """
+    import importlib
+
+    from src.core import config as mod_config
+
+    monkeypatch.delenv("TEXT_GPU_FRACTION", raising=False)
+    importlib.reload(mod_config)
+    assert mod_config.Config().vllm_config["gpu_memory_utilization"] == 0.55
+
+    monkeypatch.setenv("TEXT_GPU_FRACTION", "0.80")
+    importlib.reload(mod_config)
+    assert mod_config.Config().vllm_config["gpu_memory_utilization"] == 0.80
+
+
+def test_ten_phan_vram_giong_compose():
+    """Cùng một tham số thì cùng một tên ở cả hai đường chạy (R4).
+
+    Compose truyền `--gpu-memory-utilization=${TEXT_GPU_FRACTION:-0.62}` cho
+    container vLLM. Nếu đường trong-tiến-trình đọc một tên KHÁC thì đặt biến
+    một chỗ chỉ sửa được một nửa hệ thống, mà nửa còn lại không báo gì.
+    """
+    assert "TEXT_GPU_FRACTION" in COMPOSE.read_text(encoding="utf-8")
+    assert "TEXT_GPU_FRACTION" in _env_code_doc()

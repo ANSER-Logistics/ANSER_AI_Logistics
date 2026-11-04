@@ -167,7 +167,8 @@ Không có biến nào là bắt buộc. Mặc định được chọn để ch�
 | `DATABASE_URL` | SQLite trong RAM | DB của Body. Thiếu thì mọi câu tra cứu hàng hoá trả "không tìm thấy" |
 | `TEXT_MODEL_ID` | rỗng | Đường dẫn hoặc HuggingFace id của model text AWQ. Chỉ cần khi nạp text **trong tiến trình**. Thiếu thì engine báo lỗi rõ, không có mặc định |
 | `VISION_MODEL_ID` | `Qwen/Qwen2.5-VL-3B-Instruct` | Model đọc ảnh hoá đơn |
-| `TEXT_MAX_MODEL_LEN` | `8192` | Cửa sổ ngữ cảnh. Dùng chung tên với `docker-compose.yml` theo R4 |
+| `TEXT_MAX_MODEL_LEN` | `32768` | Cửa sổ ngữ cảnh. Dùng chung tên với `docker-compose.yml` theo R4. Mặc định nâng 8192 → 32768 ngày 28/10/2026 (BR-04) |
+| `TEXT_GPU_FRACTION` | `0.55` | Phần tổng VRAM dành cho vLLM. Cùng tên với `docker-compose.yml`, nhưng compose mặc định **0.62** vì ở đó vision là container riêng (0.20); `0.55` là cho MỘT tiến trình giữ cả text lẫn vision |
 | `KB_WORKSPACE_ID` | `default` | Phạm vi kho tri thức. Phải khớp `BRAIN_KB_WORKSPACE` bên Body |
 | `VLLM_BASE_URL` | rỗng | Địa chỉ vLLM chạy chế độ server. Có biến này thì text đi qua HTTP ở **mọi** `ENV`. Ghi có hay không có đuôi `/v1` đều được |
 | `VLLM_MODEL` | rỗng | Tên model gửi cho vLLM server, khớp `--served-model-name`. Compose dùng `anser-v3` |
