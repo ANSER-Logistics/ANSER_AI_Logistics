@@ -28,7 +28,10 @@ specialized agents for consulting, retrieval, automation workflow generation, an
    - `DATABASE_URL`
 4. Optional:
    - `NGROK_AUTHTOKEN` if using `launch_demo.py`
-   - `DEEPSEEK_API_KEY` for `src/evaluate_system.py`
+   - `DEEPSEEK_API_KEY` — **no longer used by anything in `src/`**.
+     `src/evaluate_system.py` was deleted on 2026-11-07. The only remaining
+     users are the dataset generators in `offline_training/`, which run on
+     fictional scenarios — no customer data leaves the system (AGENTS §R2).
 5. Run API:
    - `uvicorn src.server:app --host 0.0.0.0 --port 8000`
 
