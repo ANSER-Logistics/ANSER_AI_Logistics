@@ -65,6 +65,8 @@ Một nửa thứ ba nằm ngoài cả hai: **n8n** chạy các việc theo lị
 
 ### 1.3. Năm ràng buộc, viết tắt R1 đến R5
 
+> **Chưa từng làm việc với mô hình ngôn ngữ?** Đọc [docs/AI-CHO-NGUOI-CHUA-LAM-AI.md](docs/AI-CHO-NGUOI-CHUA-LAM-AI.md) trước. Bảng dưới đây **nêu** năm ràng buộc; file kia giải thích chúng đến từ đâu — vì sao một mô hình không được phép cộng hai số, và vì sao "đúng 95%" không phải là 95% an toàn. Không cần biết gì trước.
+
 Đây là phần quan trọng nhất của mục 1. Một đề xuất vi phạm bất kỳ ràng buộc nào thì đề xuất đó sai, kể cả khi nó chạy được. Bản đầy đủ nằm ở [AGENTS.md](AGENTS.md).
 
 | | Tên | Nội dung | Kiểm nhanh |
