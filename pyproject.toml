@@ -16,6 +16,11 @@ ignore = ["E501"]
 # Notebook: ô đầu là `!pip install`, import buộc phải nằm sau — E402 là bản chất
 # của notebook, không phải nợ kỹ thuật.
 "offline_training/*.ipynb" = ["E402"]
+# Script ở GỐC REPO. `launch_demo.py` phải vô hiệu hoá `pyngrok.installer`
+# TRƯỚC khi import `conf`/`ngrok` — nếu không, pyngrok tự tải binary ngrok về
+# giữa lúc khởi động. Monkeypatch-rồi-mới-import là chủ đích, cùng nếp đã miễn
+# cho offline_training/ ở trên.
+"launch_demo.py" = ["E402"]
 # Script đánh giá độc lập: sys.path.insert TRƯỚC khi import src — E402 chủ đích
 "src/evaluate_system.py" = ["E402"]
 
