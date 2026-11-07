@@ -228,7 +228,7 @@ Hai cổng chất lượng còn lại. Hai lệnh dưới đây **đúng bằng*
 CI báo lỗi sau:
 
 ```bash
-ruff check src tests offline_training
+ruff check src tests offline_training launch_demo.py execute_backup_and_push.py
 mypy src offline_training
 ```
 

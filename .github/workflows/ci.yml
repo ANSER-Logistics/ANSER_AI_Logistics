@@ -26,7 +26,20 @@ jobs:
       # một F821 làm notebook Colab ném NameError giữa phiên đo, sau khi đã nạp
       # xong model. Script offline chạy trên GPU đắt tiền: lỗi phải chết ở đây.
       - name: Ruff
-        run: ruff check src tests offline_training
+      # Them hai script o GOC REPO (04/11/2026). Chung tung nam ngoai MOI cong
+      # tu dong — khong ruff, khong mypy, khong test quy tac code — va do duoc
+      # 25 loi ruff, trong do mot F841 che mot loi DO LUONG trong watchdog VRAM
+      # cua launch_demo.py: no tinh ca `allocated` lan `reserved` roi canh bao
+      # theo `allocated`, tuc bao muon hoac khong bao gi.
+      #
+      # `execute_backup_and_push.py` la script AGENTS §6.3 bao NGUOI DUNG chay,
+      # vao dung luc te nhat de no hong: cuoi giai doan, luc sao luu va push.
+      # Mot F821 o do lam mat chinh buoc bao ve cong viec.
+      #
+      # KHONG them chung vao tests/test_quy_tac_code.py: ca hai la script chay
+      # tuong tac nen `print` la cach xuat DUNG o do, giong moi script trong
+      # offline_training/. Quy tac "khong print" la quy tac cua SERVICE.
+        run: ruff check src tests offline_training launch_demo.py execute_backup_and_push.py
       # CẢ HAI thư mục, không còn file nào chọn tay (04/11/2026). Lịch sử:
       # danh sách cũ soi 5 trên 83 file nguồn — 6% — nên bước này nhận xanh
       # mà gần như không kiểm gì.

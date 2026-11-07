@@ -1,17 +1,15 @@
 import os
+import shutil
 import subprocess
 import sys
-import shutil
 import threading
 import time
+
 import nest_asyncio
-
 import pyngrok.installer
+
 pyngrok.installer.install_ngrok = lambda *args, **kwargs: None
-from pyngrok import conf
-from pyngrok import ngrok
-
-
+from pyngrok import conf, ngrok
 
 nest_asyncio.apply()
 
@@ -35,17 +33,46 @@ def vram_monitor_thread(project_root):
     while True:
         try:
             if torch.cuda.is_available():
+                # NGUONG DAT TREN `reserved`, KHONG phai `allocated`.
+                #
+                # Ban truoc tinh CA HAI roi chi dung `allocated` — ruff bao
+                # F841 cho bien khong dung, nhung thu dang ke hon la mot loi DO
+                # LUONG trong chinh thu lam nhiem vu canh bao:
+                #
+                #   allocated = bo nho cac tensor DANG giu
+                #   reserved  = bo nho PyTorch da xin cua driver va GIU LAI
+                #
+                # Bo cap phat co dem cua PyTorch khong tra lai driver khi mot
+                # tensor duoc giai phong, nen `reserved` >= `allocated`, thuong
+                # lon hon nhieu. Thu gay OOM la `reserved`. Canh bao theo
+                # `allocated` bao MUON, hoac khong bao gi trong khi tien trinh
+                # da sat tran driver.
                 allocated = torch.cuda.memory_allocated()
                 reserved = torch.cuda.memory_reserved()
                 max_memory = torch.cuda.get_device_properties(0).total_memory
                 if max_memory > 0:
-                    percent_used = (allocated / max_memory) * 100
+                    percent_used = (reserved / max_memory) * 100
+                    percent_alloc = (allocated / max_memory) * 100
                     if percent_used > 90.0:
-                        with open(alert_file, "w") as f:
-                            f.write(f"# VRAM CRITICAL ALERT\n\nVRAM Usage has exceeded 90% ({percent_used:.1f}%).\nFallback mechanism triggered.")
-                        print(f"\n[ALERT] VRAM exceeded 90%: {percent_used:.1f}%")
-        except Exception:
-            pass
+                        # Ghi CA HAI con so: khoang cach giua chung cho biet nen
+                        # goi `empty_cache()` hay that su phai ha tai.
+                        with open(alert_file, "w", encoding="utf-8") as f:
+                            f.write(
+                                "# VRAM CRITICAL ALERT" + chr(10) * 2
+                                + f"reserved {percent_used:.1f}% cua tong VRAM "
+                                + f"(allocated {percent_alloc:.1f}%)." + chr(10)
+                                + "Vuot nguong 90%. Fallback mechanism triggered."
+                            )
+                        print(
+                            f"[ALERT] VRAM reserved {percent_used:.1f}% "
+                            f"(allocated {percent_alloc:.1f}%)"
+                        )
+        except Exception as loi:
+            # KHONG `pass` tran (AGENTS §4.1 quy tac 4). Day la mot WATCHDOG:
+            # nuot im lang nghia la no van chay, van trong nhu dang canh gioi,
+            # ma khong bao gio bao gi. Vi du that: may khong co device 0 thi
+            # `get_device_properties(0)` nem, va vong lap quay mai vo ich.
+            print(f"[watchdog] khong doc duoc VRAM: {loi}")
         time.sleep(10)
 
 def main():
@@ -61,7 +88,7 @@ def main():
     # 2. PREPARE ENVIRONMENT
     env = os.environ.copy()
     env["DATABASE_URL"] = _require_env("DATABASE_URL")
-    
+
     # CRITICAL FIX: Add project_root to PYTHONPATH
     # This tells Python/Uvicorn: "Look for modules in this folder first"
     env["PYTHONPATH"] = project_root + os.pathsep + env.get("PYTHONPATH", "")
@@ -93,14 +120,14 @@ def main():
     # 4. LAUNCH UVICORN
     # We remove '--reload' for Colab stability (it causes multiprocessing issues in notebooks)
     cmd = [
-        "uvicorn", 
-        "src.api.main:app", 
-        "--host", "0.0.0.0", 
+        "uvicorn",
+        "src.api.main:app",
+        "--host", "0.0.0.0",
         "--port", "8000"
     ]
-    
+
     print(f"Executing server in: {project_root}")
-    
+
     # We pass 'cwd=project_root' to ensure Uvicorn runs INSIDE the correct folder
     subprocess.run(cmd, cwd=project_root, env=env)
 
