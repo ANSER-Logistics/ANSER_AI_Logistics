@@ -30,6 +30,24 @@
 #           chậm cho mỗi lần commit — và giờ CI chạy được thì phần đó để CI lo.
 #           Chạy tay `ENV=LOCAL pytest -q` trước khi đẩy nếu muốn chắc.
 
+# CHƯA TỪNG ĐƯỢC COMMIT cho tới 07/11/2026.
+#
+# File này nằm trong thư mục làm việc nhưng `git ls-files` không thấy nó, và
+# `.gitignore` cũng không chặn — đơn giản là chưa ai `git add`. Hệ quả: ai clone
+# repo cũng KHÔNG có hook nào, kể cả hook quét secret.
+#
+# Điều đó quan trọng hơn vẻ ngoài của nó. `quet_secret_pre_commit.py` (112 dòng)
+# được viết riêng cho R2b — ràng buộc ra đời sau một lần lộ mật khẩu Neon lên
+# GitHub public. Một bộ quét secret chỉ chạy trên máy người viết ra nó thì không
+# bảo vệ được ai.
+#
+# Và hai hook dưới đây ĐÃ LỆCH khỏi CI (sửa cùng ngày):
+#   ruff  — thiếu launch_demo.py và execute_backup_and_push.py
+#   mypy  — còn danh sách 5 file cũ, trong khi CI đã soi `src offline_training`
+#
+# Chính chú thích trong file này cảnh báo đúng chuyện đó: "Hai nguồn khác nhau
+# thì máy dev và CI chấm theo hai luật khác nhau — đúng loại lệch mà R4 cấm."
+
 default_install_hook_types: [pre-commit]
 fail_fast: false
 
@@ -41,12 +59,12 @@ repos:
   - repo: local
     hooks:
       - id: ruff
-        name: ruff check src tests offline_training
+        name: ruff (đúng phạm vi CI)
         entry: ruff check
         language: system
         pass_filenames: false
         always_run: true
-        args: [src, tests, offline_training]
+        args: [src, tests, offline_training, launch_demo.py, execute_backup_and_push.py]
 
       - id: mypy
         name: mypy (đúng danh sách CI)
@@ -54,12 +72,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        args:
-          - src/core/memory.py
-          - src/core/context.py
-          - offline_training/providers.py
-          - offline_training/chay_thu_live.py
-          - offline_training/bat_lai_brain.py
+        args: [src, offline_training]
 
       # Quét secret trước khi commit. R2b nói credential đã lộ là credential đã
       # chết, nên chặn ở đây rẻ hơn mọi thứ làm sau.
