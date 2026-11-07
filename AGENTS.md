@@ -267,6 +267,27 @@ Trọng tâm phản biện — 4 câu hỏi hỏi mọi lần:
 
 ## 6. Version control & sao lưu
 
+### 6.0. `main` LÀ PRODUCTION (chủ dự án chốt 07/11/2026)
+
+**`main` không phải nơi tích hợp. Nó là bản đang phục vụ.**
+
+Nguyên văn chỉ thị: *"main thì phải test nhánh tính năng rất nhiều và chỉn chu, sau khi xác nhận nó hoàn toàn ổn định và hoạt động tốt mới đẩy lên main"*.
+
+Hệ quả, và chúng đi ngược thói quen gộp sớm:
+
+| | |
+|---|---|
+| Nhánh tính năng | nơi làm việc, gộp vào nhau thoải mái, CI xanh là đủ |
+| `main` | chỉ nhận thứ **đã xác nhận ổn định**, không phải thứ **vừa xanh CI** |
+
+`pytest` xanh **không phải** là tiêu chí để đẩy lên `main`. Nó là tiêu chí tối thiểu để không làm hỏng nhánh tính năng. Tiêu chí cho `main` là bảy mục ở §7 cộng với một lần chạy thật.
+
+**Agent KHÔNG tự gộp vào `main`.** Mở PR thì được — đó là đề xuất. Quyết thời điểm gộp là của chủ dự án, vì chỉ người đó biết khi nào "đã xác nhận ổn định".
+
+> **Hệ quả đã đo 07/11/2026:** `main` đang sau nhánh tính năng rất nhiều, và **CI của `main` đỏ** vì thiếu `python-multipart` + `openpyxl` trong bước cài. Không ai thấy suốt thời gian đó, vì mọi lượt "CI xanh" đều là CI của nhánh tính năng. Giữ `main` làm production thì phải chấp nhận nó tụt lại — nhưng **cổng chất lượng của nó vẫn phải chạy được**, nếu không thì lúc cần gộp sẽ không có gì nói cho biết `main` đang ở trạng thái nào. Xem `brain#91`.
+
+### 6.1. Nhịp commit và sao lưu
+
 1. **Quy tắc 5 thay đổi:** đúng khi chạm 5 file bị sửa, HOẶC trước bất kỳ thay đổi cấu trúc rủi ro cao nào ⇒ commit cục bộ.
 2. **Cuối giai đoạn:** sau khi có `[PASSED BY MENTOR]` và người phê duyệt:
    - Sao lưu cục bộ có dấu thời gian vào `_backups/Phase_X_YYYYMMDD/` (bỏ `__pycache__`, `.venv`)
