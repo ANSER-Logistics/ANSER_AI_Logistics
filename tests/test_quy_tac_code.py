@@ -55,7 +55,11 @@ SRC = GOC / "src"
 # tới DeepSeek để chấm điểm). Nó vẫn còn trong repo chờ chủ dự án quyết xoá hay
 # giữ, nên không soi nó: sửa một file đã chết là việc vô ích, mà để nó làm test
 # đỏ thì người ta sẽ tắt test.
-BO_QUA = {"evaluate_system.py"}
+# RỖNG từ 07/11/2026: `evaluate_system.py` đã XOÁ hẳn (chủ dự án duyệt), nên
+# không còn gì để bỏ qua. Giữ cơ chế lại vì nó vẫn có giá trị cho lần sau —
+# nhưng tập rỗng làm hai phép kiểm lặp trên nó không chạy lần nào, nên
+# `test_co_file_de_soi` mới là chốt chống xanh suông ở đây.
+BO_QUA: set[str] = set()
 
 
 def _file_nguon() -> list[pathlib.Path]:
