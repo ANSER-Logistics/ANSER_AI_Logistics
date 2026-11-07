@@ -234,6 +234,33 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 
 ## 5. Quy trình làm việc
 
+### 5.0. Vòng đời một việc (chủ dự án chốt 07/11/2026)
+
+Nguyên văn chỉ thị: *"từ bây giờ giao việc phải gửi lên project org, hay các thành viên xong việc phải yêu cầu team Brain gửi PR để kiểm tra"*.
+
+Hai đầu của một việc, mỗi đầu một nơi bắt buộc:
+
+| Lúc | Đi qua đâu | Không được làm gì |
+|---|---|---|
+| **Giao việc** | [Project trên org](https://github.com/orgs/ANSER-Logistics/projects/6) | giao bằng chat, bằng file markdown, bằng lời nói |
+| **Xong việc** | **Pull Request**, team `brain` duyệt | đẩy thẳng vào nhánh, hay báo xong mà không có PR |
+
+**Vì sao hai đầu chứ không phải một.** Giao việc qua bảng thì ai cũng thấy việc đang ở đâu mà không phải hỏi. Trả việc qua PR thì có một chỗ cụ thể để đọc thay đổi, và có một người khác nhìn trước khi nó thành thật. Thiếu đầu nào thì đầu kia mất tác dụng: giao trên bảng rồi nhận kết quả qua chat thì bảng nói dối; bắt PR mà việc không nằm trên bảng thì không ai biết PR đó thuộc việc nào.
+
+**Điều kiện kỹ thuật, đã kiểm 07/11/2026.** Người được giao phải có quyền `write` trên repo thì mới đẩy nhánh lên được để mở PR:
+
+| Thành viên | Quyền trên repo Brain |
+|---|---|
+| `Dgsonn`, `tranthanh-riu` | `write` ✅ |
+| `SiPhung953`, `PCBoiz` | `admin` ✅ |
+| `wikiepeidia` | `read` ❌ — phải fork mới mở PR được |
+
+Giao việc cho người chỉ có `read` mà không nói trước chuyện fork là giao một việc họ không làm được, và họ sẽ mất thời gian mới hiểu vì sao.
+
+**Team `brain` là bên duyệt**, và CODEOWNERS tự gắn họ vào mỗi PR — nhưng chỉ sau khi [PR #5](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/pull/5) gộp và ruleset được bật. Trước đó phải gắn người duyệt bằng tay.
+
+**Quan hệ với bảng kanzo cục bộ.** Kanzo vẫn là sổ tay làm việc của agent — nơi ghi phát hiện, đo đạc, lý do. Nhưng **việc giao cho một con người thì phải có mặt trên project org**, nếu không nó chỉ tồn tại trên máy một người.
+
 ### 5.1. Trước khi viết code
 
 1. **Đọc code, không đọc tài liệu cũ.** Tài liệu từng sai ở nhiều điểm quan trọng. Xác minh bằng file thật.
