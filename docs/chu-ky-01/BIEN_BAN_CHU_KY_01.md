@@ -1,6 +1,6 @@
 # BIÊN BẢN CHU KỲ 01 — 26/10 đến 06/11/2026
 
-**Viết:** 29/10/2026 · **Phần Brain:** Thành · **Phần Body:** Sĩ, Sơn, Nam (mục 10, chờ điền)
+**Viết:** 29/10/2026, **cập nhật 09/11/2026** (CI đã gỡ khoá, nghiệm thu BR-07) · **Phần Brain:** Thành · **Phần Body:** Sĩ, Sơn, Nam (mục 10, chờ điền)
 **Đặc tả:** [SRS_CHU_KY_01.md](SRS_CHU_KY_01.md) · **Phân việc:** [PHAN_VIEC_CHU_KY_01.md](PHAN_VIEC_CHU_KY_01.md)
 **Nhánh:** `feat/workflow-format-and-deterministic-core` @ `fffbabd` — chưa mở PR, chưa merge `main`
 
@@ -11,7 +11,7 @@ Khuôn theo PHAN_VIEC mốc M2: **cái gì xong, cái gì trượt kèm lý do, 
 ## 1. Tóm tắt
 
 1. **Mục tiêu S2 đạt:** `/chat` chạy qua vLLM server thật trên Colab L4, có log server ghi nhận request của Brain, cùng vision đang nạp.
-2. **Cả 6 việc Brain của chu kỳ xong phần mã** (BR-01 đến BR-05, BR-07); BR-06 đã chuyển chu kỳ 02 theo SRS. **Một nghiệm thu chưa làm được:** BR-07 cần CI chạy thật, mà CI của repo **chưa từng chạy** (mục 6).
+2. **Cả 6 việc Brain của chu kỳ xong phần mã** (BR-01 đến BR-05, BR-07); BR-06 đã chuyển chu kỳ 02 theo SRS. BR-07 đã nghiệm thu trên CI thật ngày 09/11, sau khi khoá thanh toán GitHub được gỡ ngày 03/11 (mục 6).
 3. **Đo bản fine-tune xong, kể cả so cặp với bản gốc:** giữ fine-tune — làm hỏng 8 câu, sửa 88 câu. Lỗi còn lại phần lớn là **dữ liệu huấn luyện**, đầu vào cho quyết định huấn luyện lại ở chu kỳ 02.
 4. **Lộ ra và đã chặn hai lớp lỗi R1 mà chốt cũ không bắt:** model **chép sai đầu vào tool** rồi tool tính đúng trên số sai (Brain báo 5.500.000 thay vì 6.050.000), và model **suy biến** ra rác chữ Hán/lặp tới trần token. Cả hai nay có chốt tất định ở production.
 5. **Không phát sinh chi phí mới** — Colab Pro sẵn có (NFR-02).
@@ -28,7 +28,7 @@ Khuôn theo PHAN_VIEC mốc M2: **cái gì xong, cái gì trượt kèm lý do, 
 | **BR-04** vLLM trên L4, ngân sách ctx | P0 · 04/11 | **Xong** (9/10 yêu cầu) | BAO_CAO_BR04; ctx **chốt 32768**, p95 **chốt hai ngưỡng**. Yêu cầu 8 chưa đo → chu kỳ 02 |
 | **BR-05** Đo fine-tune, bảng phân loại lỗi | P1 · 05/11 | **Xong** (9/9 yêu cầu) | BAO_CAO_BR05 §3 (bảng phân loại), §6d (so cặp với bản gốc) |
 | **BR-06** Bộ đo RAG | — | **Chuyển chu kỳ 02** | Quyết định trong SRS, không phải trượt |
-| **BR-07** Mở rộng cổng lint CI | P2 · 06/11 | **Xong phần mã, nghiệm thu treo** | `31aafa1`: `ruff check src tests offline_training`, sạch trên Colab. Nhánh `ci/br07-nghiem-thu` đã đẩy (đỏ rồi xanh) nhưng **CI không chạy** — mục 6 |
+| **BR-07** Mở rộng cổng lint CI | P2 · 06/11 | **Xong, đã nghiệm thu 09/11** | `31aafa1`: `ruff check src tests offline_training`. Nghiệm thu trên CI thật: thêm `l = 1` → bước Ruff **đỏ** ([lượt 42626504006](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/actions/runs/42626504006)); gỡ ra → **xanh** cả bốn bước ([lượt 42626530275](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/actions/runs/42626530275)) — mục 6 |
 
 ---
 
@@ -42,7 +42,7 @@ Khuôn theo PHAN_VIEC mốc M2: **cái gì xong, cái gì trượt kèm lý do, 
 | Bảng ARCHITECTURE §5.1 sửa (vision bf16 7,5 GB) (BR-04) | **Đạt** — đo 7.874 MiB |
 | Bảng phân loại lỗi fine-tune theo nhánh, số ca, ví dụ nguyên văn, quy về ba nguyên nhân (BR-05) | **Đạt** — BAO_CAO_BR05 §3 |
 | `/tools/vat` trả 422 cho trường lạ (BR-01) | **Đạt** |
-| `pytest -q` xanh và `ruff` sạch trên đúng mã đã đo | **Đạt, kèm ghi chú** — `fffbabd` trên Colab: **1163 passed, 4 skipped**; ruff **All checks passed** trên cả `src tests offline_training`. Phiên so cặp chạy ở `31aafa1`; các commit sau đó thêm chốt suy biến, biến env và test, không đổi đường đo trừ `per_row` của bảng hệ thống. **CI không xác nhận được** (mục 6) — xanh là do chạy tay |
+| `pytest -q` xanh và `ruff` sạch trên đúng mã đã đo | **Đạt, kèm ghi chú** — `fffbabd` trên Colab: **1163 passed, 4 skipped**; ruff **All checks passed** trên cả `src tests offline_training`. Phiên so cặp chạy ở `31aafa1`; các commit sau đó thêm chốt suy biến, biến env và test, không đổi đường đo trừ `per_row` của bảng hệ thống. Lúc viết (29/10) CI chưa chạy được nên xanh là do chạy tay; từ 03/11 CI chạy thật và nhánh làm việc **xanh** liên tục (lượt `c3e03ea` ngày 09/11) |
 | Biên bản ghi treo 1 và 2, chi phí thật, danh sách sang chu kỳ 02 | **Đạt** — mục 4, 5, 7 của biên bản này |
 
 ---
@@ -93,19 +93,20 @@ Câu hoá đơn 5.000.000 + 500.000, model gửi cho `vat` **một** dòng; Brai
 
 ---
 
-## 6. Rủi ro lớn nhất: CI của repo chưa từng chạy
+## 6. CI từng bị khoá — đã gỡ 03/11, BR-07 nghiệm thu 09/11
 
-GitHub Actions của `PCBoiz/ANSER_AI`: **136 lượt, 0 lượt xanh**. Mọi job kết thúc với *"The job was not started because your account is locked due to a billing issue"* — từ lượt cũ nhất đã soi (14/05/2026) tới nay. Khoá ở tài khoản **chủ repo `PCBoiz`**, không phải tài khoản người đẩy mã.
+**Lúc viết biên bản (29/10):** GitHub Actions của repo có **136 lượt, 0 lượt xanh**. Mọi job kết thúc với *"The job was not started because your account is locked due to a billing issue"*, từ lượt cũ nhất đã soi (14/05/2026). Khoá ở tài khoản chủ repo, không phải tài khoản người đẩy mã. Nghĩa là trong khoảng đó **không có cổng tự động nào hoạt động**, và mọi chỗ trong tài liệu cũ nói "CI xanh" không có lượt chạy nào chứng minh.
 
-Hệ quả:
+**Đã gỡ 03/11/2026** (xem commit `ff38ff4`). Từ đó CI chạy thật, và được mở rộng thêm ngoài BR-07: `mypy src offline_training`, ruff thêm hai script ở gốc repo, `.pre-commit-config.yaml` chạy ruff, mypy và quét secret ở máy dev. Repo cũng đã dời sang tổ chức **`ANSER-Logistics/ANSER_AI_Logistics`**.
 
-- **Không có cổng tự động nào đang hoạt động** — pytest, ruff, mypy, dataset preflight chỉ chạy khi có người chạy tay trên Colab.
-- Các chỗ trong tài liệu cũ nói "CI xanh" **không có lượt chạy nào chứng minh**.
-- Nghiệm thu BR-07 ("lỗi mới PHẢI làm CI đỏ") **không thực hiện được**.
+**Nghiệm thu BR-07 (09/11):** nhánh phụ `ci/br07-nghiem-thu-2` dựng từ `c3e03ea`, hai commit:
 
-**Cần chủ repo:** gỡ khoá ở *Settings → Billing and plans*, rồi *Re-run jobs* hai lượt trên nhánh `ci/br07-nghiem-thu` (mong đợi: đỏ ở bước Ruff, rồi xanh).
+| Commit | Thay đổi | CI | Các bước |
+|---|---|---|---|
+| `e057f2c` | thêm `l = 1` vào `src/core/nguong_p95.py` (ruff E741) | **đỏ** | Ruff ✗ · Mypy, Pytest, Dataset preflight bỏ qua |
+| `49d7711` | gỡ ra | **xanh** | Ruff ✓ · Mypy ✓ · Pytest ✓ · Dataset preflight ✓ |
 
-**Nếu không gỡ được** — ba hướng, cần chọn: (a) chạy CI trên fork công khai của người làm (Actions miễn phí cho repo công khai, tài khoản không bị khoá); (b) nghiệm thu bằng ruff chạy tay, ghi là lệch so với SRS; (c) thêm cấu hình pre-commit chạy ruff ở máy dev — bổ trợ, không thay được CI.
+Hai commit chỉ khác nhau đúng một dòng, nên bước Ruff đỏ là do lỗi được cài vào chứ không vì gì khác. Đạt đúng yêu cầu SRS: *"lỗi mới PHẢI làm CI đỏ"*. Hai nhánh phụ (`ci/br07-nghiem-thu` của 29/10 và `ci/br07-nghiem-thu-2`) **giữ lại** làm bằng chứng nghiệm thu.
 
 ---
 
@@ -161,15 +162,15 @@ Hệ quả:
 
 ## 9. Việc còn mở, cần quyết trước khi khép chu kỳ
 
-| # | Việc | Ai |
-|---|---|---|
-| 1 | Gỡ khoá thanh toán GitHub, hoặc chọn hướng (a)/(b)/(c) ở mục 6 | chủ repo `PCBoiz` / chủ dự án |
-| 2 | Đóng treo #1 hay đo thêm (mục 4) | chủ dự án |
-| 3 | Thư mục `docs/ban-in/BR05` (dữ liệu đo, chưa vào git): chuyển lên Drive hay `.gitignore` | chủ dự án |
-| 4 | Dựng lại bản PDF `docs/ban-in` cho BAO_CAO_BR04, BAO_CAO_BR05, biên bản này | chủ dự án quyết, Thành làm |
-| 5 | Mở PR cho nhánh làm việc để review (không merge `main`) | chủ dự án |
-| 6 | Sửa câu "không tự tạo notebook" trong SO_TAY và AGENTS — lỗi AI sinh, Colab được phép | Thành |
-| 7 | Xoá nhánh `ci/br07-nghiem-thu` sau khi nghiệm thu xong | Thành |
+| # | Việc | Ai | Trạng thái 09/11 |
+|---|---|---|---|
+| 1 | Gỡ khoá thanh toán GitHub | chủ repo | **Xong 03/11** — mục 6 |
+| 2 | Đóng treo #1 hay đo thêm (mục 4) | chủ dự án | **Còn mở** |
+| 3 | Thư mục `docs/ban-in/BR05` (dữ liệu đo, chưa vào git): chuyển lên Drive hay `.gitignore` | chủ dự án | **Còn mở** |
+| 4 | Dựng lại bản PDF `docs/ban-in` | Thành | **Xong 29/10** (`e1d5e49`), dựng lại sau bản cập nhật này |
+| 5 | Mở PR cho nhánh làm việc để review (không merge `main`) | chủ dự án | **Còn mở** |
+| 6 | ~~Sửa câu "không tự tạo notebook" trong SO_TAY và AGENTS~~ | — | **Ghi nhầm:** câu đó đã sửa từ 26/10, lẽ ra không có mục này |
+| 7 | Xoá nhánh nghiệm thu BR-07 | Thành | **Không xoá** — giữ làm bằng chứng nghiệm thu |
 
 ---
 
