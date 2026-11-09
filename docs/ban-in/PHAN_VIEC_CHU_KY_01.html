@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ANSER - Phan viec chu ky 01</title>
 <style>
 /* docs/in-pdf.css — kiểu trình bày cho bản HTML và PDF của tài liệu ANSER Brain.
@@ -184,7 +185,7 @@ h2 { break-before: auto; }
 <li><a href="#4-mục-tiêu-hai-tuần">4. Mục tiêu hai tuần</a></li>
 <li><a href="#5-bảng-phân-việc">5. Bảng phân việc</a></li>
 <ul>
-<li><a href="#brain-chi-tiết-ở-srs_chu_ky_01md">Brain: chi tiết ở <a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></a></li>
+<li><a href="#brain-chi-tiết-ở-srs_chu_ky_01md">Brain: chi tiết ở SRS_CHU_KY_01.md</a></li>
 <li><a href="#body-đề-nghị">Body: đề nghị</a></li>
 </ul>
 <li><a href="#6-bốn-chỗ-hai-bên-chạm-nhau">6. Bốn chỗ hai bên chạm nhau</a></li>
@@ -211,46 +212,93 @@ h2 { break-before: auto; }
 </ul>
 </nav>
 <h1 id="phân-việc--brain-và-body-chu-kỳ-01">PHÂN VIỆC — Brain và Body, chu kỳ 01</h1>
-<p><strong>Chu kỳ:</strong> Thứ Hai 26/10/2026 → Thứ Sáu 06/11/2026 (10 ngày làm việc)
-<strong>Lập ngày:</strong> 24/10/2026
-<strong>Đọc cùng:</strong> <a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a> cho chi tiết kỹ thuật phía Brain</p>
+<p><strong>Chu kỳ:</strong> Thứ Hai 26/10/2026 → Thứ Sáu 06/11/2026 (10 ngày làm việc) <strong>Lập ngày:</strong> 24/10/2026 <strong>Đọc cùng:</strong> <a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a> cho chi tiết kỹ thuật phía Brain</p>
 <hr />
 <h2 id="1-tài-liệu-này-ở-đâu-trong-bộ">1. Tài liệu này ở đâu trong bộ</h2>
 <table>
 <thead>
-<tr><th>Tài liệu</th><th>Trả lời câu gì</th></tr>
+<tr>
+<th>Tài liệu</th>
+<th>Trả lời câu gì</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td><td>Brain <strong>làm gì</strong>, nghiệm thu bằng lệnh nào</td></tr>
-<tr><td>Bản bàn giao của Body</td><td>Body <strong>làm gì</strong>, do đội Body giữ</td></tr>
-<tr><td><strong>File này</strong></td><td><strong>Ai làm việc nào, khi nào, và bốn chỗ hai bên chạm nhau</strong></td></tr>
+<tr>
+<td><a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td>
+<td>Brain <strong>làm gì</strong>, nghiệm thu bằng lệnh nào</td>
+</tr>
+<tr>
+<td>Bản bàn giao của Body</td>
+<td>Body <strong>làm gì</strong>, do đội Body giữ</td>
+</tr>
+<tr>
+<td><strong>File này</strong></td>
+<td><strong>Ai làm việc nào, khi nào, và bốn chỗ hai bên chạm nhau</strong></td>
+</tr>
 </tbody>
 </table>
 <p>Nó <strong>không chép lại</strong> nội dung hai tài liệu kia. Yêu cầu kỹ thuật của Brain nằm ở SRS, và file này chỉ trỏ tới mã yêu cầu. Chép lại là tạo ra nguồn thứ hai cho cùng một thứ, đúng cái R4 cấm.</p>
-<p>Theo <a href="AGENTS.md">AGENTS.md §1</a>, người làm Brain <strong>không sửa repo Body</strong>. Mọi việc gắn nhãn Body trong file này là <strong>đề nghị</strong>: đội Body đọc, phản hồi, rồi tự quyết cách làm.</p>
+<p>Theo <a href="../../AGENTS.md">AGENTS.md §1</a>, người làm Brain <strong>không sửa repo Body</strong>. Mọi việc gắn nhãn Body trong file này là <strong>đề nghị</strong>: đội Body đọc, phản hồi, rồi tự quyết cách làm.</p>
 <hr />
 <h2 id="2-hiện-trạng-hai-repo-đo-ngày-24102026">2. Hiện trạng hai repo, đo ngày 24/10/2026</h2>
 <h3 id="brain-pcboizanser_ai">Brain: <code>PCBoiz/ANSER_AI</code></h3>
 <table>
 <thead>
-<tr><th></th><th></th></tr>
+<tr>
+<th></th>
+<th></th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Nhánh làm việc</td><td><code>feat/workflow-format-and-deterministic-core</code> @ <code>645f4a1</code></td></tr>
-<tr><td>Test</td><td>1003 passed · <code>ruff</code> sạch · <code>mypy</code> sạch</td></tr>
-<tr><td>Nhánh chưa gộp</td><td>không còn</td></tr>
+<tr>
+<td>Nhánh làm việc</td>
+<td><code>feat/workflow-format-and-deterministic-core</code> @ <code>645f4a1</code></td>
+</tr>
+<tr>
+<td>Test</td>
+<td>1003 passed · <code>ruff</code> sạch · <code>mypy</code> sạch</td>
+</tr>
+<tr>
+<td>Nhánh chưa gộp</td>
+<td>không còn</td>
+</tr>
 </tbody>
 </table>
 <h3 id="body-ba-nơi-cùng-lúc">Body: ba nơi cùng lúc</h3>
 <table>
 <thead>
-<tr><th>Nơi</th><th>Nhánh</th><th>Commit cuối</th><th>Nội dung</th></tr>
+<tr>
+<th>Nơi</th>
+<th>Nhánh</th>
+<th>Commit cuối</th>
+<th>Nội dung</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>Dgsonn/ANSER-v2</code></td><td><code>master</code></td><td><code>16ae83b</code> · <strong>21/09</strong></td><td>bản chính</td></tr>
-<tr><td><code>Dgsonn/ANSER-v2</code></td><td><code>docs/onboarding-playbook</code></td><td><code>281b14d</code> · <strong>22/10</strong></td><td>sổ tay cho người mới. <code>schema.ts</code> <strong>trùng y hệt</strong> <code>master</code></td></tr>
-<tr><td><code>Dgsonn/ANSER-v2</code></td><td><code>chore/merge-feat-database-application</code></td><td><code>2964acf</code> · <strong>22/10</strong></td><td>đội Body đang làm</td></tr>
-<tr><td><strong><code>PCBoiz/ANSER-v2-Brain</code></strong></td><td><strong><code>feat/brain-integration</code></strong></td><td><strong><code>7d19dc1</code> · 27/08</strong></td><td><strong>nhánh tích hợp Brain, chưa gộp lên bản chính</strong></td></tr>
+<tr>
+<td><code>Dgsonn/ANSER-v2</code></td>
+<td><code>master</code></td>
+<td><code>16ae83b</code> · <strong>21/09</strong></td>
+<td>bản chính</td>
+</tr>
+<tr>
+<td><code>Dgsonn/ANSER-v2</code></td>
+<td><code>docs/onboarding-playbook</code></td>
+<td><code>281b14d</code> · <strong>22/10</strong></td>
+<td>sổ tay cho người mới. <code>schema.ts</code> <strong>trùng y hệt</strong> <code>master</code></td>
+</tr>
+<tr>
+<td><code>Dgsonn/ANSER-v2</code></td>
+<td><code>chore/merge-feat-database-application</code></td>
+<td><code>2964acf</code> · <strong>22/10</strong></td>
+<td>đội Body đang làm</td>
+</tr>
+<tr>
+<td><strong><code>PCBoiz/ANSER-v2-Brain</code></strong></td>
+<td><strong><code>feat/brain-integration</code></strong></td>
+<td><strong><code>7d19dc1</code> · 27/08</strong></td>
+<td><strong>nhánh tích hợp Brain, chưa gộp lên bản chính</strong></td>
+</tr>
 </tbody>
 </table>
 <p>Bản sao cục bộ dùng để kiểm: <code>D:\ANSER_Logistics</code>, có cả hai remote.</p>
@@ -264,7 +312,7 @@ git rev-list --count feat/brain-integration..origin/master   -&gt;   6   (bản 
 09ccbcb  feat(ui): trang huong dan cho ke toan, viet theo thu tu nguoi dung lam
 3a57cbd  fix(brain): chat timeout doc duoc tu BRAIN_CHAT_TIMEOUT_MS, mac dinh giu 60s
 d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi moi ghi</code></pre>
-<p>Bốn dòng trên <a href="ROADMAP.md">ROADMAP.md</a> đánh <strong>✅</strong>:</p>
+<p>Bốn dòng trên <a href="../../ROADMAP.md">ROADMAP.md</a> đánh <strong>✅</strong>:</p>
 <blockquote>
 <p>| Chỉ báo AI bật/tắt trên giao diện | ✅ chân sidebar, đỏ khi Brain không kiểm token |</p>
 <p>| Hướng dẫn cho người không phải kỹ thuật | ✅ trang <strong>Hướng dẫn dùng</strong> trong app |</p>
@@ -274,12 +322,24 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <p><strong>Và nó giải thích chỗ mập mờ về lược đồ.</strong> Có <strong>hai bản <code>schema.ts</code> khác nhau</strong>:</p>
 <table>
 <thead>
-<tr><th>Nhánh</th><th>Blob của <code>frontend/src/server/db/schema.ts</code></th></tr>
+<tr>
+<th>Nhánh</th>
+<th>Blob của <code>frontend/src/server/db/schema.ts</code></th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>origin/master</code></td><td><code>6c56f6b</code></td></tr>
-<tr><td><code>origin/docs/onboarding-playbook</code></td><td><code>6c56f6b</code>, trùng <code>master</code></td></tr>
-<tr><td><code>feat/brain-integration</code></td><td><strong><code>b87c85c</code></strong>, khác, kèm migration <code>0013</code> và <code>0014</code></td></tr>
+<tr>
+<td><code>origin/master</code></td>
+<td><code>6c56f6b</code></td>
+</tr>
+<tr>
+<td><code>origin/docs/onboarding-playbook</code></td>
+<td><code>6c56f6b</code>, trùng <code>master</code></td>
+</tr>
+<tr>
+<td><code>feat/brain-integration</code></td>
+<td><strong><code>b87c85c</code></strong>, khác, kèm migration <code>0013</code> và <code>0014</code></td>
+</tr>
 </tbody>
 </table>
 <p>Lược đồ 13 bảng mà <a href="SRS_CHU_KY_01.md">SRS §BR-03</a> dựa vào là bản của <strong><code>master</code></strong>. Nếu nhánh tích hợp mới là bản đúng thì BR-03 đang nhắm sai đích. Đó là việc BD-02 dưới đây.</p>
@@ -287,11 +347,20 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h2 id="4-mục-tiêu-hai-tuần">4. Mục tiêu hai tuần</h2>
 <table>
 <thead>
-<tr><th>Bên</th><th>Mục tiêu một câu</th></tr>
+<tr>
+<th>Bên</th>
+<th>Mục tiêu một câu</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>Brain</strong></td><td><code>/chat</code> chạy qua vLLM server với Qwen3-8B trên L4, và đo được ngân sách ngữ cảnh. Nửa đầu của S2</td></tr>
-<tr><td><strong>Body</strong></td><td>Đưa nhánh tích hợp Brain về bản chính, và chốt một lược đồ duy nhất</td></tr>
+<tr>
+<td><strong>Brain</strong></td>
+<td><code>/chat</code> chạy qua vLLM server với Qwen3-8B trên L4, và đo được ngân sách ngữ cảnh. Nửa đầu của S2</td>
+</tr>
+<tr>
+<td><strong>Body</strong></td>
+<td>Đưa nhánh tích hợp Brain về bản chính, và chốt một lược đồ duy nhất</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Hai mục tiêu này độc lập nhau</strong>, nên hai đội chạy song song và không chờ nhau, trừ bốn điểm chạm ở §6.</p>
@@ -300,15 +369,57 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h3 id="brain-chi-tiết-ở-srs_chu_ky_01md">Brain: chi tiết ở <a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></h3>
 <table>
 <thead>
-<tr><th>Mã</th><th>Việc</th><th>Ưu tiên</th><th>Hạn</th><th>Phụ thuộc</th></tr>
+<tr>
+<th>Mã</th>
+<th>Việc</th>
+<th>Ưu tiên</th>
+<th>Hạn</th>
+<th>Phụ thuộc</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>BR-01</td><td><code>/tools/vat</code> từ chối trường lạ thay vì tính bằng 0</td><td>P0</td><td>T3 27/10</td><td>không</td></tr>
-<tr><td>BR-02</td><td>Thêm đường chat cho <code>VLLMServerClient</code></td><td>P0</td><td>T5 29/10</td><td>không</td></tr>
-<tr><td>BR-03</td><td><code>engine.py</code> rẽ nhánh theo backend, kèm phép thử chứng minh thi hành</td><td>P0</td><td>T2 02/11</td><td>BR-02</td></tr>
-<tr><td>BR-04</td><td>Dựng vLLM server trên Colab L4, đo ngân sách ngữ cảnh</td><td>P0</td><td>T4 04/11</td><td>BR-03</td></tr>
-<tr><td>BR-05</td><td>Đo bản fine-tune, dựng bảng phân loại lỗi</td><td>P1</td><td>T5 05/11</td><td>BR-04</td></tr>
-<tr><td>BR-07</td><td>Mở rộng cổng lint của CI</td><td>P2</td><td>T6 06/11</td><td>không</td></tr>
+<tr>
+<td>BR-01</td>
+<td><code>/tools/vat</code> từ chối trường lạ thay vì tính bằng 0</td>
+<td>P0</td>
+<td>T3 27/10</td>
+<td>không</td>
+</tr>
+<tr>
+<td>BR-02</td>
+<td>Thêm đường chat cho <code>VLLMServerClient</code></td>
+<td>P0</td>
+<td>T5 29/10</td>
+<td>không</td>
+</tr>
+<tr>
+<td>BR-03</td>
+<td><code>engine.py</code> rẽ nhánh theo backend, kèm phép thử chứng minh thi hành</td>
+<td>P0</td>
+<td>T2 02/11</td>
+<td>BR-02</td>
+</tr>
+<tr>
+<td>BR-04</td>
+<td>Dựng vLLM server trên Colab L4, đo ngân sách ngữ cảnh</td>
+<td>P0</td>
+<td>T4 04/11</td>
+<td>BR-03</td>
+</tr>
+<tr>
+<td>BR-05</td>
+<td>Đo bản fine-tune, dựng bảng phân loại lỗi</td>
+<td>P1</td>
+<td>T5 05/11</td>
+<td>BR-04</td>
+</tr>
+<tr>
+<td>BR-07</td>
+<td>Mở rộng cổng lint của CI</td>
+<td>P2</td>
+<td>T6 06/11</td>
+<td>không</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Tất cả do Thành làm</strong>, một người. Nên <code>BR-02 → BR-03 → BR-04 → BR-05</code> là một chuỗi <strong>nối tiếp</strong>, không có ai chạy song song để bù khi một mắt xích trượt. Ước lượng công là 7 đến 9 ngày trên 10 ngày làm việc, tức biên dự phòng chỉ 1 đến 3 ngày.</p>
@@ -316,13 +427,43 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h3 id="body-đề-nghị">Body: đề nghị</h3>
 <table>
 <thead>
-<tr><th>Mã</th><th>Việc</th><th>Ưu tiên</th><th>Người đề nghị</th><th>Hạn đề nghị</th></tr>
+<tr>
+<th>Mã</th>
+<th>Việc</th>
+<th>Ưu tiên</th>
+<th>Người đề nghị</th>
+<th>Hạn đề nghị</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>BD-01</strong></td><td><strong>Gộp <code>feat/brain-integration</code> về <code>Dgsonn/ANSER-v2</code></strong></td><td><strong>P0</strong></td><td>Sĩ chủ trì, Sơn cùng xử xung đột lược đồ</td><td>T6 30/10</td></tr>
-<tr><td><strong>BD-02</strong></td><td><strong>Chốt một bản <code>schema.ts</code> duy nhất</strong> và báo cho Brain</td><td><strong>P0</strong></td><td>Sơn</td><td>T3 27/10</td></tr>
-<tr><td>BD-03</td><td>Giữ phép thử hợp đồng đường dẫn chạy được, xem §6.4</td><td>P1</td><td>Nam</td><td>T2 02/11</td></tr>
-<tr><td>BD-04</td><td>Đưa Body lên chỗ khách truy cập được</td><td>P1</td><td>Nam</td><td>T6 06/11</td></tr>
+<tr>
+<td><strong>BD-01</strong></td>
+<td><strong>Gộp <code>feat/brain-integration</code> về <code>Dgsonn/ANSER-v2</code></strong></td>
+<td><strong>P0</strong></td>
+<td>Sĩ chủ trì, Sơn cùng xử xung đột lược đồ</td>
+<td>T6 30/10</td>
+</tr>
+<tr>
+<td><strong>BD-02</strong></td>
+<td><strong>Chốt một bản <code>schema.ts</code> duy nhất</strong> và báo cho Brain</td>
+<td><strong>P0</strong></td>
+<td>Sơn</td>
+<td>T3 27/10</td>
+</tr>
+<tr>
+<td>BD-03</td>
+<td>Giữ phép thử hợp đồng đường dẫn chạy được, xem §6.4</td>
+<td>P1</td>
+<td>Nam</td>
+<td>T2 02/11</td>
+</tr>
+<tr>
+<td>BD-04</td>
+<td>Đưa Body lên chỗ khách truy cập được</td>
+<td>P1</td>
+<td>Nam</td>
+<td>T6 06/11</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
@@ -335,7 +476,7 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h4 id="bd-02-chốt-một-bản-lược-đồ-duy-nhất">BD-02. Chốt một bản lược đồ duy nhất</h4>
 <p>Brain cần biết bản nào là bản đúng để sửa <code>SCHEMA MAP</code>. Hiện có hai bản khác nhau, xem §3.</p>
 <p><strong>Cần trả lời bốn câu:</strong></p>
-<ol>
+<ol start="1">
 <li>Nhánh nào giữ lược đồ đúng cho chu kỳ này?</li>
 <li>Migration <code>0013</code> và <code>0014</code> có lên bản chính không?</li>
 <li>Hoá đơn có <code>sales_invoices.warehouse_id = NULL</code> là hợp lệ, hay là dữ liệu lỗi? Cột này <strong>nullable</strong>, nên câu <code>WHERE warehouse_id = :ws</code> sẽ âm thầm bỏ qua chúng.</li>
@@ -352,17 +493,14 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <p>Đây là thứ <strong>duy nhất</strong> canh việc Brain đổi tên đường dẫn mà Body không biết. Triệu chứng khi nó không chạy: khách bấm nút rồi nhận 404, trong khi test hai bên đều xanh.</p>
 <p><strong>Đề nghị:</strong> đội Body báo cho Brain khi <code>brain.ts</code> thêm hoặc đổi đường dẫn. Dài hạn, hai bên cân nhắc đưa danh sách đường dẫn vào một file nhỏ mà cả hai repo cùng đọc.</p>
 <h4 id="bd-04-đưa-body-lên-chỗ-khách-truy-cập-được">BD-04. Đưa Body lên chỗ khách truy cập được</h4>
-<p>Ô đỏ duy nhất còn lại của Giai đoạn B trong <a href="ROADMAP.md">ROADMAP.md</a>. Nó <strong>không chặn</strong> chu kỳ này và cũng <strong>chưa chết</strong>.</p>
+<p>Ô đỏ duy nhất còn lại của Giai đoạn B trong <a href="../../ROADMAP.md">ROADMAP.md</a>. Nó <strong>không chặn</strong> chu kỳ này và cũng <strong>chưa chết</strong>.</p>
 <p>Điều đáng biết khi tới lúc làm: lớp sinh ra giá trị của Brain <strong>không cần GPU</strong>. Kiểm ngày 24/10 với <code>RUNTIME_PROFILE=minimal</code>, Brain phục vụ toàn bộ <code>/tools/*</code> trên máy CPU trong khi <code>/health</code> trả <code>engine_ready: false</code>, và <code>/tools/inventory-audit</code> vẫn ra phát hiện kèm <code>money_impact</code>. Nghĩa là Body đi lên trước được, phần hỏi đáp AI nối sau.</p>
 <p>Xếp P1 và hạn cuối chu kỳ vì BD-01 quan trọng hơn: đưa một bản thiếu chỉ báo AI và thiếu trang hướng dẫn lên cho khách thì lợi bất cập hại.</p>
 <hr />
 <h2 id="6-bốn-chỗ-hai-bên-chạm-nhau">6. Bốn chỗ hai bên chạm nhau</h2>
 <p>Ngoài bốn chỗ này, hai đội không chờ nhau.</p>
 <h3 id="61-lược-đồ-canon">6.1. Lược đồ canon</h3>
-<p><strong>Ai cần:</strong> Brain, cho BR-03 và cho việc viết <code>get_report_lines</code>.
-<strong>Ai cấp:</strong> Body, qua BD-02.
-<strong>Hạn:</strong> Thứ Ba 27/10.
-<strong>Nếu trễ:</strong> BR-03 đã nằm ở mục ngoài phạm vi của SRS chu kỳ này, nên trễ không làm vỡ lịch Brain. Nó chỉ làm việc đó lùi tiếp sang chu kỳ 02.</p>
+<p><strong>Ai cần:</strong> Brain, cho BR-03 và cho việc viết <code>get_report_lines</code>. <strong>Ai cấp:</strong> Body, qua BD-02. <strong>Hạn:</strong> Thứ Ba 27/10. <strong>Nếu trễ:</strong> BR-03 đã nằm ở mục ngoài phạm vi của SRS chu kỳ này, nên trễ không làm vỡ lịch Brain. Nó chỉ làm việc đó lùi tiếp sang chu kỳ 02.</p>
 <h3 id="62-hợp-đồng-health">6.2. Hợp đồng <code>/health</code></h3>
 <p>Brain đổi <code>/health</code> ở BR-03: thêm trường khai backend đang dùng, và <code>engine_ready</code> có thêm nghĩa "tắt theo thiết kế" khi chạy <code>RUNTIME_PROFILE=minimal</code>.</p>
 <p><code>brain.ts</code> đang đọc năm trường, khoá bởi <code>test_health_co_du_truong_body_doc</code>:</p>
@@ -380,27 +518,75 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h3 id="tuần-1-thứ-hai-2610-đến-thứ-sáu-3010">Tuần 1: Thứ Hai 26/10 đến Thứ Sáu 30/10</h3>
 <table>
 <thead>
-<tr><th>Ngày</th><th>Brain · Thành</th><th>Body · Sĩ, Sơn, Nam</th></tr>
+<tr>
+<th>Ngày</th>
+<th>Brain · Thành</th>
+<th>Body · Sĩ, Sơn, Nam</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>T2 26/10</strong></td><td>Dựng môi trường, ra 1003 passed. <strong>BR-01</strong></td><td><strong>Sơn</strong> lấy 6 commit của <code>master</code> về nhánh, xử xung đột <code>schema.ts</code>. <strong>Nam</strong> rà chỗ đặt cho BD-04</td></tr>
-<tr><td><strong>T3 27/10</strong></td><td><strong>BR-01 hạn.</strong> Đọc <code>serving.py</code>, <code>engine.py</code>, chốt thiết kế rẽ nhánh backend</td><td><strong>BD-02 hạn 17h</strong>, Sơn trả lời bốn câu về lược đồ</td></tr>
-<tr><td><strong>T4 28/10</strong></td><td><strong>BR-02</strong></td><td><strong>Sĩ</strong> gộp tiếp, chạy <code>pnpm lint</code> và <code>npx tsc --noEmit</code></td></tr>
-<tr><td><strong>T5 29/10</strong></td><td><strong>BR-02 hạn.</strong> Bắt đầu <strong>BR-03</strong></td><td><strong>Sĩ</strong> mở PR ngược lên <code>Dgsonn/ANSER-v2</code></td></tr>
-<tr><td><strong>T6 30/10</strong></td><td><strong>BR-03</strong></td><td><strong>BD-01 hạn</strong>, PR gộp xong</td></tr>
+<tr>
+<td><strong>T2 26/10</strong></td>
+<td>Dựng môi trường, ra 1003 passed. <strong>BR-01</strong></td>
+<td><strong>Sơn</strong> lấy 6 commit của <code>master</code> về nhánh, xử xung đột <code>schema.ts</code>. <strong>Nam</strong> rà chỗ đặt cho BD-04</td>
+</tr>
+<tr>
+<td><strong>T3 27/10</strong></td>
+<td><strong>BR-01 hạn.</strong> Đọc <code>serving.py</code>, <code>engine.py</code>, chốt thiết kế rẽ nhánh backend</td>
+<td><strong>BD-02 hạn 17h</strong>, Sơn trả lời bốn câu về lược đồ</td>
+</tr>
+<tr>
+<td><strong>T4 28/10</strong></td>
+<td><strong>BR-02</strong></td>
+<td><strong>Sĩ</strong> gộp tiếp, chạy <code>pnpm lint</code> và <code>npx tsc --noEmit</code></td>
+</tr>
+<tr>
+<td><strong>T5 29/10</strong></td>
+<td><strong>BR-02 hạn.</strong> Bắt đầu <strong>BR-03</strong></td>
+<td><strong>Sĩ</strong> mở PR ngược lên <code>Dgsonn/ANSER-v2</code></td>
+</tr>
+<tr>
+<td><strong>T6 30/10</strong></td>
+<td><strong>BR-03</strong></td>
+<td><strong>BD-01 hạn</strong>, PR gộp xong</td>
+</tr>
 </tbody>
 </table>
 <h3 id="tuần-2-thứ-hai-0211-đến-thứ-sáu-0611">Tuần 2: Thứ Hai 02/11 đến Thứ Sáu 06/11</h3>
 <table>
 <thead>
-<tr><th>Ngày</th><th>Brain · Thành</th><th>Body · Sĩ, Sơn, Nam</th></tr>
+<tr>
+<th>Ngày</th>
+<th>Brain · Thành</th>
+<th>Body · Sĩ, Sơn, Nam</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>T2 02/11</strong></td><td><strong>BR-03 hạn</strong>, kèm phép thử chứng minh server nhận request</td><td><strong>BD-03 hạn</strong>, Nam thống nhất cách báo khi <code>brain.ts</code> đổi</td></tr>
-<tr><td><strong>T3 03/11</strong></td><td><strong>BR-04</strong>, dựng vLLM server trên Colab L4</td><td>Chỉ báo AI ba trạng thái (§6.2) · xử 503 (§6.3)</td></tr>
-<tr><td><strong>T4 04/11</strong></td><td><strong>BR-04 hạn</strong>, đo ba mức <code>max_model_len</code> với vision đang nạp</td><td><strong>Nam</strong> chuẩn bị chỗ đặt cho BD-04</td></tr>
-<tr><td><strong>T5 05/11</strong></td><td><strong>BR-05 hạn</strong>, phiên đo và bảng phân loại lỗi</td><td>BD-04</td></tr>
-<tr><td><strong>T6 06/11</strong></td><td><strong>BR-07</strong> nếu còn ngày · viết biên bản</td><td><strong>BD-04 hạn</strong> · cùng viết biên bản</td></tr>
+<tr>
+<td><strong>T2 02/11</strong></td>
+<td><strong>BR-03 hạn</strong>, kèm phép thử chứng minh server nhận request</td>
+<td><strong>BD-03 hạn</strong>, Nam thống nhất cách báo khi <code>brain.ts</code> đổi</td>
+</tr>
+<tr>
+<td><strong>T3 03/11</strong></td>
+<td><strong>BR-04</strong>, dựng vLLM server trên Colab L4</td>
+<td>Chỉ báo AI ba trạng thái (§6.2) · xử 503 (§6.3)</td>
+</tr>
+<tr>
+<td><strong>T4 04/11</strong></td>
+<td><strong>BR-04 hạn</strong>, đo ba mức <code>max_model_len</code> với vision đang nạp</td>
+<td><strong>Nam</strong> chuẩn bị chỗ đặt cho BD-04</td>
+</tr>
+<tr>
+<td><strong>T5 05/11</strong></td>
+<td><strong>BR-05 hạn</strong>, phiên đo và bảng phân loại lỗi</td>
+<td>BD-04</td>
+</tr>
+<tr>
+<td><strong>T6 06/11</strong></td>
+<td><strong>BR-07</strong> nếu còn ngày · viết biên bản</td>
+<td><strong>BD-04 hạn</strong> · cùng viết biên bản</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
@@ -412,11 +598,20 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <p><strong>M1, Thứ Sáu 30/10 cuối ngày, 30 phút.</strong> Mỗi bên trả lời đúng một câu:</p>
 <table>
 <thead>
-<tr><th>Bên</th><th>Câu hỏi</th></tr>
+<tr>
+<th>Bên</th>
+<th>Câu hỏi</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Brain</td><td><code>VLLMServerClient</code> đã có đường chat chưa, và ba phép thử payload đã xanh chưa? Tức <code>chat_template_kwargs</code>, <code>guided_json</code>, và <code>repetition_penalty == 1.0</code> khi bật grammar. Đây là mốc giữa đường: một người thì BR-03 chưa thể xong trong tuần 1</td></tr>
-<tr><td>Body</td><td>Cài Body sạch từ <code>Dgsonn/ANSER-v2</code> có thấy chỉ báo AI và trang Hướng dẫn dùng không?</td></tr>
+<tr>
+<td>Brain</td>
+<td><code>VLLMServerClient</code> đã có đường chat chưa, và ba phép thử payload đã xanh chưa? Tức <code>chat_template_kwargs</code>, <code>guided_json</code>, và <code>repetition_penalty == 1.0</code> khi bật grammar. Đây là mốc giữa đường: một người thì BR-03 chưa thể xong trong tuần 1</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>Cài Body sạch từ <code>Dgsonn/ANSER-v2</code> có thấy chỉ báo AI và trang Hướng dẫn dùng không?</td>
+</tr>
 </tbody>
 </table>
 <p>Bên nào không đạt thì <strong>dừng việc P1 và P2 của bên đó</strong>, dồn vào đường găng.</p>
@@ -425,38 +620,96 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h2 id="9-cái-gì-không-làm-trong-chu-kỳ-này">9. Cái gì không làm trong chu kỳ này</h2>
 <table>
 <thead>
-<tr><th>Việc</th><th>Vì sao hoãn</th></tr>
+<tr>
+<th>Việc</th>
+<th>Vì sao hoãn</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Brain sửa <code>SCHEMA MAP</code> và viết <code>get_report_lines</code></td><td>Chờ BD-02. Không nằm trên đường găng của S2, lấy làm việc đệm nếu BR-05 hoặc BR-06 xong sớm</td></tr>
-<tr><td>Nối Redis cho <code>TASK_REGISTRY</code>, nối <code>vllm-vision</code> qua HTTP, dựng Cloudflare Tunnel</td><td>Nửa sau của S2, sang chu kỳ 02</td></tr>
-<tr><td>Mảng vận tải</td><td>Chặn bởi khách. Hoàng Phát chưa làm vận tải</td></tr>
-<tr><td>Huấn luyện lại model</td><td>Bảng phân loại lỗi của BR-05 là đầu vào cho quyết định này</td></tr>
-<tr><td>Tìm kế toán rà sổ</td><td>Chủ dự án chốt 24/10: tính sau</td></tr>
-<tr><td>Body đổi lược đồ theo yêu cầu của Brain</td><td>Chu kỳ này Brain thích nghi theo Body, không ngược lại</td></tr>
+<tr>
+<td>Brain sửa <code>SCHEMA MAP</code> và viết <code>get_report_lines</code></td>
+<td>Chờ BD-02. Không nằm trên đường găng của S2, lấy làm việc đệm nếu BR-05 hoặc BR-06 xong sớm</td>
+</tr>
+<tr>
+<td>Nối Redis cho <code>TASK_REGISTRY</code>, nối <code>vllm-vision</code> qua HTTP, dựng Cloudflare Tunnel</td>
+<td>Nửa sau của S2, sang chu kỳ 02</td>
+</tr>
+<tr>
+<td>Mảng vận tải</td>
+<td>Chặn bởi khách. Hoàng Phát chưa làm vận tải</td>
+</tr>
+<tr>
+<td>Huấn luyện lại model</td>
+<td>Bảng phân loại lỗi của BR-05 là đầu vào cho quyết định này</td>
+</tr>
+<tr>
+<td>Tìm kế toán rà sổ</td>
+<td>Chủ dự án chốt 24/10: tính sau</td>
+</tr>
+<tr>
+<td>Body đổi lược đồ theo yêu cầu của Brain</td>
+<td>Chu kỳ này Brain thích nghi theo Body, không ngược lại</td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="10-bốn-quyết-định-của-chủ-dự-án-chốt-ngày-24102026">10. Bốn quyết định của chủ dự án, chốt ngày 24/10/2026</h2>
 <table>
 <thead>
-<tr><th>#</th><th>Câu hỏi</th><th>Quyết định</th><th>Đổi gì trong tài liệu này</th></tr>
+<tr>
+<th>#</th>
+<th>Câu hỏi</th>
+<th>Quyết định</th>
+<th>Đổi gì trong tài liệu này</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>1</td><td><code>feat/brain-integration</code> có gộp về <code>Dgsonn/ANSER-v2</code> không</td><td><strong>Có, gộp sớm nếu cần</strong></td><td>BD-01 giữ P0, hạn T6 30/10. Bốn tính năng ROADMAP đánh dấu đã xong sẽ về đúng sản phẩm</td></tr>
-<tr><td>2</td><td>Ai nhận phần Brain</td><td><strong>Thành</strong>, một người, cả hai luồng</td><td>Chuỗi BR-02 → BR-03 → BR-04 → BR-05 thành nối tiếp. <strong>BR-06 sang chu kỳ 02.</strong> Hạn Brain lùi, xem §7</td></tr>
-<tr><td>3</td><td>Đội Body tuần này gồm ai</td><td><strong>Sĩ, Sơn, Nam</strong></td><td>§5 có cột người đề nghị theo hình dạng việc</td></tr>
-<tr><td>4</td><td>Nếu ctx 32k không vừa thì hạ ctx hay đẩy vision sang tiến trình riêng</td><td><strong>Hạ ctx</strong>, vì cần dựng được môi trường giả lập production để thử Brain</td><td>Phương án tách tiến trình <code>vllm-vision</code> rời khỏi bàn trong chu kỳ này. Xem <a href="SRS_CHU_KY_01.md">SRS §BR-04</a> yêu cầu 7 đến 10</td></tr>
+<tr>
+<td>1</td>
+<td><code>feat/brain-integration</code> có gộp về <code>Dgsonn/ANSER-v2</code> không</td>
+<td><strong>Có, gộp sớm nếu cần</strong></td>
+<td>BD-01 giữ P0, hạn T6 30/10. Bốn tính năng ROADMAP đánh dấu đã xong sẽ về đúng sản phẩm</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ai nhận phần Brain</td>
+<td><strong>Thành</strong>, một người, cả hai luồng</td>
+<td>Chuỗi BR-02 → BR-03 → BR-04 → BR-05 thành nối tiếp. <strong>BR-06 sang chu kỳ 02.</strong> Hạn Brain lùi, xem §7</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Đội Body tuần này gồm ai</td>
+<td><strong>Sĩ, Sơn, Nam</strong></td>
+<td>§5 có cột người đề nghị theo hình dạng việc</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Nếu ctx 32k không vừa thì hạ ctx hay đẩy vision sang tiến trình riêng</td>
+<td><strong>Hạ ctx</strong>, vì cần dựng được môi trường giả lập production để thử Brain</td>
+<td>Phương án tách tiến trình <code>vllm-vision</code> rời khỏi bàn trong chu kỳ này. Xem <a href="SRS_CHU_KY_01.md">SRS §BR-04</a> yêu cầu 7 đến 10</td>
+</tr>
 </tbody>
 </table>
 <h3 id="101-hai-thứ-còn-để-ngỏ">10.1. Hai thứ còn để ngỏ</h3>
 <table>
 <thead>
-<tr><th>#</th><th>Câu hỏi</th><th>Khi nào cần trả lời</th></tr>
+<tr>
+<th>#</th>
+<th>Câu hỏi</th>
+<th>Khi nào cần trả lời</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>1</td><td><strong>Ctx chốt ở mức nào</strong>, và <code>ANSER_TEXT_MAX_CONCURRENT</code> theo đó là bao nhiêu</td><td>Khi BR-04 có số đo, dự kiến T4 04/11</td></tr>
-<tr><td>2</td><td><strong>Môi trường giả lập production đặt ở đâu</strong> khi rời Colab</td><td>Chu kỳ 02. Colab không phục vụ traffic thật được</td></tr>
+<tr>
+<td>1</td>
+<td><strong>Ctx chốt ở mức nào</strong>, và <code>ANSER_TEXT_MAX_CONCURRENT</code> theo đó là bao nhiêu</td>
+<td>Khi BR-04 có số đo, dự kiến T4 04/11</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Môi trường giả lập production đặt ở đâu</strong> khi rời Colab</td>
+<td>Chu kỳ 02. Colab không phục vụ traffic thật được</td>
+</tr>
 </tbody>
 </table>
 <h3 id="102-một-hệ-quả-của-quyết-định-2-cần-nói-thẳng">10.2. Một hệ quả của quyết định 2 cần nói thẳng</h3>
@@ -466,16 +719,40 @@ d216f91  feat(nhap-excel): nut Nhap Excel cho danh muc MISA — xem truoc roi mo
 <h2 id="11-tham-chiếu">11. Tham chiếu</h2>
 <table>
 <thead>
-<tr><th>Cần gì</th><th>Đọc đâu</th></tr>
+<tr>
+<th>Cần gì</th>
+<th>Đọc đâu</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Yêu cầu kỹ thuật Brain, nghiệm thu từng việc</td><td><a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td></tr>
-<tr><td>Dựng môi trường Brain, hiểu mã, từ điển thuật ngữ</td><td><a href="SO_TAY_NGUOI_MOI.md">SO_TAY_NGUOI_MOI.md</a></td></tr>
-<tr><td>Bảy việc dài hạn của Brain</td><td><a href="GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a></td></tr>
-<tr><td>Đang ở đâu, cái gì đã chắc</td><td><a href="TIEN_TRINH_BRAIN.md">TIEN_TRINH_BRAIN.md</a></td></tr>
-<tr><td>Ranh giới hai repo, năm ràng buộc</td><td><a href="AGENTS.md">AGENTS.md</a></td></tr>
-<tr><td>Cổng ra từng giai đoạn</td><td><a href="ROADMAP.md">ROADMAP.md</a></td></tr>
-<tr><td>Hợp đồng API, đọc thẳng <code>brain.ts</code></td><td><code>tests/test_body_contract.py</code></td></tr>
+<tr>
+<td>Yêu cầu kỹ thuật Brain, nghiệm thu từng việc</td>
+<td><a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td>
+</tr>
+<tr>
+<td>Dựng môi trường Brain, hiểu mã, từ điển thuật ngữ</td>
+<td><a href="../../SO_TAY_NGUOI_MOI.md">SO_TAY_NGUOI_MOI.md</a></td>
+</tr>
+<tr>
+<td>Bảy việc dài hạn của Brain</td>
+<td><a href="GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a></td>
+</tr>
+<tr>
+<td>Đang ở đâu, cái gì đã chắc</td>
+<td><a href="../ky-thuat/TIEN_TRINH_BRAIN.md">TIEN_TRINH_BRAIN.md</a></td>
+</tr>
+<tr>
+<td>Ranh giới hai repo, năm ràng buộc</td>
+<td><a href="../../AGENTS.md">AGENTS.md</a></td>
+</tr>
+<tr>
+<td>Cổng ra từng giai đoạn</td>
+<td><a href="../../ROADMAP.md">ROADMAP.md</a></td>
+</tr>
+<tr>
+<td>Hợp đồng API, đọc thẳng <code>brain.ts</code></td>
+<td><code>tests/test_body_contract.py</code></td>
+</tr>
 </tbody>
 </table>
 </body>

@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ANSER Brain - So tay cho nguoi moi</title>
 <style>
 /* docs/in-pdf.css — kiểu trình bày cho bản HTML và PDF của tài liệu ANSER Brain.
@@ -183,6 +184,7 @@ h2 { break-before: auto; }
 </ul>
 <li><a href="#2-cài-đặt-và-chạy-trên-máy-bạn">2. Cài đặt và chạy trên máy bạn</a></li>
 <ul>
+<li><a href="#trước-khi-đọc-mục-này-hệ-thống-chạy-thật-ở-đâu">Trước khi đọc mục này: hệ thống chạy thật ở đâu</a></li>
 <li><a href="#21-cần-gì">2.1. Cần gì</a></li>
 <li><a href="#22-lấy-mã-nguồn">2.2. Lấy mã nguồn</a></li>
 <li><a href="#23-môi-trường-ảo-và-thư-viện">2.3. Môi trường ảo và thư viện</a></li>
@@ -258,7 +260,7 @@ h2 { break-before: auto; }
 </blockquote>
 <hr />
 <h2 id="mục-lục">Mục lục</h2>
-<ol>
+<ol start="1">
 <li><a href="#1-dự-án-này-là-gì-trong-hai-phút">Dự án này là gì, trong hai phút</a></li>
 <li><a href="#2-cài-đặt-và-chạy-trên-máy-bạn">Cài đặt và chạy trên máy bạn</a></li>
 <li><a href="#3-code-tổ-chức-thế-nào">Code tổ chức thế nào</a></li>
@@ -286,30 +288,87 @@ h2 { break-before: auto; }
 <p>Hệ thống có hai nửa, hai repo, hai ngôn ngữ.</p>
 <table>
 <thead>
-<tr><th></th><th><strong>Brain</strong> (repo này)</th><th><strong>Body</strong></th></tr>
+<tr>
+<th></th>
+<th><strong>Brain</strong> (repo này)</th>
+<th><strong>Body</strong></th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Repo</td><td><code>PCBoiz/ANSER_AI</code></td><td><code>Dgsonn/ANSER-v2</code></td></tr>
-<tr><td>Công nghệ</td><td>Python, FastAPI</td><td>Next.js, Neon Postgres, Drizzle</td></tr>
-<tr><td>Việc</td><td>Cung cấp năng lực AI qua HTTP: soi sổ sách, đọc hoá đơn, chat, sinh workflow</td><td>Giao diện, đăng nhập, dữ liệu nghiệp vụ, gọi Brain qua <code>brain.ts</code></td></tr>
-<tr><td>Quyền của bạn</td><td>Sửa thoải mái</td><td><strong>Không sửa.</strong> Chỉ được đề xuất bằng văn bản</td></tr>
+<tr>
+<td>Repo</td>
+<td><code>ANSER-Logistics/ANSER_AI_Logistics</code></td>
+<td><code>Dgsonn/ANSER-logistics</code></td>
+</tr>
+<tr>
+<td>Công nghệ</td>
+<td>Python, FastAPI</td>
+<td>Next.js, Neon Postgres, Drizzle</td>
+</tr>
+<tr>
+<td>Việc</td>
+<td>Cung cấp năng lực AI qua HTTP: soi sổ sách, đọc hoá đơn, chat, sinh workflow</td>
+<td>Giao diện, đăng nhập, dữ liệu nghiệp vụ, gọi Brain qua <code>brain.ts</code></td>
+</tr>
+<tr>
+<td>Quyền của bạn</td>
+<td>Sửa thoải mái</td>
+<td><strong>Không sửa.</strong> Chỉ được đề xuất bằng văn bản</td>
+</tr>
 </tbody>
 </table>
 <p>Body chạy được khi Brain tắt. Lúc đó các tính năng AI hiện trạng "chưa cấu hình", phần còn lại vẫn dùng bình thường. Thiết kế như vậy có chủ đích: Brain đổi hạ tầng mà Body không sửa dòng nào.</p>
+<blockquote>
+<p><strong>Cả hai repo đã chuyển vào GitHub Organization <a href="https://github.com/ANSER-Logistics"><code>ANSER-Logistics</code></a></strong> (lập 03/11/2026). Brain đã transfer; Body đang chờ. Hướng dẫn và lý do ở <a href="docs/GITHUB_ORG_DE_XUAT.md">docs/GITHUB_ORG_DE_XUAT.md</a>.</p>
+<p><strong>Cả hai repo cũng đã đổi tên trước đó.</strong> Brain <code>ANSER_AI</code> → <code>ANSER_AI_Logistics</code>; Body <code>ANSER-v2</code> → <code>ANSER-logistics</code> (đổi khoảng đầu 11/2026). GitHub redirect tên cũ nên link cũ chưa gãy, nhưng tài liệu viết trước thời điểm đó — biên bản, bản phân việc, SRS chu kỳ 01 — còn ghi tên cũ. Đó là tài liệu lịch sử, cố ý không sửa: sửa tên trong một biên bản đã ký là viết lại cái đã xảy ra. Bảng ngay trên là bảng tra cứu đang dùng, nên nó mới là chỗ phải đúng.</p>
+</blockquote>
 <p>Một nửa thứ ba nằm ngoài cả hai: <strong>n8n</strong> chạy các việc theo lịch, như gửi báo cáo email và cảnh báo tồn kho thấp. Brain sinh ra JSON workflow cho n8n, và n8n gọi ngược vào <code>/tools/*</code> của Brain khi cần tính toán.</p>
 <p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgNDMwIiB3aWR0aD0iOTQwIiBoZWlnaHQ9IjQzMCIgZm9udC1mYW1pbHk9IlNlZ29lIFVJLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmIj4NCiAgPHJlY3Qgd2lkdGg9Ijk0MCIgaGVpZ2h0PSI0MzAiIGZpbGw9IiNmZmZmZmYiLz4NCiAgPHN0eWxlPg0KICAgIC50ICAgeyBmb250LXNpemU6IDE0cHg7IGZpbGw6ICMxYTFhMWE7IH0NCiAgICAudGIgIHsgZm9udC1zaXplOiAxNXB4OyBmb250LXdlaWdodDogNjAwOyBmaWxsOiAjMWExYTFhOyB9DQogICAgLnRzICB7IGZvbnQtc2l6ZTogMTEuNXB4OyBmaWxsOiAjNWE1YTVhOyB9DQogICAgLmxibCB7IGZvbnQtc2l6ZTogMTEuNXB4OyBmaWxsOiAjNDQ0OyB9DQogICAgLmJveCB7IGZpbGw6ICNmN2Y4ZmE7IHN0cm9rZTogIzlhYTNhZDsgc3Ryb2tlLXdpZHRoOiAxLjQ7IH0NCiAgICAuYnJhaW4geyBmaWxsOiAjZTZmMGZiOyBzdHJva2U6ICM0YTdmYjU7IHN0cm9rZS13aWR0aDogMS44OyB9DQogICAgLmRldCB7IGZpbGw6ICNkZmYwZGY7IHN0cm9rZTogIzVhOWE1YTsgc3Ryb2tlLXdpZHRoOiAxLjY7IH0NCiAgICAuZXh0IHsgZmlsbDogI2ZkZWVkYjsgc3Ryb2tlOiAjYzk5MTNmOyBzdHJva2Utd2lkdGg6IDEuNjsgfQ0KICAgIC5kYiAgeyBmaWxsOiAjZWZlYWY2OyBzdHJva2U6ICM4Yjc2YWQ7IHN0cm9rZS13aWR0aDogMS40OyB9DQogICAgLmFyICB7IHN0cm9rZTogIzVhNjU3MDsgc3Ryb2tlLXdpZHRoOiAxLjY7IGZpbGw6IG5vbmU7IG1hcmtlci1lbmQ6IHVybCgjYSk7IH0NCiAgICAuYXJkIHsgc3Ryb2tlOiAjYzk5MTNmOyBzdHJva2Utd2lkdGg6IDEuNjsgZmlsbDogbm9uZTsgc3Ryb2tlLWRhc2hhcnJheTogNiA0OyBtYXJrZXItZW5kOiB1cmwoI2FvKTsgfQ0KICA8L3N0eWxlPg0KICA8ZGVmcz4NCiAgICA8bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOSIgbWFya2VySGVpZ2h0PSI5IiByZWZYPSI4IiByZWZZPSI0LjUiIG9yaWVudD0iYXV0byI+DQogICAgICA8cGF0aCBkPSJNMCwwIEw5LDQuNSBMMCw5IHoiIGZpbGw9IiM1YTY1NzAiLz4NCiAgICA8L21hcmtlcj4NCiAgICA8bWFya2VyIGlkPSJhbyIgbWFya2VyV2lkdGg9IjkiIG1hcmtlckhlaWdodD0iOSIgcmVmWD0iOCIgcmVmWT0iNC41IiBvcmllbnQ9ImF1dG8iPg0KICAgICAgPHBhdGggZD0iTTAsMCBMOSw0LjUgTDAsOSB6IiBmaWxsPSIjYzk5MTNmIi8+DQogICAgPC9tYXJrZXI+DQogIDwvZGVmcz4NCg0KICA8dGV4dCB4PSIxNiIgeT0iMjYiIGNsYXNzPSJ0YiIgZm9udC1zaXplPSIxNiI+QuG7kWkgY+G6o25oOiBhaSBn4buNaSBhaTwvdGV4dD4NCg0KICA8IS0tIE5ndW9pIGR1bmcgLS0+DQogIDxyZWN0IHg9IjE2IiB5PSIxNTAiIHdpZHRoPSIxMjAiIGhlaWdodD0iNjYiIHJ4PSI2IiBjbGFzcz0iYm94Ii8+DQogIDx0ZXh0IHg9Ijc2IiB5PSIxNzgiIGNsYXNzPSJ0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5OZ8aw4budaSBkw7luZzwvdGV4dD4NCiAgPHRleHQgeD0iNzYiIHk9IjE5NiIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5r4bq/IHRvw6FuLCBjaOG7pyBETjwvdGV4dD4NCg0KICA8IS0tIEJvZHkgLS0+DQogIDxyZWN0IHg9IjE4NiIgeT0iMTI4IiB3aWR0aD0iMTY2IiBoZWlnaHQ9IjExMCIgcng9IjYiIGNsYXNzPSJib3giLz4NCiAgPHRleHQgeD0iMjY5IiB5PSIxNTUiIGNsYXNzPSJ0YiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Qm9keTwvdGV4dD4NCiAgPHRleHQgeD0iMjY5IiB5PSIxNzQiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+TmV4dC5qczwvdGV4dD4NCiAgPHRleHQgeD0iMjY5IiB5PSIxOTEiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RGdzb25uL0FOU0VSLXYyPC90ZXh0Pg0KICA8dGV4dCB4PSIyNjkiIHk9IjIxNCIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5naWFvIGRp4buHbiwgxJHEg25nIG5o4bqtcCw8L3RleHQ+DQogIDx0ZXh0IHg9IjI2OSIgeT0iMjI4IiBjbGFzcz0idHMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmThu68gbGnhu4d1IG5naGnhu4dwIHbhu6U8L3RleHQ+DQoNCiAgPCEtLSBOZW9uIC0tPg0KICA8cmVjdCB4PSIxODYiIHk9IjI4NiIgd2lkdGg9IjE2NiIgaGVpZ2h0PSI1NiIgcng9IjYiIGNsYXNzPSJkYiIvPg0KICA8dGV4dCB4PSIyNjkiIHk9IjMwOSIgY2xhc3M9InQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5lb24gUG9zdGdyZXM8L3RleHQ+DQogIDx0ZXh0IHg9IjI2OSIgeT0iMzI3IiBjbGFzcz0idHMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmThu68gbGnhu4d1IGPhu6dhIGtow6FjaDwvdGV4dD4NCg0KICA8IS0tIG44biAtLT4NCiAgPHJlY3QgeD0iMTg2IiB5PSIzNCIgd2lkdGg9IjE2NiIgaGVpZ2h0PSI1NiIgcng9IjYiIGNsYXNzPSJib3giLz4NCiAgPHRleHQgeD0iMjY5IiB5PSI1NyIgY2xhc3M9InQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPm44biA6NTY3ODwvdGV4dD4NCiAgPHRleHQgeD0iMjY5IiB5PSI3NSIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj52aeG7h2MgY2jhuqF5IHRoZW8gbOG7i2NoPC90ZXh0Pg0KDQogIDwhLS0gQnJhaW4gLS0+DQogIDxyZWN0IHg9IjQxMiIgeT0iMzQiIHdpZHRoPSIyOTgiIGhlaWdodD0iMzAwIiByeD0iOCIgY2xhc3M9ImJyYWluIi8+DQogIDx0ZXh0IHg9IjU2MSIgeT0iNjAiIGNsYXNzPSJ0YiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QnJhaW4gIChyZXBvIG7DoHkpPC90ZXh0Pg0KICA8dGV4dCB4PSI1NjEiIHk9Ijc4IiBjbGFzcz0idHMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZhc3RBUEkgOjgwMDAgwrcgUENCb2l6L0FOU0VSX0FJPC90ZXh0Pg0KDQogIDxyZWN0IHg9IjQzMiIgeT0iOTYiIHdpZHRoPSIyNTgiIGhlaWdodD0iNTAiIHJ4PSI1IiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiM5YWEzYWQiIHN0cm9rZS13aWR0aD0iMS4yIi8+DQogIDx0ZXh0IHg9IjU2MSIgeT0iMTE2IiBjbGFzcz0idCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VOG6p25nIEFQSSArIMSR4buLbmggdHV54bq/bjwvdGV4dD4NCiAgPHRleHQgeD0iNTYxIiB5PSIxMzQiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+L2NoYXQgwrcgL3Rvb2xzLyogwrcgL2tub3dsZWRnZSDCtyAvb2NyPC90ZXh0Pg0KDQogIDxyZWN0IHg9IjQzMiIgeT0iMTYwIiB3aWR0aD0iMjU4IiBoZWlnaHQ9IjYyIiByeD0iNSIgY2xhc3M9ImRldCIvPg0KICA8dGV4dCB4PSI1NjEiIHk9IjE4MiIgY2xhc3M9InQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI2MDAiPkzDtWkgdOG6pXQgxJHhu4tuaCDigJQgS0jDlE5HIExMTTwvdGV4dD4NCiAgPHRleHQgeD0iNTYxIiB5PSIyMDAiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+dOG7k24ga2hvIMK3IGPDtG5nIG7hu6MgwrcgVkFUIMK3IGLDoW8gZ2nDoTwvdGV4dD4NCiAgPHRleHQgeD0iNTYxIiB5PSIyMTUiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Y2jhuqF5IMSRxrDhu6NjIGLhurFuZyBDUFU8L3RleHQ+DQoNCiAgPHJlY3QgeD0iNDMyIiB5PSIyMzYiIHdpZHRoPSIyNTgiIGhlaWdodD0iNTYiIHJ4PSI1IiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiM5YWEzYWQiIHN0cm9rZS13aWR0aD0iMS4yIi8+DQogIDx0ZXh0IHg9IjU2MSIgeT0iMjU3IiBjbGFzcz0idCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S2hvIHRyaSB0aOG7qWMgKFJBRyk8L3RleHQ+DQogIDx0ZXh0IHg9IjU2MSIgeT0iMjc1IiBjbGFzcz0idHMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmJnZS1tMyArIEJNMjUgKyBWaVJhbmtlcjwvdGV4dD4NCg0KICA8IS0tIE1vZGVsIC0tPg0KICA8cmVjdCB4PSI3NjIiIHk9Ijk2IiB3aWR0aD0iMTYyIiBoZWlnaHQ9Ijg2IiByeD0iNiIgY2xhc3M9ImJveCIvPg0KICA8dGV4dCB4PSI4NDMiIHk9IjEyMiIgY2xhc3M9InQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk1vZGVsIGNo4bqheSBsb2NhbDwvdGV4dD4NCiAgPHRleHQgeD0iODQzIiB5PSIxNDEiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+dkxMTSArIFF3ZW4zLThCPC90ZXh0Pg0KICA8dGV4dCB4PSI4NDMiIHk9IjE1NyIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5WTE0gxJHhu41jIGhvw6EgxJHGoW48L3RleHQ+DQogIDx0ZXh0IHg9Ijg0MyIgeT0iMTczIiBjbGFzcz0idHMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmtow7RuZyByYSBraOG7j2kgbcOheTwvdGV4dD4NCg0KICA8IS0tIE5ndW9uIGNvbmcga2hhaSAtLT4NCiAgPHJlY3QgeD0iNzYyIiB5PSIyNDYiIHdpZHRoPSIxNjIiIGhlaWdodD0iODgiIHJ4PSI2IiBjbGFzcz0iZXh0Ii8+DQogIDx0ZXh0IHg9Ijg0MyIgeT0iMjcwIiBjbGFzcz0idCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Tmd14buTbiBjw7RuZyBraGFpPC90ZXh0Pg0KICA8dGV4dCB4PSI4NDMiIHk9IjI4OSIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5nacOhIGThuqd1IMK3IHThu7cgZ2nDoTwvdGV4dD4NCiAgPHRleHQgeD0iODQzIiB5PSIzMDUiIGNsYXNzPSJ0cyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+dMOsbSBraeG6v20gd2ViPC90ZXh0Pg0KICA8dGV4dCB4PSI4NDMiIHk9IjMyMyIgY2xhc3M9InRzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNjAwIj5jaOG7iSDEkeG7jWMsIG3hu5l0IGNoaeG7gXU8L3RleHQ+DQoNCiAgPCEtLSBBcnJvd3MgLS0+DQogIDxwYXRoIGQ9Ik0xMzYsMTgzIEwxODIsMTgzIiBjbGFzcz0iYXIiLz4NCiAgPHBhdGggZD0iTTI2OSwyMzggTDI2OSwyODIiIGNsYXNzPSJhciIvPg0KICA8cGF0aCBkPSJNMzUyLDE3MiBMNDA4LDE0MCIgY2xhc3M9ImFyIi8+DQogIDx0ZXh0IHg9IjM3MiIgeT0iMTQ2IiBjbGFzcz0ibGJsIj5IVFRQICsgdG9rZW48L3RleHQ+DQogIDxwYXRoIGQ9Ik0zNTIsNjIgTDQwOCw4MCIgY2xhc3M9ImFyIi8+DQogIDx0ZXh0IHg9IjM1NiIgeT0iMzYiIGNsYXNzPSJsYmwiPkhUVFA8L3RleHQ+DQogIDxwYXRoIGQ9Ik02OTAsMTMwIEw3NTgsMTMwIiBjbGFzcz0iYXIiLz4NCiAgPHBhdGggZD0iTTY5MCwyNjggTDc1OCwyODIiIGNsYXNzPSJhcmQiLz4NCiAgPHRleHQgeD0iNjY0IiB5PSIzMTIiIGNsYXNzPSJsYmwiIGZpbGw9IiNhOTc3MmEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmtow7RuZyBrw6htIGThu68gbGnhu4d1IGtow6FjaDwvdGV4dD4NCg0KICA8dGV4dCB4PSIxNiIgeT0iMzcyIiBjbGFzcz0idHMiPlJhbmggZ2nhu5tpIFIyIG7hurFtIOG7nyDEkcO6bmcgbeG7mXQgbcWpaSB0w6puOiBuw6l0IMSR4bupdCDEkWkgcmEgbmd14buTbiBjw7RuZyBraGFpLiBN4buNaSB0aOG7qSBraMOhYyDhu58gbOG6oWkgdHJvbmcgaOG6oSB04bqnbmcgY+G7p2Ega2jDoWNoLjwvdGV4dD4NCiAgPHRleHQgeD0iMTYiIHk9IjM5NCIgY2xhc3M9InRzIj5Cb2R5IGNo4bqheSDEkcaw4bujYyBraGkgQnJhaW4gdOG6r3Q7IGzDumMgxJHDsyBjw6FjIHTDrW5oIG7Eg25nIEFJIGhp4buHbiB0cuG6oW5nICJjaMawYSBj4bqldSBow6xuaCIsIHBo4bqnbiBjw7JuIGzhuqFpIGTDuW5nIGLDrG5oIHRoxrDhu51uZy48L3RleHQ+DQogIDx0ZXh0IHg9IjE2IiB5PSI0MTYiIGNsYXNzPSJ0cyI+QuG6oW4gxJHGsOG7o2Mgc+G7rWEgQnJhaW4uIEJvZHkgdGjDrCBraMO0bmc6IGNo4buJIMSRxrDhu6NjIMSR4buBIHh14bqldCB0aGF5IMSR4buVaSBi4bqxbmcgdsSDbiBi4bqjbi48L3RleHQ+DQo8L3N2Zz4NCg==" alt="Sơ đồ bối cảnh: Người dùng gọi Body, Body gọi Brain qua HTTP kèm token, n8n cũng gọi Brain, Brain gọi model chạy local và chỉ đọc một chiều từ nguồn công khai" /></p>
 <h3 id="13-năm-ràng-buộc-viết-tắt-r1-đến-r5">1.3. Năm ràng buộc, viết tắt R1 đến R5</h3>
+<blockquote>
+<p><strong>Chưa từng làm việc với mô hình ngôn ngữ?</strong> Đọc <a href="docs/AI-CHO-NGUOI-CHUA-LAM-AI.md">docs/AI-CHO-NGUOI-CHUA-LAM-AI.md</a> trước. Bảng dưới đây <strong>nêu</strong> năm ràng buộc; file kia giải thích chúng đến từ đâu — vì sao một mô hình không được phép cộng hai số, và vì sao "đúng 95%" không phải là 95% an toàn. Không cần biết gì trước.</p>
+</blockquote>
 <p>Đây là phần quan trọng nhất của mục 1. Một đề xuất vi phạm bất kỳ ràng buộc nào thì đề xuất đó sai, kể cả khi nó chạy được. Bản đầy đủ nằm ở <a href="AGENTS.md">AGENTS.md</a>.</p>
 <table>
 <thead>
-<tr><th></th><th>Tên</th><th>Nội dung</th><th>Kiểm nhanh</th></tr>
+<tr>
+<th></th>
+<th>Tên</th>
+<th>Nội dung</th>
+<th>Kiểm nhanh</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>R1</strong></td><td>Tất định trước</td><td>LLM không bao giờ tính toán. Nó đọc tiếng Việt thành cấu trúc, và diễn giải cấu trúc thành tiếng Việt. Mọi phép tính nằm trong Python kiểm thử được</td><td>Nếu model đọc sai một chữ số, có bản ghi sổ sách nào sai theo không?</td></tr>
-<tr><td><strong>R2</strong></td><td>Chủ quyền dữ liệu</td><td>Không gửi dữ liệu khách tới LLM bên thứ ba. Ngoại lệ duy nhất là nguồn công khai một chiều, không kèm tham số chứa dữ liệu khách</td><td>Payload này có gì của khách, và nó đi tới đâu?</td></tr>
-<tr><td><strong>R3</strong></td><td>Ngân sách là ràng buộc thiết kế</td><td>Hạ tầng cho pilot miễn phí tối đa 5.000.000đ/tháng. Mục tiêu hiện tại là bậc T0, khoảng 750.000đ/tháng</td><td>Việc này làm tăng bao nhiêu VNĐ/tháng?</td></tr>
-<tr><td><strong>R4</strong></td><td>Một nguồn sự thật</td><td>Một khái niệm định nghĩa đúng một chỗ. Một định dạng workflow, một lược đồ DB, một bộ prompt</td><td>Định nghĩa này đã tồn tại ở chỗ khác chưa?</td></tr>
-<tr><td><strong>R5</strong></td><td>Không gắn với phần cứng</td><td>Không hardcode tên GPU, số VRAM, đường dẫn máy ai. Mọi tham số phần cứng đọc từ biến môi trường, có mặc định an toàn</td><td>Chuyển sang máy khác có phải sửa dòng code nào không?</td></tr>
+<tr>
+<td><strong>R1</strong></td>
+<td>Tất định trước</td>
+<td>LLM không bao giờ tính toán. Nó đọc tiếng Việt thành cấu trúc, và diễn giải cấu trúc thành tiếng Việt. Mọi phép tính nằm trong Python kiểm thử được</td>
+<td>Nếu model đọc sai một chữ số, có bản ghi sổ sách nào sai theo không?</td>
+</tr>
+<tr>
+<td><strong>R2</strong></td>
+<td>Chủ quyền dữ liệu</td>
+<td>Không gửi dữ liệu khách tới LLM bên thứ ba. Ngoại lệ duy nhất là nguồn công khai một chiều, không kèm tham số chứa dữ liệu khách</td>
+<td>Payload này có gì của khách, và nó đi tới đâu?</td>
+</tr>
+<tr>
+<td><strong>R3</strong></td>
+<td>Ngân sách là ràng buộc thiết kế</td>
+<td>Hạ tầng cho pilot miễn phí tối đa 5.000.000đ/tháng. Mục tiêu hiện tại là bậc T0, khoảng 750.000đ/tháng</td>
+<td>Việc này làm tăng bao nhiêu VNĐ/tháng?</td>
+</tr>
+<tr>
+<td><strong>R4</strong></td>
+<td>Một nguồn sự thật</td>
+<td>Một khái niệm định nghĩa đúng một chỗ. Một định dạng workflow, một lược đồ DB, một bộ prompt</td>
+<td>Định nghĩa này đã tồn tại ở chỗ khác chưa?</td>
+</tr>
+<tr>
+<td><strong>R5</strong></td>
+<td>Không gắn với phần cứng</td>
+<td>Không hardcode tên GPU, số VRAM, đường dẫn máy ai. Mọi tham số phần cứng đọc từ biến môi trường, có mặc định an toàn</td>
+<td>Chuyển sang máy khác có phải sửa dòng code nào không?</td>
+</tr>
 </tbody>
 </table>
 <p>R1 có một hệ quả dễ bỏ qua: <strong>"chưa biết" khác "bằng 0"</strong>. <code>None</code> nghĩa là chưa biết, <code>0</code> nghĩa là biết và bằng không. Gộp hai thứ này tạo ra báo cáo sai mà đọc rất xuôi. Ví dụ thật trong dự án: báo cáo lãi lỗ coi mọi mặt hàng chưa nhập giá vốn là lãi 100%. <code>reporting.py</code> vì vậy tính thêm <code>cogs_coverage_pct</code>, hạ <code>confidence</code> và cảnh báo, chứ không điền 0.</p>
@@ -321,50 +380,82 @@ h2 { break-before: auto; }
 <p>Nghĩa là toàn bộ mục 2 này hướng dẫn dựng <strong>môi trường phát triển</strong>, và hiện nó cũng là môi trường duy nhất tồn tại. Đừng đọc nó như mô tả cách sản phẩm vận hành.</p>
 <p>Đây không phải chi tiết nhỏ. Sáu phép kiểm sổ sách đã tìm ra 5.596.500đ giá vốn không ghi và 157/160 mã sai diện thuế trên dữ liệu thật của khách, mà khách <strong>chưa có đường nào tự chạy chúng</strong>.</p>
 <p>Một điều đáng biết khi tới lúc làm: lớp sinh ra giá trị <strong>không cần GPU và không cần model</strong>. Chạy <code>RUNTIME_PROFILE=minimal</code> thì Brain phục vụ toàn bộ <code>/tools/*</code> trên một máy CPU rẻ tiền, còn nhánh <code>/chat</code> tắt theo thiết kế. Kiểm ngày 24/10: <code>/health</code> trả <code>engine_ready: false</code> mà <code>/tools/inventory-audit</code> vẫn ra 2 phát hiện kèm <code>money_impact</code>.</p>
-<p>Ô đỏ này <strong>chưa nằm trong chu kỳ đang chạy</strong>. Chu kỳ 01 dồn vào S2, tức đưa <code>/chat</code> qua vLLM server chạy Qwen3-8B trên GPU L4. Lý do hoãn và trạng thái: <a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md §9</a>.</p>
+<p>Ô đỏ này <strong>chưa nằm trong chu kỳ đang chạy</strong>. Chu kỳ 01 dồn vào S2, tức đưa <code>/chat</code> qua vLLM server chạy Qwen3-8B trên GPU L4. Lý do hoãn và trạng thái: <a href="docs/chu-ky-01/SRS_CHU_KY_01.md">SRS_CHU_KY_01.md §9</a>.</p>
 </blockquote>
 <h3 id="21-cần-gì">2.1. Cần gì</h3>
 <table>
 <thead>
-<tr><th>Thứ</th><th>Phiên bản</th><th>Ghi chú</th></tr>
+<tr>
+<th>Thứ</th>
+<th>Phiên bản</th>
+<th>Ghi chú</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Python</td><td>3.10 trở lên</td><td>CI chạy 3.11; máy dev hiện tại chạy 3.14.4, suite vẫn xanh</td></tr>
-<tr><td>Git</td><td>bất kỳ</td><td></td></tr>
-<tr><td>GPU</td><td><strong>không cần</strong></td><td>Toàn bộ lớp tất định và tầng API chạy bằng CPU. Xem 2.4 về <code>ENV=LOCAL</code></td></tr>
-<tr><td>Postgres</td><td>không cần</td><td>Thiếu <code>DATABASE_URL</code> thì Brain lùi về SQLite trong RAM</td></tr>
+<tr>
+<td>Python</td>
+<td>3.10 trở lên</td>
+<td>CI chạy 3.11; máy dev hiện tại chạy 3.14.4, suite vẫn xanh</td>
+</tr>
+<tr>
+<td>Git</td>
+<td>bất kỳ</td>
+<td></td>
+</tr>
+<tr>
+<td>GPU</td>
+<td><strong>không cần</strong></td>
+<td>Toàn bộ lớp tất định và tầng API chạy bằng CPU. Xem 2.4 về <code>ENV=LOCAL</code></td>
+</tr>
+<tr>
+<td>Postgres</td>
+<td>không cần</td>
+<td>Thiếu <code>DATABASE_URL</code> thì Brain lùi về SQLite trong RAM</td>
+</tr>
 </tbody>
 </table>
 <p>Trên Windows, Python từ Microsoft Store thường để lại một <code>python.exe</code> giả trong PATH, chạy nó chỉ mở Store. Tìm interpreter thật:</p>
-<pre><code class="bash">cmd //c &quot;where python&quot;</code></pre>
+<pre><code class="language-bash">cmd //c &quot;where python&quot;</code></pre>
 <p>Trên máy dev hiện tại, bản thật nằm ở <code>C:\Users\sonkh\AppData\Local\Python\bin\python.exe</code>.</p>
 <h3 id="22-lấy-mã-nguồn">2.2. Lấy mã nguồn</h3>
-<pre><code class="bash">git clone https://github.com/PCBoiz/ANSER_AI.git
-cd ANSER_AI
+<pre><code class="language-bash">git clone https://github.com/PCBoiz/ANSER_AI_Logistics.git
+cd ANSER_AI_Logistics
 git checkout feat/workflow-format-and-deterministic-core</code></pre>
 <p>Nhánh <code>main</code> là bản <strong>trước khi có lõi tất định</strong>. Đừng làm việc trên đó, và đừng gộp nhánh làm việc vào nó. Nhánh <code>test</code> là nhánh rác.</p>
 <h3 id="23-môi-trường-ảo-và-thư-viện">2.3. Môi trường ảo và thư viện</h3>
-<pre><code class="bash">python -m venv .venv
+<pre><code class="language-bash">python -m venv .venv
 # Windows (Git Bash)
 source .venv/Scripts/activate
 # Linux / macOS
 source .venv/bin/activate</code></pre>
 <p>Cài theo <strong>mức nhẹ</strong> trước. Đây là đúng danh sách mà tầng API và tầng tất định import, lấy từ <code>.github/workflows/ci.yml</code>:</p>
-<pre><code class="bash">pip install --upgrade pip
+<pre><code class="language-bash">pip install --upgrade pip
 pip install -r requirements-dev.txt
 pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl</code></pre>
 <p>Mức nhẹ chạy được toàn bộ bộ test và toàn bộ <code>/tools/*</code>. Bằng chứng: CI dùng đúng hai lệnh trên và suite xanh.</p>
 <p><code>requirements.txt</code> đầy đủ kéo theo <code>torch</code>, <code>vllm</code>, <code>chromadb</code>, <code>sentence-transformers</code>. Khoảng vài GB, và chỉ cần khi bạn nạp model thật hoặc chạy kho tri thức. Cài khi nào cần:</p>
-<pre><code class="bash">pip install -r requirements.txt</code></pre>
+<pre><code class="language-bash">pip install -r requirements.txt</code></pre>
 <p>Ba thư viện dễ bị quên và hậu quả của chúng:</p>
 <table>
 <thead>
-<tr><th>Thiếu gói</th><th>Triệu chứng</th></tr>
+<tr>
+<th>Thiếu gói</th>
+<th>Triệu chứng</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>openpyxl</code></td><td>Ba endpoint nạp <code>.xlsx</code> trả 500 ngay lần gọi đầu. Trước 23/08/2026 nó không có trong requirements nào, chạy được vì Colab cài sẵn, và 34 test của chính ba đường đó <code>importorskip</code> rồi nằm im</td></tr>
-<tr><td><code>jsonschema</code></td><td>3 test kiểm grammar của vòng agentic chuyển sang SKIP. Nhãn xanh không nói gì về chốt chặn quan trọng nhất</td></tr>
-<tr><td><code>pytest-asyncio</code></td><td><code>test_chat_background_task</code> FAIL im lặng, không phải skip</td></tr>
+<tr>
+<td><code>openpyxl</code></td>
+<td>Ba endpoint nạp <code>.xlsx</code> trả 500 ngay lần gọi đầu. Trước 23/08/2026 nó không có trong requirements nào, chạy được vì Colab cài sẵn, và 34 test của chính ba đường đó <code>importorskip</code> rồi nằm im</td>
+</tr>
+<tr>
+<td><code>jsonschema</code></td>
+<td>3 test kiểm grammar của vòng agentic chuyển sang SKIP. Nhãn xanh không nói gì về chốt chặn quan trọng nhất</td>
+</tr>
+<tr>
+<td><code>pytest-asyncio</code></td>
+<td><code>test_chat_background_task</code> FAIL im lặng, không phải skip</td>
+</tr>
 </tbody>
 </table>
 <p>Cả ba nay nằm trong <code>requirements-dev.txt</code> hoặc <code>requirements.txt</code>. Nêu ra để bạn biết loại lỗi này trông như thế nào.</p>
@@ -372,83 +463,204 @@ pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs py
 <p>Không có biến nào là bắt buộc. Mặc định được chọn để chạy được ngay trên máy trống.</p>
 <table>
 <thead>
-<tr><th>Biến</th><th>Mặc định</th><th>Làm gì</th></tr>
+<tr>
+<th>Biến</th>
+<th>Mặc định</th>
+<th>Làm gì</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>ENV</code></td><td><code>LOCAL</code></td><td>Một trong <code>LOCAL</code>, <code>GPU</code>, <code>COLAB</code>, <code>SERVER</code>. Giá trị khác làm engine báo lỗi ngay, không lặng lẽ nạp model. Cùng với <code>VLLM_BASE_URL</code> quyết định backend, xem bảng dưới</td></tr>
-<tr><td><code>API_AUTH_TOKEN</code></td><td>rỗng</td><td>Token Body phải gửi kèm. <strong>Rỗng nghĩa là tắt kiểm tra.</strong> <code>GET /health</code> khai trạng thái này ở trường <code>auth_enabled</code></td></tr>
-<tr><td><code>DATABASE_URL</code></td><td>SQLite trong RAM</td><td>DB của Body. Thiếu thì mọi câu tra cứu hàng hoá trả "không tìm thấy"</td></tr>
-<tr><td><code>TEXT_MODEL_ID</code></td><td>rỗng</td><td>Đường dẫn hoặc HuggingFace id của model text AWQ. Chỉ cần khi nạp text <strong>trong tiến trình</strong>. Thiếu thì engine báo lỗi rõ, không có mặc định</td></tr>
-<tr><td><code>VISION_MODEL_ID</code></td><td><code>Qwen/Qwen2.5-VL-3B-Instruct</code></td><td>Model đọc ảnh hoá đơn</td></tr>
-<tr><td><code>TEXT_MAX_MODEL_LEN</code></td><td><code>8192</code></td><td>Cửa sổ ngữ cảnh. Dùng chung tên với <code>docker-compose.yml</code> theo R4</td></tr>
-<tr><td><code>KB_WORKSPACE_ID</code></td><td><code>default</code></td><td>Phạm vi kho tri thức. Phải khớp <code>BRAIN_KB_WORKSPACE</code> bên Body</td></tr>
-<tr><td><code>VLLM_BASE_URL</code></td><td>rỗng</td><td>Địa chỉ vLLM chạy chế độ server. Có biến này thì text đi qua HTTP ở <strong>mọi</strong> <code>ENV</code>. Ghi có hay không có đuôi <code>/v1</code> đều được</td></tr>
-<tr><td><code>VLLM_MODEL</code></td><td>rỗng</td><td>Tên model gửi cho vLLM server, khớp <code>--served-model-name</code>. Compose dùng <code>anser-v3</code></td></tr>
-<tr><td><code>AI_METRICS_PATH</code></td><td><code>src/data/ai_metrics_log.jsonl</code></td><td>Nơi ghi nhật ký đo lường từng lượt</td></tr>
-<tr><td><code>AI_METRICS_LOG_CONTENT</code></td><td><code>0</code></td><td><code>1</code> thì ghi cả nội dung tin nhắn. Biên lợi nhuận và secret luôn bị che</td></tr>
-<tr><td><code>ALLOWED_ORIGINS</code></td><td><code>http://localhost:3000</code></td><td>CORS</td></tr>
+<tr>
+<td><code>ENV</code></td>
+<td><code>LOCAL</code></td>
+<td>Một trong <code>LOCAL</code>, <code>GPU</code>, <code>COLAB</code>, <code>SERVER</code>. Giá trị khác làm engine báo lỗi ngay, không lặng lẽ nạp model. Cùng với <code>VLLM_BASE_URL</code> quyết định backend, xem bảng dưới</td>
+</tr>
+<tr>
+<td><code>API_AUTH_TOKEN</code></td>
+<td>rỗng</td>
+<td>Token Body phải gửi kèm. <strong>Rỗng nghĩa là tắt kiểm tra.</strong> <code>GET /health</code> khai trạng thái này ở trường <code>auth_enabled</code></td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>SQLite trong RAM</td>
+<td>DB của Body. Thiếu thì mọi câu tra cứu hàng hoá trả "không tìm thấy"</td>
+</tr>
+<tr>
+<td><code>TEXT_MODEL_ID</code></td>
+<td>rỗng</td>
+<td>Đường dẫn hoặc HuggingFace id của model text AWQ. Chỉ cần khi nạp text <strong>trong tiến trình</strong>. Thiếu thì engine báo lỗi rõ, không có mặc định</td>
+</tr>
+<tr>
+<td><code>VISION_MODEL_ID</code></td>
+<td><code>Qwen/Qwen2.5-VL-3B-Instruct</code></td>
+<td>Model đọc ảnh hoá đơn</td>
+</tr>
+<tr>
+<td><code>TEXT_MAX_MODEL_LEN</code></td>
+<td><code>32768</code></td>
+<td>Cửa sổ ngữ cảnh. Dùng chung tên với <code>docker-compose.yml</code> theo R4. Mặc định nâng 8192 → 32768 ngày 28/10/2026 (BR-04)</td>
+</tr>
+<tr>
+<td><code>TEXT_GPU_FRACTION</code></td>
+<td><code>0.55</code></td>
+<td>Phần tổng VRAM dành cho vLLM. Cùng tên với <code>docker-compose.yml</code>, nhưng compose mặc định <strong>0.62</strong> vì ở đó vision là container riêng (0.20); <code>0.55</code> là cho MỘT tiến trình giữ cả text lẫn vision</td>
+</tr>
+<tr>
+<td><code>KB_WORKSPACE_ID</code></td>
+<td><code>default</code></td>
+<td>Phạm vi kho tri thức. Phải khớp <code>BRAIN_KB_WORKSPACE</code> bên Body</td>
+</tr>
+<tr>
+<td><code>VLLM_BASE_URL</code></td>
+<td>rỗng</td>
+<td>Địa chỉ vLLM chạy chế độ server. Có biến này thì text đi qua HTTP ở <strong>mọi</strong> <code>ENV</code>. Ghi có hay không có đuôi <code>/v1</code> đều được</td>
+</tr>
+<tr>
+<td><code>VLLM_MODEL</code></td>
+<td>rỗng</td>
+<td>Tên model gửi cho vLLM server, khớp <code>--served-model-name</code>. Compose dùng <code>anser-v3</code></td>
+</tr>
+<tr>
+<td><code>AI_METRICS_PATH</code></td>
+<td><code>src/data/ai_metrics_log.jsonl</code></td>
+<td>Nơi ghi nhật ký đo lường từng lượt</td>
+</tr>
+<tr>
+<td><code>AI_METRICS_LOG_CONTENT</code></td>
+<td><code>0</code></td>
+<td><code>1</code> thì ghi cả nội dung tin nhắn. Biên lợi nhuận và secret luôn bị che</td>
+</tr>
+<tr>
+<td><code>ALLOWED_ORIGINS</code></td>
+<td><code>http://localhost:3000</code></td>
+<td>CORS</td>
+</tr>
 </tbody>
 </table>
 <p><strong><code>ENV</code> và <code>VLLM_BASE_URL</code> chọn backend ra sao.</strong> Quyết định nằm ở đúng một hàm, <a href="src/core/engine.py"><code>chon_backend()</code></a>, và <code>/health</code> khai kết quả ở hai trường <code>text_backend</code>, <code>vision_backend</code>:</p>
 <table>
 <thead>
-<tr><th><code>ENV</code></th><th><code>VLLM_BASE_URL</code></th><th>Text</th><th>Vision</th><th>Dùng khi nào</th></tr>
+<tr>
+<th><code>ENV</code></th>
+<th><code>VLLM_BASE_URL</code></th>
+<th>Text</th>
+<th>Vision</th>
+<th>Dùng khi nào</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>LOCAL</code></td><td>rỗng</td><td>mock</td><td>mock</td><td>máy dev, chạy test</td></tr>
-<tr><td><code>LOCAL</code></td><td>có</td><td>vLLM server</td><td>mock</td><td>máy dev gọi một vLLM ở xa</td></tr>
-<tr><td><code>GPU</code>, <code>COLAB</code></td><td>rỗng</td><td>nạp trong tiến trình</td><td>nạp trong tiến trình</td><td>đường cũ, cần <code>TEXT_MODEL_ID</code></td></tr>
-<tr><td><code>GPU</code>, <code>COLAB</code></td><td>có</td><td>vLLM server</td><td>nạp trong tiến trình</td><td>Colab ở BR-04: vLLM server cộng vision</td></tr>
-<tr><td><code>SERVER</code></td><td>có</td><td>vLLM server</td><td><strong>tắt có tuyên bố</strong></td><td>compose: Brain không nạp model nào. Vision qua HTTP thuộc chu kỳ 02</td></tr>
-<tr><td><code>SERVER</code></td><td>rỗng</td><td>lỗi</td><td></td><td><code>SERVER</code> nghĩa là không nạp gì, nên phải có địa chỉ server</td></tr>
+<tr>
+<td><code>LOCAL</code></td>
+<td>rỗng</td>
+<td>mock</td>
+<td>mock</td>
+<td>máy dev, chạy test</td>
+</tr>
+<tr>
+<td><code>LOCAL</code></td>
+<td>có</td>
+<td>vLLM server</td>
+<td>mock</td>
+<td>máy dev gọi một vLLM ở xa</td>
+</tr>
+<tr>
+<td><code>GPU</code>, <code>COLAB</code></td>
+<td>rỗng</td>
+<td>nạp trong tiến trình</td>
+<td>nạp trong tiến trình</td>
+<td>đường cũ, cần <code>TEXT_MODEL_ID</code></td>
+</tr>
+<tr>
+<td><code>GPU</code>, <code>COLAB</code></td>
+<td>có</td>
+<td>vLLM server</td>
+<td>nạp trong tiến trình</td>
+<td>Colab ở BR-04: vLLM server cộng vision</td>
+</tr>
+<tr>
+<td><code>SERVER</code></td>
+<td>có</td>
+<td>vLLM server</td>
+<td><strong>tắt có tuyên bố</strong></td>
+<td>compose: Brain không nạp model nào. Vision qua HTTP thuộc chu kỳ 02</td>
+</tr>
+<tr>
+<td><code>SERVER</code></td>
+<td>rỗng</td>
+<td>lỗi</td>
+<td></td>
+<td><code>SERVER</code> nghĩa là không nạp gì, nên phải có địa chỉ server</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
 <p><strong><code>TEXT_MODEL_ID</code> không còn mặc định</strong>, cố ý (NFR-06). Mặc định cũ là một đường dẫn Google Drive tới <code>anser-retail-v2-awq</code>, model đã nghỉ hưu từ 27/07/2026. Model nền đúng theo quyết định hiện hành là <code>Qwen/Qwen3-8B</code>, bản fine-tune là <code>anser-v3-awq</code>.</p>
 </blockquote>
 <p>Đặt biến cho một phiên làm việc:</p>
-<pre><code class="bash">export ENV=LOCAL                 # Git Bash / Linux
+<pre><code class="language-bash">export ENV=LOCAL                 # Git Bash / Linux
 $env:ENV = &quot;LOCAL&quot;               # PowerShell</code></pre>
 <p>Repo không có file <code>.env</code> cho máy dev. Mẫu cho triển khai docker nằm ở <code>deploy/.env.example</code>. Đừng commit <code>.env</code> thật.</p>
 <h3 id="25-chạy-test-trước-khi-chạy-server">2.5. Chạy test trước khi chạy server</h3>
 <p>Làm bước này trước. Nó mất gần hai phút và cho bạn biết môi trường đã đủ chưa.</p>
-<pre><code class="bash">ENV=LOCAL pytest -q</code></pre>
+<pre><code class="language-bash">ENV=LOCAL pytest -q</code></pre>
 <p>Kết quả đúng, đo ngày 26/10/2026 trên Colab sau bản sửa lược đồ quyết định (<code>82e9e9c</code>), tổng 1045 ca:</p>
 <pre><code>1041 passed, 4 skipped</code></pre>
 <p>Số skip đổi theo thư viện đang cài, nên tổng passed + skipped mới là thứ cần khớp. Ba ca luôn skip trên máy không có thứ chúng cần, ví dụ bản sao repo Body cho <code>test_body_contract</code>. Có SDK <code>anthropic</code> thì <code>test_providers</code> bỏ thêm một ca. Không có xgrammar (máy chưa cài vLLM) thì hai ca <code>test_xgrammar_THAT_*</code> skip; trên Colab đã cài vLLM, hai ca này <strong>phải</strong> passed. Muốn biết từng ca skip vì sao thì thêm <code>-rs</code>. Trên Windows có thể thêm một warning về symlink của HuggingFace, vô hại.</p>
 <p><code>pythonpath</code> và <code>testpaths</code> đã khai trong <code>pyproject.toml</code>, nên bạn chạy từ thư mục gốc là được, không cần <code>PYTHONPATH</code>.</p>
 <p>Chạy một file riêng khi đang sửa một chỗ:</p>
-<pre><code class="bash">ENV=LOCAL pytest tests/test_deterministic_core.py -q
+<pre><code class="language-bash">ENV=LOCAL pytest tests/test_deterministic_core.py -q
 ENV=LOCAL pytest tests/test_tool_planner.py -q -k hoa_don</code></pre>
-<p>Hai cổng chất lượng còn lại, giống CI:</p>
-<pre><code class="bash">ruff check src/core/memory.py src/core/context.py tests
-mypy src/core/memory.py src/core/context.py</code></pre>
+<p>Hai cổng chất lượng còn lại. Hai lệnh dưới đây <strong>đúng bằng</strong> hai bước <code>Ruff</code> và <code>Mypy</code> trong <code>.github/workflows/ci.yml</code> — chạy chúng trước khi push thì không bị CI báo lỗi sau:</p>
+<pre><code class="language-bash">ruff check src tests offline_training launch_demo.py execute_backup_and_push.py
+mypy src offline_training</code></pre>
+<p><code>mypy</code> soi <strong>cả <code>src/</code> và <code>offline_training/</code></strong> — 83 file, không còn file nào chọn tay (04/11/2026; trước đó 5 file).</p>
+<blockquote>
+<p><code>mypy offline_training</code> chỉ chạy được nhờ hai dòng <code>mypy_path</code> và <code>explicit_package_bases</code> trong <code>[tool.mypy]</code> của <code>pyproject.toml</code>. Thư mục đó không có <code>__init__.py</code>, nhưng code trong nó import <code>offline_training.dgen_common</code>, nên nếu không có hai dòng ấy thì mypy thấy cùng một file dưới hai tên module và chết ngay với <code>Source file found twice</code>. Lý do không thêm <code>__init__.py</code>: mấy script đó chạy bằng <code>python offline_training/xxx.py</code> trên Colab.</p>
+</blockquote>
 <h3 id="26-bật-server">2.6. Bật server</h3>
-<pre><code class="bash">ENV=LOCAL uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --reload</code></pre>
+<pre><code class="language-bash">ENV=LOCAL uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --reload</code></pre>
 <blockquote>
 <p><code>src/README.md</code> ghi <code>uvicorn src.server:app</code>. File <code>src/server.py</code> đã bị tách thành <code>src/api/</code> từ lâu, nên lệnh trong README đó <strong>gãy</strong>. Dùng lệnh trên.</p>
 </blockquote>
 <p>Kiểm sống:</p>
-<pre><code class="bash">curl -s http://127.0.0.1:8000/health | python -m json.tool</code></pre>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8000/health | python -m json.tool</code></pre>
 <p>Những trường cần nhìn:</p>
 <table>
 <thead>
-<tr><th>Trường</th><th>Ý nghĩa</th></tr>
+<tr>
+<th>Trường</th>
+<th>Ý nghĩa</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>status</code></td><td><code>ok</code> nếu app dựng được</td></tr>
-<tr><td><code>auth_enabled</code></td><td><code>false</code> khi <code>API_AUTH_TOKEN</code> rỗng. Trước khi mở ra Internet, trường này <strong>phải</strong> là <code>true</code></td></tr>
-<tr><td><code>degraded</code></td><td><code>true</code> nếu engine, kho tri thức hoặc vision lỗi</td></tr>
-<tr><td><code>engine_error</code>, <code>kb_error</code>, <code>vision_error</code></td><td>nội dung lỗi cụ thể, hoặc <code>null</code></td></tr>
-<tr><td><code>load</code></td><td>thống kê điều tiết tải: <code>peak_queued</code> và <code>rejected_total</code> là hai số quyết định nên nâng hay hạ <code>max_concurrent</code></td></tr>
+<tr>
+<td><code>status</code></td>
+<td><code>ok</code> nếu app dựng được</td>
+</tr>
+<tr>
+<td><code>auth_enabled</code></td>
+<td><code>false</code> khi <code>API_AUTH_TOKEN</code> rỗng. Trước khi mở ra Internet, trường này <strong>phải</strong> là <code>true</code></td>
+</tr>
+<tr>
+<td><code>degraded</code></td>
+<td><code>true</code> nếu engine, kho tri thức hoặc vision lỗi</td>
+</tr>
+<tr>
+<td><code>engine_error</code>, <code>kb_error</code>, <code>vision_error</code></td>
+<td>nội dung lỗi cụ thể, hoặc <code>null</code></td>
+</tr>
+<tr>
+<td><code>load</code></td>
+<td>thống kê điều tiết tải: <code>peak_queued</code> và <code>rejected_total</code> là hai số quyết định nên nâng hay hạ <code>max_concurrent</code></td>
+</tr>
 </tbody>
 </table>
 <p><code>/health</code> là endpoint duy nhất không đòi token. Nó phải trả lời được cả khi người hỏi chưa có token, vì đó là chỗ để biết Brain sống hay chết.</p>
 <h3 id="27-gọi-thử-ba-endpoint">2.7. Gọi thử ba endpoint</h3>
 <p><strong>Danh mục tool.</strong> Trả JSON Schema của từng tool, dùng chung cho vòng agentic, lớp MCP và n8n:</p>
-<pre><code class="bash">curl -s http://127.0.0.1:8000/tools | python -m json.tool | head -40</code></pre>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8000/tools | python -m json.tool | head -40</code></pre>
 <p><strong>Soi một dòng tồn kho có lỗi.</strong> Dòng dưới tái tạo đúng ca <code>VT00059</code> trong sổ thật của khách: đầu kỳ 87, nhập 4.400, xuất 4.508, nên tồn cuối âm 21 lít.</p>
-<pre><code class="bash">curl -s -X POST http://127.0.0.1:8000/tools/inventory-audit \
+<pre><code class="language-bash">curl -s -X POST http://127.0.0.1:8000/tools/inventory-audit \
   -H &quot;Content-Type: application/json&quot; \
   -d &#x27;{
     &quot;warehouse&quot;: &quot;HÀNG HÓA&quot;,
@@ -464,55 +676,135 @@ mypy src/core/memory.py src/core/context.py</code></pre>
   }&#x27; | python -m json.tool</code></pre>
 <p>Bạn sẽ nhận về một danh sách <code>findings</code>. Mỗi phát hiện có <code>title</code> viết bằng tiếng Việt thường, <code>evidence</code> là các con số để mở MISA đối chiếu tay, <code>money_impact</code> quy ra tiền hoặc <code>null</code> khi thành thật là không quy được, và <code>suggestion</code> là việc cần làm tiếp. Hình dạng này do <a href="src/core/findings.py"><code>findings.py</code></a> quy định, và Body chỉ cần một component để hiện mọi loại phát hiện.</p>
 <p><strong>Tính lại VAT một hoá đơn:</strong></p>
-<pre><code class="bash">curl -s -X POST http://127.0.0.1:8000/tools/vat \
+<pre><code class="language-bash">curl -s -X POST http://127.0.0.1:8000/tools/vat \
   -H &quot;Content-Type: application/json&quot; \
   -d &#x27;{&quot;items&quot;: [{&quot;name&quot;: &quot;Dầu nhớt&quot;, &quot;qty&quot;: 10, &quot;unit_price&quot;: 500000}], &quot;vat_rate&quot;: 8, &quot;stated_total&quot;: 5400000}&#x27; \
   | python -m json.tool</code></pre>
 <p>Nếu bạn đã đặt <code>API_AUTH_TOKEN</code>, thêm header vào mọi lệnh trên:</p>
-<pre><code class="bash">-H &quot;X-API-Token: $API_AUTH_TOKEN&quot;</code></pre>
+<pre><code class="language-bash">-H &quot;X-API-Token: $API_AUTH_TOKEN&quot;</code></pre>
 <p>Không có token thì nhận 401, không phải 422. Thứ tự đó do <code>auth_guard</code> gắn ở tầng router, chạy trước khi FastAPI validate thân request. Nếu bạn thấy 422 kèm tên từng trường khi chưa xác thực, đó là lỗi bảo mật đã từng xảy ra và đã vá ngày 15/08/2026.</p>
 <h3 id="28-dựng-dữ-liệu-mẫu-có-lỗi-gieo-sẵn">2.8. Dựng dữ liệu mẫu có lỗi gieo sẵn</h3>
 <p>Không cần dữ liệu khách để thử bộ soi sổ sách.</p>
-<pre><code class="bash">python sample_data/make_sample_data.py</code></pre>
+<pre><code class="language-bash">python sample_data/make_sample_data.py</code></pre>
 <p>Ra <code>sample_data/ton_kho_mau.xlsx</code>: 11 mã dầu nhờn, kỳ 01/01 đến 30/06/2026, trong đó 7 mã có lỗi gieo sẵn. Đây là đề bài có đáp án. Bộ soi phải tìm đúng 7 mã đó và không gắn cờ mã nào khác.</p>
 <table>
 <thead>
-<tr><th>Mã</th><th>Lỗi gieo</th></tr>
+<tr>
+<th>Mã</th>
+<th>Lỗi gieo</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>DN-TL-200</code></td><td>tồn kho âm</td></tr>
-<tr><td><code>KM-4T-08</code></td><td>có số lượng nhưng không ghi nhận giá trị</td></tr>
-<tr><td><code>DN-BR-18</code></td><td>sổ không cân đối, đầu kỳ cộng nhập trừ xuất khác cuối kỳ</td></tr>
-<tr><td><code>LC-COOL-200</code></td><td>tồn đủ bán khoảng 7 năm</td></tr>
-<tr><td><code>DN-CAT-20</code></td><td>không xuất đơn vị nào suốt kỳ</td></tr>
-<tr><td><code>DN-GL5-18</code></td><td>giá vốn hàng tồn cao hơn hàng đã bán</td></tr>
-<tr><td><code>MO-EP2-15</code></td><td>giá nhập tăng 20%</td></tr>
+<tr>
+<td><code>DN-TL-200</code></td>
+<td>tồn kho âm</td>
+</tr>
+<tr>
+<td><code>KM-4T-08</code></td>
+<td>có số lượng nhưng không ghi nhận giá trị</td>
+</tr>
+<tr>
+<td><code>DN-BR-18</code></td>
+<td>sổ không cân đối, đầu kỳ cộng nhập trừ xuất khác cuối kỳ</td>
+</tr>
+<tr>
+<td><code>LC-COOL-200</code></td>
+<td>tồn đủ bán khoảng 7 năm</td>
+</tr>
+<tr>
+<td><code>DN-CAT-20</code></td>
+<td>không xuất đơn vị nào suốt kỳ</td>
+</tr>
+<tr>
+<td><code>DN-GL5-18</code></td>
+<td>giá vốn hàng tồn cao hơn hàng đã bán</td>
+</tr>
+<tr>
+<td><code>MO-EP2-15</code></td>
+<td>giá nhập tăng 20%</td>
+</tr>
 </tbody>
 </table>
 <p>Đối chiếu tự động:</p>
-<pre><code class="bash">ENV=LOCAL pytest tests/test_sample_data.py -q</code></pre>
+<pre><code class="language-bash">ENV=LOCAL pytest tests/test_sample_data.py -q</code></pre>
 <p>Hoặc nạp qua HTTP như Body sẽ làm:</p>
-<pre><code class="bash">curl -s -X POST http://127.0.0.1:8000/tools/inventory-import \
+<pre><code class="language-bash">curl -s -X POST http://127.0.0.1:8000/tools/inventory-import \
   -F &quot;file=@sample_data/ton_kho_mau.xlsx&quot; | python -m json.tool</code></pre>
 <h3 id="29-bảng-gỡ-lỗi">2.9. Bảng gỡ lỗi</h3>
 <table>
 <thead>
-<tr><th>Triệu chứng</th><th>Nguyên nhân</th><th>Cách xử lý</th></tr>
+<tr>
+<th>Triệu chứng</th>
+<th>Nguyên nhân</th>
+<th>Cách xử lý</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><code>python</code> mở Microsoft Store</td><td>PATH trỏ vào bản giả của Store</td><td>Dùng đường dẫn interpreter thật, xem 2.1</td></tr>
-<tr><td><code>uvicorn: command not found</code></td><td>chưa activate venv</td><td><code>source .venv/Scripts/activate</code></td></tr>
-<tr><td><code>ModuleNotFoundError: src</code></td><td>chạy từ thư mục con</td><td>Chạy từ gốc repo. <code>pyproject.toml</code> đã khai <code>pythonpath = [&quot;.&quot;]</code></td></tr>
-<tr><td><code>/chat</code> trả 503 <code>Text runtime unavailable</code></td><td>cấu hình backend sai. <code>engine_error</code> trong <code>/health</code> nêu đúng biến thiếu: <code>ENV</code> lạ, <code>ENV=SERVER</code> thiếu <code>VLLM_BASE_URL</code>, hoặc nạp trong tiến trình thiếu <code>TEXT_MODEL_ID</code></td><td>Sửa biến mà <code>engine_error</code> nêu. Chỉ cần mock thì đặt <code>ENV=LOCAL</code> và bỏ <code>VLLM_BASE_URL</code></td></tr>
-<tr><td><code>/health</code> có <code>degraded: true</code> và <code>vllm_server.ok: false</code></td><td>Brain sống nhưng vLLM server không trả lời <code>/health</code> trong 2 giây</td><td>Kiểm vLLM server và <code>VLLM_BASE_URL</code>. <code>/tools/*</code> vẫn chạy được trong lúc đó</td></tr>
-<tr><td>Trên Colab, <code>ModuleNotFoundError: No module named &#x27;tests.test_knowledge&#x27;</code> lúc collect</td><td>bản trước 26/10 thiếu <code>tests/__init__.py</code>, và Colab có sẵn gói <code>tests</code> khác trong <code>site-packages</code></td><td>Kéo nhánh mới, hoặc <code>touch tests/__init__.py</code></td></tr>
-<tr><td>Lệnh <code>uvicorn src.server:app</code> lỗi</td><td><code>src/README.md</code> đã cũ</td><td>Dùng <code>src.api.main:app</code></td></tr>
-<tr><td>Ba endpoint <code>.xlsx</code> trả 500</td><td>thiếu <code>openpyxl</code></td><td><code>pip install openpyxl</code></td></tr>
-<tr><td>Phần tài liệu trả 503, <code>kb_error</code> có nội dung</td><td>thiếu thư viện RAG</td><td><code>pip install chromadb sentence-transformers rank_bm25 underthesea</code></td></tr>
-<tr><td>Tra cứu hàng hoá trả "không tìm thấy" dù có hàng</td><td>thiếu <code>DATABASE_URL</code>, Brain đang chạy SQLite rỗng</td><td>Đặt <code>DATABASE_URL</code>, hoặc coi đây là hành vi mong đợi trên máy dev</td></tr>
-<tr><td>"Lỗi hệ thống khi tìm sản phẩm"</td><td><code>SCHEMA MAP</code> của <a href="src/core/saas_api.py#L22"><code>saas_api.py</code></a> lệch tên bảng và cột của Body, 4 trên 8 định danh</td><td>Lỗi đã biết, xem mục 10. Ghi vào loại "sai cấu hình", đừng điều tra như lỗi model</td></tr>
-<tr><td>Nạp 30 tài liệu, giao diện hiện đủ 30, chat vẫn nói chưa có tài liệu</td><td><code>KB_WORKSPACE_ID</code> bên Brain lệch <code>BRAIN_KB_WORKSPACE</code> bên Body</td><td>Để trống cả hai là an toàn nhất, cả hai cùng mặc định <code>default</code>. Brain ghi log cảnh báo gọi đích danh hai biến này</td></tr>
-<tr><td>Vài test SKIP lặng lẽ</td><td>thiếu <code>jsonschema</code> hoặc <code>openpyxl</code></td><td>Cài đủ <code>requirements-dev.txt</code>. SKIP trên nhãn xanh không nói gì về chốt chặn</td></tr>
+<tr>
+<td><code>python</code> mở Microsoft Store</td>
+<td>PATH trỏ vào bản giả của Store</td>
+<td>Dùng đường dẫn interpreter thật, xem 2.1</td>
+</tr>
+<tr>
+<td><code>uvicorn: command not found</code></td>
+<td>chưa activate venv</td>
+<td><code>source .venv/Scripts/activate</code></td>
+</tr>
+<tr>
+<td><code>ModuleNotFoundError: src</code></td>
+<td>chạy từ thư mục con</td>
+<td>Chạy từ gốc repo. <code>pyproject.toml</code> đã khai <code>pythonpath = [&quot;.&quot;]</code></td>
+</tr>
+<tr>
+<td><code>/chat</code> trả 503 <code>Text runtime unavailable</code></td>
+<td>cấu hình backend sai. <code>engine_error</code> trong <code>/health</code> nêu đúng biến thiếu: <code>ENV</code> lạ, <code>ENV=SERVER</code> thiếu <code>VLLM_BASE_URL</code>, hoặc nạp trong tiến trình thiếu <code>TEXT_MODEL_ID</code></td>
+<td>Sửa biến mà <code>engine_error</code> nêu. Chỉ cần mock thì đặt <code>ENV=LOCAL</code> và bỏ <code>VLLM_BASE_URL</code></td>
+</tr>
+<tr>
+<td><code>/health</code> có <code>degraded: true</code> và <code>vllm_server.ok: false</code></td>
+<td>Brain sống nhưng vLLM server không trả lời <code>/health</code> trong 2 giây</td>
+<td>Kiểm vLLM server và <code>VLLM_BASE_URL</code>. <code>/tools/*</code> vẫn chạy được trong lúc đó</td>
+</tr>
+<tr>
+<td>Trên Colab, <code>ModuleNotFoundError: No module named &#x27;tests.test_knowledge&#x27;</code> lúc collect</td>
+<td>bản trước 26/10 thiếu <code>tests/__init__.py</code>, và Colab có sẵn gói <code>tests</code> khác trong <code>site-packages</code></td>
+<td>Kéo nhánh mới, hoặc <code>touch tests/__init__.py</code></td>
+</tr>
+<tr>
+<td>Lệnh <code>uvicorn src.server:app</code> lỗi</td>
+<td><code>src/README.md</code> đã cũ</td>
+<td>Dùng <code>src.api.main:app</code></td>
+</tr>
+<tr>
+<td>Ba endpoint <code>.xlsx</code> trả 500</td>
+<td>thiếu <code>openpyxl</code></td>
+<td><code>pip install openpyxl</code></td>
+</tr>
+<tr>
+<td>Phần tài liệu trả 503, <code>kb_error</code> có nội dung</td>
+<td>thiếu thư viện RAG</td>
+<td><code>pip install chromadb sentence-transformers rank_bm25 underthesea</code></td>
+</tr>
+<tr>
+<td>Tra cứu hàng hoá trả "không tìm thấy" dù có hàng</td>
+<td>thiếu <code>DATABASE_URL</code>, Brain đang chạy SQLite rỗng</td>
+<td>Đặt <code>DATABASE_URL</code>, hoặc coi đây là hành vi mong đợi trên máy dev</td>
+</tr>
+<tr>
+<td>"Lỗi hệ thống khi tìm sản phẩm"</td>
+<td><code>SCHEMA MAP</code> của <a href="src/core/saas_api.py#L22"><code>saas_api.py</code></a> lệch tên bảng và cột của Body, 4 trên 8 định danh</td>
+<td>Lỗi đã biết, xem mục 10. Ghi vào loại "sai cấu hình", đừng điều tra như lỗi model</td>
+</tr>
+<tr>
+<td>Nạp 30 tài liệu, giao diện hiện đủ 30, chat vẫn nói chưa có tài liệu</td>
+<td><code>KB_WORKSPACE_ID</code> bên Brain lệch <code>BRAIN_KB_WORKSPACE</code> bên Body</td>
+<td>Để trống cả hai là an toàn nhất, cả hai cùng mặc định <code>default</code>. Brain ghi log cảnh báo gọi đích danh hai biến này</td>
+</tr>
+<tr>
+<td>Vài test SKIP lặng lẽ</td>
+<td>thiếu <code>jsonschema</code> hoặc <code>openpyxl</code></td>
+<td>Cài đủ <code>requirements-dev.txt</code>. SKIP trên nhãn xanh không nói gì về chốt chặn</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -574,13 +866,33 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgNDQwIiB3aWR0aD0iOTQwIiBoZWlnaHQ9IjQ0MCIgZm9udC1mYW1pbHk9IlNlZ29lIFVJLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmIj4NCiAgPHJlY3Qgd2lkdGg9Ijk0MCIgaGVpZ2h0PSI0NDAiIGZpbGw9IiNmZmZmZmYiLz4NCiAgPHN0eWxlPg0KICAgIC50YiAgeyBmb250LXNpemU6IDE1cHg7IGZvbnQtd2VpZ2h0OiA2MDA7IGZpbGw6ICMxYTFhMWE7IH0NCiAgICAudCAgIHsgZm9udC1zaXplOiAxNHB4OyBmaWxsOiAjMWExYTFhOyB9DQogICAgLnRzICB7IGZvbnQtc2l6ZTogMTEuNXB4OyBmaWxsOiAjNWE1YTVhOyB9DQogICAgLm1vbm97IGZvbnQtZmFtaWx5OiBDb25zb2xhcywgIkNvdXJpZXIgTmV3IiwgbW9ub3NwYWNlOyBmb250LXNpemU6IDEycHg7IGZpbGw6ICMyYjJiMmI7IH0NCiAgICAuYXIgIHsgc3Ryb2tlOiAjNWE2NTcwOyBzdHJva2Utd2lkdGg6IDEuODsgZmlsbDogbm9uZTsgbWFya2VyLWVuZDogdXJsKCNhKTsgfQ0KICAgIC5hcnggeyBzdHJva2U6ICNjMDM5MmI7IHN0cm9rZS13aWR0aDogMjsgZmlsbDogbm9uZTsgbWFya2VyLWVuZDogdXJsKCNheCk7IHN0cm9rZS1kYXNoYXJyYXk6IDUgNDsgfQ0KICA8L3N0eWxlPg0KICA8ZGVmcz4NCiAgICA8bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOSIgbWFya2VySGVpZ2h0PSI5IiByZWZYPSI4IiByZWZZPSI0LjUiIG9yaWVudD0iYXV0byI+DQogICAgICA8cGF0aCBkPSJNMCwwIEw5LDQuNSBMMCw5IHoiIGZpbGw9IiM1YTY1NzAiLz4NCiAgICA8L21hcmtlcj4NCiAgICA8bWFya2VyIGlkPSJheCIgbWFya2VyV2lkdGg9IjkiIG1hcmtlckhlaWdodD0iOSIgcmVmWD0iOCIgcmVmWT0iNC41IiBvcmllbnQ9ImF1dG8iPg0KICAgICAgPHBhdGggZD0iTTAsMCBMOSw0LjUgTDAsOSB6IiBmaWxsPSIjYzAzOTJiIi8+DQogICAgPC9tYXJrZXI+DQogIDwvZGVmcz4NCg0KICA8dGV4dCB4PSIxNiIgeT0iMjYiIGNsYXNzPSJ0YiIgZm9udC1zaXplPSIxNiI+QuG7kW4gdOG6p25nLCBtxalpIHTDqm4gY2jhu4kgxJFpIHh14buRbmc8L3RleHQ+DQogIDx0ZXh0IHg9IjE2IiB5PSI0NiIgY2xhc3M9InRzIj5M4bqleSDEkcO6bmcgdGhlbyB0ZXN0cy90ZXN0X2xheWVyaW5nLnB5LCBmaWxlIHRoaSBow6BuaCByYW5oIGdp4bubaSBuw6B5LiBT4buVIHRheSB2w6AgdGVzdCBtw6Aga2jDoWMgbmhhdSB0aMOsIHRpbiB0ZXN0LjwvdGV4dD4NCg0KICA8cmVjdCB4PSI5MCIgeT0iNjYiIHdpZHRoPSI1NjAiIGhlaWdodD0iNjIiIHJ4PSI2IiBmaWxsPSIjZjdmOGZhIiBzdHJva2U9IiM5YWEzYWQiIHN0cm9rZS13aWR0aD0iMS40Ii8+DQogIDx0ZXh0IHg9IjExMiIgeT0iOTIiIGNsYXNzPSJ0YiI+VDQgwrcgSFRUUDwvdGV4dD4NCiAgPHRleHQgeD0iMTEyIiB5PSIxMTIiIGNsYXNzPSJtb25vIj5zcmMvYXBpLzwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSI5MiIgY2xhc3M9InRzIj5uaOG6rW4gcmVxdWVzdCwgeMOhYyB0aOG7sWMsIHZhbGlkYXRlIGLhurFuZyBweWRhbnRpYywgdHLhuqMgSlNPTjwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSIxMTIiIGNsYXNzPSJ0cyI+a2jDtG5nIGNo4bupYSBsb2dpYyBuZ2hp4buHcCB24bulLCBraMO0bmcgY8OzIHBow6lwIHTDrW5oIG7DoG88L3RleHQ+DQoNCiAgPHJlY3QgeD0iOTAiIHk9IjE1NiIgd2lkdGg9IjU2MCIgaGVpZ2h0PSI2MiIgcng9IjYiIGZpbGw9IiNmN2Y4ZmEiIHN0cm9rZT0iIzlhYTNhZCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4NCiAgPHRleHQgeD0iMTEyIiB5PSIxODIiIGNsYXNzPSJ0YiI+VDMgwrcgxJBp4buBdSBwaOG7kWk8L3RleHQ+DQogIDx0ZXh0IHg9IjExMiIgeT0iMjAyIiBjbGFzcz0ibW9ubyI+c3JjL2FnZW50cy8gwrcgZW5naW5lLnB5IMK3IGtub3dsZWRnZS5weTwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSIxODIiIGNsYXNzPSJ0cyI+Z+G7jWkgbW9kZWwsIMSR4buLbmggdHV54bq/biwgw6lwIMSR4bqndSByYSBraOG7m3AgSlNPTiBTY2hlbWE8L3RleHQ+DQogIDx0ZXh0IHg9IjM3MCIgeT0iMjAyIiBjbGFzcz0idHMiPmtow7RuZyB0w61uaCB0aeG7gW47IHByb21wdCB0aHXhu5ljIFQxLCBraMO0bmcgxJHhu4tuaCBuZ2jEqWEgdOG6oWkgY2jhu5c8L3RleHQ+DQoNCiAgPHJlY3QgeD0iOTAiIHk9IjI0NiIgd2lkdGg9IjU2MCIgaGVpZ2h0PSI2OCIgcng9IjYiIGZpbGw9IiNkZmYwZGYiIHN0cm9rZT0iIzVhOWE1YSIgc3Ryb2tlLXdpZHRoPSIyIi8+DQogIDx0ZXh0IHg9IjExMiIgeT0iMjcyIiBjbGFzcz0idGIiPlQyIMK3IE5naGnhu4dwIHbhu6UgdGh14bqnbjwvdGV4dD4NCiAgPHRleHQgeD0iMTEyIiB5PSIyOTIiIGNsYXNzPSJtb25vIj5zcmMvY29yZS88L3RleHQ+DQogIDx0ZXh0IHg9IjExMiIgeT0iMzA4IiBjbGFzcz0idHMiPmludmVudG9yeSDCtyByZWNlaXZhYmxlcyDCtyB2YXRfY2F0YWxvZyDCtyBwcmljaW5nIMK3IHJlcG9ydGluZzwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSIyNzIiIGNsYXNzPSJ0cyI+beG7jWkgcGjDqXAgdMOtbmgsIG3hu41pIHBow6lwIGtp4buDbSwgbeG7jWkgcXV54bq/dCDEkeG7i25oIGdoaSBk4buvIGxp4buHdTwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSIyOTIiIGNsYXNzPSJ0cyI+a2jDtG5nIGfhu41pIExMTS4gSW1wb3J0IHThu5tpIGFnZW50cy8gaGF5IGFwaS8g4bufIMSRw6J5IGzDoCBzYWkgdOG6p25nPC90ZXh0Pg0KDQogIDxyZWN0IHg9IjkwIiB5PSIzNDIiIHdpZHRoPSI1NjAiIGhlaWdodD0iNjIiIHJ4PSI2IiBmaWxsPSIjZjdmOGZhIiBzdHJva2U9IiM5YWEzYWQiIHN0cm9rZS13aWR0aD0iMS40Ii8+DQogIDx0ZXh0IHg9IjExMiIgeT0iMzY4IiBjbGFzcz0idGIiPlQxIMK3IE7hu4FuPC90ZXh0Pg0KICA8dGV4dCB4PSIxMTIiIHk9IjM4OCIgY2xhc3M9Im1vbm8iPmNvbmZpZyDCtyBzZXJ2aW5nIMK3IHNjaGVtYXMgwrcgcHJvbXB0cyDCtyB1dGlscyDCtyBjaHVua2luZzwvdGV4dD4NCiAgPHRleHQgeD0iMzcwIiB5PSIzNjgiIGNsYXNzPSJ0cyI+aOG6sW5nIHPhu5EsIGRhdGFjbGFzcywgcHJvbXB0LCB0aeG7h24gw61jaCB0aHXhuqduPC90ZXh0Pg0KICA8dGV4dCB4PSIzNzAiIHk9IjM4OCIgY2xhc3M9InRzIj5raMO0bmcgYmnhur90IGfDrCB24buBIGJhIHThuqduZyB0csOqbjwvdGV4dD4NCg0KICA8cGF0aCBkPSJNNzAsMTI4IEw3MCwxNTIiIGNsYXNzPSJhciIvPg0KICA8cGF0aCBkPSJNNzAsMjE4IEw3MCwyNDIiIGNsYXNzPSJhciIvPg0KICA8cGF0aCBkPSJNNzAsMzE0IEw3MCwzMzgiIGNsYXNzPSJhciIvPg0KDQogIDxwYXRoIGQ9Ik02NjgsMjgwIEMgNzIwLDI4MCA3MjAsMTEwIDY3MiwxMDAiIGNsYXNzPSJhcngiLz4NCiAgPHRleHQgeD0iNjkwIiB5PSIxOTYiIGNsYXNzPSJ0cyIgZmlsbD0iI2MwMzkyYiI+Y+G6pW08L3RleHQ+DQogIDx0ZXh0IHg9IjY5MCIgeT0iMjEyIiBjbGFzcz0idHMiIGZpbGw9IiNjMDM5MmIiPsSRaSBsw6puPC90ZXh0Pg0KDQogIDxyZWN0IHg9IjkwIiB5PSI0MTgiIHdpZHRoPSI4MjAiIGhlaWdodD0iMCIgZmlsbD0ibm9uZSIvPg0KICA8dGV4dCB4PSIxNiIgeT0iNDMyIiBjbGFzcz0idHMiPlQyIGNo4buJIHBo4bulIHRodeG7mWMgVDEsIG7Dqm4gdGVzdCBuZ2hp4buHcCB24bulIGNo4bqheSBraMO0bmcgY+G6p24gR1BVLCBraMO0bmcgY+G6p24gREIsIGtow7RuZyBj4bqnbiBt4bqhbmcuIMSQw7MgY8WpbmcgbMOgIGNo4buXIGfhuqduIG5oxrAgdG/DoG4gYuG7mSBnacOhIHRy4buLIGtow6FjaCB0cuG6oyB0aeG7gW4gbuG6sW0uPC90ZXh0Pg0KPC9zdmc+DQo=" alt="Bốn tầng xếp dọc, mũi tên chỉ đi xuống: T4 src/api, T3 src/agents, T2 src/core nghiệp vụ thuần, T1 nền gồm config và prompts. Mũi tên đi ngược lên bị cấm" /></p>
 <table>
 <thead>
-<tr><th>Tầng</th><th>Được làm gì</th><th>Không được làm gì</th></tr>
+<tr>
+<th>Tầng</th>
+<th>Được làm gì</th>
+<th>Không được làm gì</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>T4 API</td><td>Đọc request, xác thực, validate bằng pydantic, gọi xuống, trả JSON</td><td>Chứa logic nghiệp vụ hoặc phép tính</td></tr>
-<tr><td>T3 Điều phối</td><td>Gọi model, chọn prompt theo nhánh, ép đầu ra khớp JSON Schema, chạy vòng agentic</td><td>Tính tiền. Định nghĩa prompt tại chỗ, prompt thuộc T1</td></tr>
-<tr><td>T2 Nghiệp vụ</td><td>Mọi phép tính, mọi phép kiểm, mọi quyết định ghi dữ liệu</td><td>Gọi LLM. Một dòng <code>import</code> tới <code>agents/</code> hoặc <code>api/</code> ở đây là sai tầng</td></tr>
-<tr><td>T1 Nền</td><td>Hằng số, dataclass, prompt, tiện ích thuần</td><td>Biết gì về ba tầng trên</td></tr>
+<tr>
+<td>T4 API</td>
+<td>Đọc request, xác thực, validate bằng pydantic, gọi xuống, trả JSON</td>
+<td>Chứa logic nghiệp vụ hoặc phép tính</td>
+</tr>
+<tr>
+<td>T3 Điều phối</td>
+<td>Gọi model, chọn prompt theo nhánh, ép đầu ra khớp JSON Schema, chạy vòng agentic</td>
+<td>Tính tiền. Định nghĩa prompt tại chỗ, prompt thuộc T1</td>
+</tr>
+<tr>
+<td>T2 Nghiệp vụ</td>
+<td>Mọi phép tính, mọi phép kiểm, mọi quyết định ghi dữ liệu</td>
+<td>Gọi LLM. Một dòng <code>import</code> tới <code>agents/</code> hoặc <code>api/</code> ở đây là sai tầng</td>
+</tr>
+<tr>
+<td>T1 Nền</td>
+<td>Hằng số, dataclass, prompt, tiện ích thuần</td>
+<td>Biết gì về ba tầng trên</td>
+</tr>
 </tbody>
 </table>
 <p>T2 chỉ phụ thuộc T1, nên test nghiệp vụ chạy không cần GPU, không cần DB, không cần mạng. Đó cũng là chỗ gần như toàn bộ giá trị khách trả tiền nằm.</p>
@@ -591,13 +903,33 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <p>R4 nói một khái niệm định nghĩa một chỗ. Khi một khái niệm buộc phải xuất hiện ở nhiều nơi, các nơi đó phải dẫn xuất từ một nguồn. Bốn nhóm dưới đây đã từng lệch, và mỗi lần lệch đều tốn một vòng đo hoặc một lỗ bảo mật.</p>
 <table>
 <thead>
-<tr><th>Khái niệm</th><th>Các nơi phải khớp</th><th>Lệch thì sao</th></tr>
+<tr>
+<th>Khái niệm</th>
+<th>Các nơi phải khớp</th>
+<th>Lệch thì sao</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Định dạng workflow n8n</td><td><a href="src/core/workflow_schema.py"><code>workflow_schema.py</code></a> là nguồn; <code>prompts.py::CODER_SYSTEM</code> dạy model; <code>chat.py::_validate_workflow</code> kiểm</td><td>Model từng được train trên Make.com, prompt bằng ví dụ n8n, đưa danh mục node của Body, rồi validate theo luật n8n. Bốn nguồn, ba định dạng</td></tr>
-<tr><td>Trường hệ thống tự bơm</td><td><code>tool_planner.py::SYSTEM_DATA_FIELDS</code> là nguồn; <code>agentic.py::arguments_schema</code> bỏ chúng khỏi grammar; <code>render_tools()</code> không quảng cáo chúng trong prompt</td><td>Prompt từng dạy model điền <code>sales</code>, trong khi grammar cấm. Model làm đúng lời dặn, viết mảng dài, tràn trần token, JSON cắt cụt, vòng lặp gãy</td></tr>
-<tr><td>Trần token</td><td><code>MAX_DECISION_TOKENS</code>, <code>MAX_REPORT_TOKENS</code>, <code>MAX_WORKFLOW_TOKENS</code> là hằng số module; <code>benchmark_v3.py</code> import thẳng</td><td>Benchmark từng đo ở 1024 trong khi production cấp 700. Mọi tỷ lệ cắt cụt đo được đẹp hơn thứ khách nhận</td></tr>
-<tr><td>Tên biến môi trường</td><td><code>dependencies.py</code> đọc <code>API_AUTH_TOKEN</code>; <code>docker-compose.yml</code> ánh xạ <code>API_AUTH_TOKEN: ${API_TOKEN}</code>; <code>tests/test_deploy_config.py</code> đọc cả hai file và đối chiếu</td><td>Compose từng đặt <code>API_TOKEN</code>, code đọc <code>API_AUTH_TOKEN</code>, và <code>require_api_token</code> bỏ qua mọi kiểm tra khi biến nó đọc rỗng. Brain triển khai theo README không kiểm token nào mà vẫn mở ra Internet</td></tr>
+<tr>
+<td>Định dạng workflow n8n</td>
+<td><a href="src/core/workflow_schema.py"><code>workflow_schema.py</code></a> là nguồn; <code>prompts.py::CODER_SYSTEM</code> dạy model; <code>chat.py::_validate_workflow</code> kiểm</td>
+<td>Model từng được train trên Make.com, prompt bằng ví dụ n8n, đưa danh mục node của Body, rồi validate theo luật n8n. Bốn nguồn, ba định dạng</td>
+</tr>
+<tr>
+<td>Trường hệ thống tự bơm</td>
+<td><code>tool_planner.py::SYSTEM_DATA_FIELDS</code> là nguồn; <code>agentic.py::arguments_schema</code> bỏ chúng khỏi grammar; <code>render_tools()</code> không quảng cáo chúng trong prompt</td>
+<td>Prompt từng dạy model điền <code>sales</code>, trong khi grammar cấm. Model làm đúng lời dặn, viết mảng dài, tràn trần token, JSON cắt cụt, vòng lặp gãy</td>
+</tr>
+<tr>
+<td>Trần token</td>
+<td><code>MAX_DECISION_TOKENS</code>, <code>MAX_REPORT_TOKENS</code>, <code>MAX_WORKFLOW_TOKENS</code> là hằng số module; <code>benchmark_v3.py</code> import thẳng</td>
+<td>Benchmark từng đo ở 1024 trong khi production cấp 700. Mọi tỷ lệ cắt cụt đo được đẹp hơn thứ khách nhận</td>
+</tr>
+<tr>
+<td>Tên biến môi trường</td>
+<td><code>dependencies.py</code> đọc <code>API_AUTH_TOKEN</code>; <code>docker-compose.yml</code> ánh xạ <code>API_AUTH_TOKEN: ${API_TOKEN}</code>; <code>tests/test_deploy_config.py</code> đọc cả hai file và đối chiếu</td>
+<td>Compose từng đặt <code>API_TOKEN</code>, code đọc <code>API_AUTH_TOKEN</code>, và <code>require_api_token</code> bỏ qua mọi kiểm tra khi biến nó đọc rỗng. Brain triển khai theo README không kiểm token nào mà vẫn mở ra Internet</td>
+</tr>
 </tbody>
 </table>
 <p>Lược đồ DB cũng thuộc nhóm này và <strong>hiện đang lệch</strong>: <code>prompts.py::DB_SCHEMA</code>, <code>offline_training/db_schema.txt</code> và SQL trong <code>saas_api.py</code> chưa khớp nhau. Xem mục 10.</p>
@@ -609,7 +941,7 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <p><strong>Bước 1, route.</strong> <a href="src/api/routes/tools.py#L394"><code>tools.py:394</code></a> nhận <code>multipart/form-data</code>. File đọc vào bộ nhớ, <strong>không ghi ra đĩa</strong> theo R2. Kích thước kiểm hai lần: <code>content-length</code> trước để từ chối sớm, rồi độ dài thật sau, vì header do client gửi và hoàn toàn có thể nói dối.</p>
 <p><strong>Bước 2, parser.</strong> <code>inventory_import.py</code> đọc bảng. Chỗ khó nhất là tìm header: MISA đặt nhóm cột (<code>Đầu kỳ</code>, <code>Nhập kho</code>) <strong>cùng dòng</strong> với <code>Mã hàng</code>, còn tên cột con (<code>Số lượng</code>, <code>Giá trị</code>) ở <strong>dòng kế tiếp</strong>. <code>_find_header</code> nhận cả hai cách bố trí.</p>
 <p>Ba lớp tự kiểm, không lớp nào tự sửa dữ liệu:</p>
-<ol>
+<ol start="1">
 <li>Đơn giá bình quân có sẵn trong file phải khớp <code>giá_trị / số_lượng</code> tính lại.</li>
 <li>Dòng "Tổng cộng" của chính file phải khớp tổng cộng lại. File tự tố cáo chính nó.</li>
 <li>Đầu kỳ cộng nhập trừ xuất phải bằng cuối kỳ, trên từng dòng.</li>
@@ -648,7 +980,7 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <p><strong>Bước 8, trả kết quả.</strong> Ghi <code>TurnMetric</code> vào <code>ai_metrics_log.jsonl</code>, lưu lượt vào lịch sử, gọi webhook về Body nếu có <code>BODY_CALLBACK_URL</code>, và ghi vào <code>TASK_REGISTRY</code>.</p>
 <h3 id="tự-kiểm">Tự kiểm</h3>
 <p>Trả lời được bốn câu này thì bạn đã hiểu luồng:</p>
-<ol>
+<ol start="1">
 <li>Người dùng hỏi "tháng này lãi bao nhiêu" trong khi Body chưa mở API xuất dòng bán hàng. Brain trả về gì, và con số nào xuất hiện trong câu trả lời?</li>
 <li>Vì sao <code>plan_tools</code> dùng regex thay vì để model chọn tool, khi model chọn đúng tới 26 đến 33%?</li>
 <li><code>guard_answer</code> không chặn được ca model tự nhẩm <code>5.000.000 + 500.000</code>. Vì sao, và chốt chặn nào bắt được ca đó?</li>
@@ -659,7 +991,7 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <h2 id="5-công-thức-cho-việc-hay-gặp">5. Công thức cho việc hay gặp</h2>
 <h3 id="51-thêm-một-tool-tất-định-mới">5.1. Thêm một tool tất định mới</h3>
 <p>Thứ tự này có chủ đích. Làm ngược là viết xong rồi mới phát hiện mình đã định nghĩa lại một thứ đã có.</p>
-<ol>
+<ol start="1">
 <li><strong>Kiểm tra khái niệm đã tồn tại chưa.</strong> <code>grep -rn &quot;&lt;khái niệm&gt;&quot; src/core/</code>. R4 là ràng buộc bị vi phạm nhiều nhất trong repo này.</li>
 <li><strong>Viết engine thuần trong <code>src/core/</code>.</strong> Hàm nhận dataclass, trả dict. Không <code>import</code> gì từ <code>src/agents/</code> hoặc <code>src/api/</code>. Không gọi LLM.</li>
 <li><strong>Ô rỗng trả <code>None</code>.</strong> Thiếu dữ liệu thì nói thiếu, hạ <code>confidence</code>, thêm <code>warnings</code>. Đừng điền 0.</li>
@@ -683,18 +1015,30 @@ deploy/                    # Dockerfile, docker-compose.yml, .env.example</code>
 <p>Sửa một nơi mà không sửa hai nơi kia là lỗi. Ba nơi:</p>
 <table>
 <thead>
-<tr><th>Nơi</th><th>Vai trò</th></tr>
+<tr>
+<th>Nơi</th>
+<th>Vai trò</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><a href="src/core/workflow_schema.py"><code>workflow_schema.py</code></a></td><td>Nguồn sự thật. Prompt, JSON Schema và validator cùng dẫn xuất từ đây</td></tr>
-<tr><td><code>prompts.py::CODER_SYSTEM</code></td><td>Dạy model định dạng</td></tr>
-<tr><td><code>chat.py::_validate_workflow</code></td><td>Kiểm đầu ra, trỏ thẳng vào <code>workflow_schema.validate_workflow</code></td></tr>
+<tr>
+<td><a href="src/core/workflow_schema.py"><code>workflow_schema.py</code></a></td>
+<td>Nguồn sự thật. Prompt, JSON Schema và validator cùng dẫn xuất từ đây</td>
+</tr>
+<tr>
+<td><code>prompts.py::CODER_SYSTEM</code></td>
+<td>Dạy model định dạng</td>
+</tr>
+<tr>
+<td><code>chat.py::_validate_workflow</code></td>
+<td>Kiểm đầu ra, trỏ thẳng vào <code>workflow_schema.validate_workflow</code></td>
+</tr>
 </tbody>
 </table>
 <p>Catalog node rút ra từ 32 workflow n8n <strong>thật</strong> của Body, nằm ở <code>data/n8n_templates/</code>, qua biến <code>N8N_TEMPLATES_DIR</code>. Chưa có thì dùng catalog dự phòng và ghi log cảnh báo.</p>
 <p>Hai quy tắc về few-shot: ví dụ phải khử về đúng hình dạng schema sinh, bỏ <code>id</code> và <code>retryOnFail</code>, vì dạy model field mà grammar cấm là tự phá chất lượng sinh. Và node <code>code</code> trong ví dụ thay bằng <code>noOp</code>, vì AI sinh workflow không được dùng <code>code</code>, JS tuỳ ý vượt mọi luật an toàn. Người viết tay thì được.</p>
 <h3 id="54-nạp-tài-liệu-vào-kho-tri-thức">5.4. Nạp tài liệu vào kho tri thức</h3>
-<pre><code class="bash">curl -s -X POST http://127.0.0.1:8000/knowledge/documents \
+<pre><code class="language-bash">curl -s -X POST http://127.0.0.1:8000/knowledge/documents \
   -H &quot;X-API-Token: $API_AUTH_TOKEN&quot; \
   -F &quot;file=@hop_dong.docx&quot;
 
@@ -706,17 +1050,26 @@ curl -s -X POST http://127.0.0.1:8000/knowledge/search \
 <p>Kiểm hai hành vi khác nhau trên cùng tình huống "không tìm thấy":</p>
 <table>
 <thead>
-<tr><th>Câu hỏi</th><th>Hành vi đúng</th></tr>
+<tr>
+<th>Câu hỏi</th>
+<th>Hành vi đúng</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>"chính sách công nợ bên mình thế nào" khi chưa nạp gì</td><td>Nói chưa có tài liệu. <strong>Không</strong> tra web</td></tr>
-<tr><td>"nghị định 72 quy định thuế suất bao nhiêu"</td><td>Được phép tra web</td></tr>
+<tr>
+<td>"chính sách công nợ bên mình thế nào" khi chưa nạp gì</td>
+<td>Nói chưa có tài liệu. <strong>Không</strong> tra web</td>
+</tr>
+<tr>
+<td>"nghị định 72 quy định thuế suất bao nhiêu"</td>
+<td>Được phép tra web</td>
+</tr>
 </tbody>
 </table>
 <p>Trả một bài viết trên mạng cho câu đầu là trình bày thông tin của công ty khác như thể là quy định của họ. Dấu hiệu nội bộ <strong>thắng</strong> dấu hiệu luật, do <a href="src/core/retrieval_policy.py"><code>retrieval_policy.py</code></a> quyết định. Câu thú nhận không biết là hằng số, không nhờ model diễn đạt, để nó khỏi biến thành một câu nghe như đang biết.</p>
 <h3 id="55-chạy-phiên-đo-trên-colab">5.5. Chạy phiên đo trên Colab</h3>
-<p>Runbook đầy đủ ở <a href="PHIEN_DO_COLAB.md">PHIEN_DO_COLAB.md</a>. Cần GPU L4 hoặc A100; T4 16GB không đủ cho Qwen3-8B AWQ. Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive.</p>
-<p>Notebook đã có ở <code>offline_training/ANSER_train_v3_colab.ipynb</code>. Người làm Brain được tạo thêm script hoặc notebook cho việc đo khi cần; ví dụ <code>offline_training/do_ngan_sach_ctx.py</code> cho BR-04. Runbook dựng vLLM server + Brain trên Colab L4, kèm bảng các bẫy đã gặp, ở <a href="BAO_CAO_BR04.md">BAO_CAO_BR04.md</a> §7. Bản trước của sổ tay ghi "không tự tạo notebook mới" là chỗ sai, đã sửa 26/10/2026.</p>
+<p>Runbook đầy đủ ở <a href="docs/ky-thuat/PHIEN_DO_COLAB.md">PHIEN_DO_COLAB.md</a>. Cần GPU L4 hoặc A100; T4 16GB không đủ cho Qwen3-8B AWQ. Khoảng một giờ khi đo lại, vì dữ liệu sinh phiên 15/08 còn trên Drive.</p>
+<p>Notebook đã có ở <code>offline_training/ANSER_train_v3_colab.ipynb</code>. Người làm Brain được tạo thêm script hoặc notebook cho việc đo khi cần; ví dụ <code>offline_training/do_ngan_sach_ctx.py</code> cho BR-04. Runbook dựng vLLM server + Brain trên Colab L4, kèm bảng các bẫy đã gặp, ở <a href="docs/chu-ky-01/BAO_CAO_BR04.md">BAO_CAO_BR04.md</a> §7. Bản trước của sổ tay ghi "không tự tạo notebook mới" là chỗ sai, đã sửa 26/10/2026.</p>
 <p>Dựng lại Brain giữa phiên dùng <code>offline_training/bat_lai_brain.py</code>, chạy bằng <code>%run -i</code>. Script đó đặt <code>ENV=GPU</code>; từ BR-03, <code>ENV=SERVER</code> mà không có <code>VLLM_BASE_URL</code> là lỗi cấu hình.</p>
 <p>Trước khi đọc điểm số, đọc ba dòng cảnh báo khung đo:</p>
 <pre><code>⚠ ... đầu ra KHÔNG đọc được thành JSON
@@ -726,16 +1079,28 @@ curl -s -X POST http://127.0.0.1:8000/knowledge/search \
 <h3 id="56-git-và-sao-lưu">5.6. Git và sao lưu</h3>
 <table>
 <thead>
-<tr><th>Khi nào</th><th>Làm gì</th></tr>
+<tr>
+<th>Khi nào</th>
+<th>Làm gì</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Chạm 5 file bị sửa, hoặc trước một thay đổi cấu trúc rủi ro cao</td><td>Commit cục bộ</td></tr>
-<tr><td>Cuối một giai đoạn, sau khi có người phê duyệt</td><td>Sao lưu có dấu thời gian vào <code>_backups/Phase_X_YYYYMMDD/</code>, bỏ <code>__pycache__</code> và <code>.venv</code>, rồi commit và push</td></tr>
-<tr><td>Trước khi push lịch sử lên một remote mới hoặc public</td><td>Quét secret trên <strong>toàn bộ</strong> lịch sử, không chỉ HEAD</td></tr>
+<tr>
+<td>Chạm 5 file bị sửa, hoặc trước một thay đổi cấu trúc rủi ro cao</td>
+<td>Commit cục bộ</td>
+</tr>
+<tr>
+<td>Cuối một giai đoạn, sau khi có người phê duyệt</td>
+<td>Sao lưu có dấu thời gian vào <code>_backups/Phase_X_YYYYMMDD/</code>, bỏ <code>__pycache__</code> và <code>.venv</code>, rồi commit và push</td>
+</tr>
+<tr>
+<td>Trước khi push lịch sử lên một remote mới hoặc public</td>
+<td>Quét secret trên <strong>toàn bộ</strong> lịch sử, không chỉ HEAD</td>
+</tr>
 </tbody>
 </table>
 <p>Lệnh quét secret:</p>
-<pre><code class="bash">git log --all -S &#x27;postgres://&#x27; --oneline
+<pre><code class="language-bash">git log --all -S &#x27;postgres://&#x27; --oneline
 git log --all -S &#x27;npg_&#x27; --oneline
 git log --all -S &#x27;sk-&#x27; --oneline
 git log --all -S &#x27;hf_&#x27; --oneline</code></pre>
@@ -747,33 +1112,85 @@ git log --all -S &#x27;hf_&#x27; --oneline</code></pre>
 <h3 id="61-đã-nhận-và-đã-dùng">6.1. Đã nhận và đã dùng</h3>
 <table>
 <thead>
-<tr><th>Thứ</th><th>Lượng</th><th>Đọc được</th></tr>
+<tr>
+<th>Thứ</th>
+<th>Lượng</th>
+<th>Đọc được</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Tổng hợp tồn kho đến 24/07/2026</td><td>119 mã</td><td>119/119, không cảnh báo</td></tr>
-<tr><td>Tổng hợp tồn kho đến 11/08/2026</td><td>121 mã</td><td>121/121</td></tr>
-<tr><td>Danh sách hàng hoá, dịch vụ</td><td>161 mã</td><td>161/161</td></tr>
-<tr><td>Danh sách khách hàng</td><td>104</td><td>104/104</td></tr>
-<tr><td>Danh sách nhà cung cấp</td><td>42</td><td>42/42</td></tr>
+<tr>
+<td>Tổng hợp tồn kho đến 24/07/2026</td>
+<td>119 mã</td>
+<td>119/119, không cảnh báo</td>
+</tr>
+<tr>
+<td>Tổng hợp tồn kho đến 11/08/2026</td>
+<td>121 mã</td>
+<td>121/121</td>
+</tr>
+<tr>
+<td>Danh sách hàng hoá, dịch vụ</td>
+<td>161 mã</td>
+<td>161/161</td>
+</tr>
+<tr>
+<td>Danh sách khách hàng</td>
+<td>104</td>
+<td>104/104</td>
+</tr>
+<tr>
+<td>Danh sách nhà cung cấp</td>
+<td>42</td>
+<td>42/42</td>
+</tr>
 </tbody>
 </table>
 <p>Toàn bộ là file <code>.xlsx</code> xuất từ MISA. Khách gửi PDF trước, và PDF đó in ra từ Excel, nên xin bản <code>.xlsx</code> cho đọc chính xác 100%. OCR một bảng số tiền là tự chuốc rủi ro đọc nhầm 5 thành 6 ở cột giá vốn.</p>
 <h3 id="62-còn-cần-xin-theo-thứ-tự-đáng-tiền">6.2. Còn cần xin, theo thứ tự đáng tiền</h3>
 <table>
 <thead>
-<tr><th>Thứ</th><th>Mở khoá được gì</th><th>Trạng thái</th></tr>
+<tr>
+<th>Thứ</th>
+<th>Mở khoá được gì</th>
+<th>Trạng thái</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>Sổ chi tiết công nợ phải thu</strong>, có ngày hoá đơn</td><td>Tuổi nợ 30/60/90 ngày. Số dư hiện có không kèm ngày nên chưa biết ai quá hạn</td><td>đã xin, chờ</td></tr>
-<tr><td>Sổ chi tiết 3 mã <code>VT00039</code>, <code>VT00042</code>, <code>VT00023</code></td><td>Truy ra chứng từ nào bị sửa hồi tố</td><td>đã xin, chờ</td></tr>
-<tr><td>Tổng hợp tồn kho <strong>kho KHUYẾN MẠI</strong> đến 11/08</td><td>Kiểm lại <code>KM00034</code> âm 115,2 lít</td><td>đã xin, chờ</td></tr>
-<tr><td>3 đến 5 hoá đơn bán ra sau 01/7/2025</td><td>Thuế suất thực tế đang ghi là 8% hay 10%</td><td>đã xin, chờ</td></tr>
-<tr><td>Doanh thu theo mã hàng</td><td>Lãi gộp thật. Hiện chỉ có giá vốn</td><td>chưa xin</td></tr>
-<tr><td>10 đến 30 tài liệu nội bộ</td><td>Kho tri thức có nội dung thật để tra</td><td>chưa xin</td></tr>
+<tr>
+<td><strong>Sổ chi tiết công nợ phải thu</strong>, có ngày hoá đơn</td>
+<td>Tuổi nợ 30/60/90 ngày. Số dư hiện có không kèm ngày nên chưa biết ai quá hạn</td>
+<td>đã xin, chờ</td>
+</tr>
+<tr>
+<td>Sổ chi tiết 3 mã <code>VT00039</code>, <code>VT00042</code>, <code>VT00023</code></td>
+<td>Truy ra chứng từ nào bị sửa hồi tố</td>
+<td>đã xin, chờ</td>
+</tr>
+<tr>
+<td>Tổng hợp tồn kho <strong>kho KHUYẾN MẠI</strong> đến 11/08</td>
+<td>Kiểm lại <code>KM00034</code> âm 115,2 lít</td>
+<td>đã xin, chờ</td>
+</tr>
+<tr>
+<td>3 đến 5 hoá đơn bán ra sau 01/7/2025</td>
+<td>Thuế suất thực tế đang ghi là 8% hay 10%</td>
+<td>đã xin, chờ</td>
+</tr>
+<tr>
+<td>Doanh thu theo mã hàng</td>
+<td>Lãi gộp thật. Hiện chỉ có giá vốn</td>
+<td>chưa xin</td>
+</tr>
+<tr>
+<td>10 đến 30 tài liệu nội bộ</td>
+<td>Kho tri thức có nội dung thật để tra</td>
+<td>chưa xin</td>
+</tr>
 </tbody>
 </table>
-<p>Danh sách đầy đủ, kèm cách xin và tên cột cần có: <a href="HOANG_PHAT_DU_LIEU_CAN_XIN.md">HOANG_PHAT_DU_LIEU_CAN_XIN.md</a>. Bản gửi khách: <a href="HOANG_PHAT_GUI_KHACH.md">HOANG_PHAT_GUI_KHACH.md</a>.</p>
-<p>Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc <a href="BAN_GIAO_VAN_TAI.md">BAN_GIAO_VAN_TAI.md</a>.</p>
+<p>Danh sách đầy đủ, kèm cách xin và tên cột cần có: <a href="docs/khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md">HOANG_PHAT_DU_LIEU_CAN_XIN.md</a>. Bản gửi khách: <a href="docs/khach-hang/HOANG_PHAT_GUI_KHACH.md">HOANG_PHAT_GUI_KHACH.md</a>.</p>
+<p>Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc <a href="docs/khach-hang/BAN_GIAO_VAN_TAI.md">BAN_GIAO_VAN_TAI.md</a>.</p>
 <h3 id="63-dữ-liệu-nào-không-bao-giờ-vào-repo">6.3. Dữ liệu nào không bao giờ vào repo</h3>
 <p>File MISA gốc chứa tên khách, mã số thuế, số nợ. Fixture test dùng số tổng hợp tái tạo đúng các quan hệ số học, làm tròn cho dễ đọc. Đã kiểm là cho kết quả y hệt.</p>
 <p><code>sample_data/an_danh.py</code> là công cụ ẩn danh. Dùng nó trước khi đưa bất cứ thứ gì từ sổ khách vào repo.</p>
@@ -806,15 +1223,36 @@ git log --all -S &#x27;hf_&#x27; --oneline</code></pre>
 <p>Chạy trên 6 file MISA thật, không cần GPU, không cần model:</p>
 <table>
 <thead>
-<tr><th>Phép kiểm</th><th>Tìm ra gì</th></tr>
+<tr>
+<th>Phép kiểm</th>
+<th>Tìm ra gì</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Tồn kho</td><td>2 mã âm; 5.596.500đ giá vốn không được ghi</td></tr>
-<tr><td>Đối chiếu hai kỳ</td><td>Chứng từ sửa hồi tố, 108 lít chạy từ <code>VT00059</code> sang <code>VT00039</code></td></tr>
-<tr><td>Thuế suất GTGT</td><td>157/160 mã để sai diện thuế theo NĐ 174/2025</td></tr>
-<tr><td>Công nợ</td><td>Phải thu 3,96 tỷ, bằng 113 ngày giá vốn; 3 khách giữ 66%</td></tr>
-<tr><td>Mã số thuế</td><td>114 mã kiểm được, 0 sai, 0 báo oan</td></tr>
-<tr><td>Hàng chết</td><td>29 mã, khoảng 161 triệu nằm im</td></tr>
+<tr>
+<td>Tồn kho</td>
+<td>2 mã âm; 5.596.500đ giá vốn không được ghi</td>
+</tr>
+<tr>
+<td>Đối chiếu hai kỳ</td>
+<td>Chứng từ sửa hồi tố, 108 lít chạy từ <code>VT00059</code> sang <code>VT00039</code></td>
+</tr>
+<tr>
+<td>Thuế suất GTGT</td>
+<td>157/160 mã để sai diện thuế theo NĐ 174/2025</td>
+</tr>
+<tr>
+<td>Công nợ</td>
+<td>Phải thu 3,96 tỷ, bằng 113 ngày giá vốn; 3 khách giữ 66%</td>
+</tr>
+<tr>
+<td>Mã số thuế</td>
+<td>114 mã kiểm được, 0 sai, 0 báo oan</td>
+</tr>
+<tr>
+<td>Hàng chết</td>
+<td>29 mã, khoảng 161 triệu nằm im</td>
+</tr>
 </tbody>
 </table>
 <p>Bộ đo riêng: <code>offline_training/eval_ke_toan.py</code>, 12 ca gieo lỗi vào chính sổ thật. Hiện 12/12 bắt được và 12/12 không báo oan.</p>
@@ -822,72 +1260,192 @@ git log --all -S &#x27;hf_&#x27; --oneline</code></pre>
 <p>Ba chỗ đang tự khẳng định, chưa ai ngoài dự án xác nhận:</p>
 <table>
 <thead>
-<tr><th>Chỗ</th><th>Rủi ro nếu hiểu sai</th></tr>
+<tr>
+<th>Chỗ</th>
+<th>Rủi ro nếu hiểu sai</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Bảng tra thuế 8% và 10%</td><td>Khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt</td></tr>
-<tr><td>Định nghĩa "sửa hồi tố"</td><td>Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường</td></tr>
-<tr><td>Ngưỡng tập trung 20% và 50%</td><td>Con số do dự án đặt, chưa ai xác nhận là mức đáng lo</td></tr>
+<tr>
+<td>Bảng tra thuế 8% và 10%</td>
+<td>Khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt</td>
+</tr>
+<tr>
+<td>Định nghĩa "sửa hồi tố"</td>
+<td>Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường</td>
+</tr>
+<tr>
+<td>Ngưỡng tập trung 20% và 50%</td>
+<td>Con số do dự án đặt, chưa ai xác nhận là mức đáng lo</td>
+</tr>
 </tbody>
 </table>
-<p>Một kế toán có nghề đọc <a href="HOANG_PHAT_SOAT_SO_1108.md">HOANG_PHAT_SOAT_SO_1108.md</a> và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.</p>
+<p>Một kế toán có nghề đọc <a href="docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md">HOANG_PHAT_SOAT_SO_1108.md</a> và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.</p>
 <hr />
 <h2 id="8-từ-điển-thuật-ngữ">8. Từ điển thuật ngữ</h2>
 <h3 id="nghiệp-vụ">Nghiệp vụ</h3>
 <table>
 <thead>
-<tr><th>Thuật ngữ</th><th>Nghĩa</th></tr>
+<tr>
+<th>Thuật ngữ</th>
+<th>Nghĩa</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>MISA</strong></td><td>Phần mềm kế toán khách đang thuê. Nguồn của mọi file <code>.xlsx</code> dự án đọc</td></tr>
-<tr><td><strong>Giá vốn</strong> / COGS</td><td>Giá mua vào của hàng đã bán. Cột "Xuất kho / Giá trị" trong bảng tổng hợp tồn kho</td></tr>
-<tr><td><strong>Lãi gộp</strong></td><td>Doanh thu trừ giá vốn. Thiếu giá vốn mà điền 0 thì lãi gộp bằng doanh thu, một con số sai mà trông rất đẹp</td></tr>
-<tr><td><strong>Tồn kho âm</strong></td><td>Đầu kỳ cộng nhập trừ xuất ra số âm. Xuất nhiều hơn số có</td></tr>
-<tr><td><strong>Sửa hồi tố</strong></td><td>Chứng từ trong kỳ đã báo cáo bị sửa, xoá hoặc huỷ ghi sổ sau khi báo cáo đã xuất. Nhìn ra được khi so hai bản xuất cùng ngày bắt đầu: số xuất luỹ kế của kỳ dài hơn chỉ có thể tăng hoặc giữ nguyên</td></tr>
-<tr><td><strong>Công nợ phải thu</strong></td><td>Tiền khách còn nợ. Phải thu âm nghĩa là khách trả nhiều hơn số nợ ghi nhận</td></tr>
-<tr><td><strong>Tuổi nợ</strong></td><td>Nợ chia theo 30/60/90 ngày. Cần ngày hoá đơn, nên hiện chưa tính được</td></tr>
-<tr><td><strong>Mua đứt bán đoạn</strong></td><td>Mã nhập rồi bán hết trong kỳ, không còn tồn</td></tr>
-<tr><td><strong>Hàng chết</strong></td><td>Mã không xuất đơn vị nào suốt kỳ. Vốn nằm im, không phải lỗi sổ sách</td></tr>
-<tr><td><strong>FIFO / bình quân</strong></td><td>Hai phương pháp tính giá vốn. VAS 02 buộc nhất quán, nên chạy song song hai phương pháp trong cùng một kỳ là vấn đề</td></tr>
-<tr><td><strong>NĐ 174/2025</strong></td><td>Bỏ "sản phẩm dầu mỏ tinh chế" khỏi danh mục không được giảm thuế, trong đó ghi rõ dầu mỡ bôi trơn. Hiệu lực 01/7/2025 đến 31/12/2026, nên dầu nhớt được giảm còn 8%</td></tr>
-<tr><td><strong>NĐ 80/2023</strong></td><td>Giá bán lẻ xăng dầu điều chỉnh chiều thứ Năm hằng tuần</td></tr>
-<tr><td><strong>NĐ 158/2024</strong></td><td>Phân loại kinh doanh vận tải hàng hoá đường bộ, và quy định giấy vận tải phải phát cho tài xế trước khi xe chạy</td></tr>
-<tr><td><strong>Forwarder</strong></td><td>Nhà môi giới vận tải. Nhận yêu cầu từ chủ hàng, hỏi giá nhà xe, cộng biên, báo lại</td></tr>
+<tr>
+<td><strong>MISA</strong></td>
+<td>Phần mềm kế toán khách đang thuê. Nguồn của mọi file <code>.xlsx</code> dự án đọc</td>
+</tr>
+<tr>
+<td><strong>Giá vốn</strong> / COGS</td>
+<td>Giá mua vào của hàng đã bán. Cột "Xuất kho / Giá trị" trong bảng tổng hợp tồn kho</td>
+</tr>
+<tr>
+<td><strong>Lãi gộp</strong></td>
+<td>Doanh thu trừ giá vốn. Thiếu giá vốn mà điền 0 thì lãi gộp bằng doanh thu, một con số sai mà trông rất đẹp</td>
+</tr>
+<tr>
+<td><strong>Tồn kho âm</strong></td>
+<td>Đầu kỳ cộng nhập trừ xuất ra số âm. Xuất nhiều hơn số có</td>
+</tr>
+<tr>
+<td><strong>Sửa hồi tố</strong></td>
+<td>Chứng từ trong kỳ đã báo cáo bị sửa, xoá hoặc huỷ ghi sổ sau khi báo cáo đã xuất. Nhìn ra được khi so hai bản xuất cùng ngày bắt đầu: số xuất luỹ kế của kỳ dài hơn chỉ có thể tăng hoặc giữ nguyên</td>
+</tr>
+<tr>
+<td><strong>Công nợ phải thu</strong></td>
+<td>Tiền khách còn nợ. Phải thu âm nghĩa là khách trả nhiều hơn số nợ ghi nhận</td>
+</tr>
+<tr>
+<td><strong>Tuổi nợ</strong></td>
+<td>Nợ chia theo 30/60/90 ngày. Cần ngày hoá đơn, nên hiện chưa tính được</td>
+</tr>
+<tr>
+<td><strong>Mua đứt bán đoạn</strong></td>
+<td>Mã nhập rồi bán hết trong kỳ, không còn tồn</td>
+</tr>
+<tr>
+<td><strong>Hàng chết</strong></td>
+<td>Mã không xuất đơn vị nào suốt kỳ. Vốn nằm im, không phải lỗi sổ sách</td>
+</tr>
+<tr>
+<td><strong>FIFO / bình quân</strong></td>
+<td>Hai phương pháp tính giá vốn. VAS 02 buộc nhất quán, nên chạy song song hai phương pháp trong cùng một kỳ là vấn đề</td>
+</tr>
+<tr>
+<td><strong>NĐ 174/2025</strong></td>
+<td>Bỏ "sản phẩm dầu mỏ tinh chế" khỏi danh mục không được giảm thuế, trong đó ghi rõ dầu mỡ bôi trơn. Hiệu lực 01/7/2025 đến 31/12/2026, nên dầu nhớt được giảm còn 8%</td>
+</tr>
+<tr>
+<td><strong>NĐ 80/2023</strong></td>
+<td>Giá bán lẻ xăng dầu điều chỉnh chiều thứ Năm hằng tuần</td>
+</tr>
+<tr>
+<td><strong>NĐ 158/2024</strong></td>
+<td>Phân loại kinh doanh vận tải hàng hoá đường bộ, và quy định giấy vận tải phải phát cho tài xế trước khi xe chạy</td>
+</tr>
+<tr>
+<td><strong>Forwarder</strong></td>
+<td>Nhà môi giới vận tải. Nhận yêu cầu từ chủ hàng, hỏi giá nhà xe, cộng biên, báo lại</td>
+</tr>
 </tbody>
 </table>
 <h3 id="kỹ-thuật">Kỹ thuật</h3>
 <table>
 <thead>
-<tr><th>Thuật ngữ</th><th>Nghĩa</th></tr>
+<tr>
+<th>Thuật ngữ</th>
+<th>Nghĩa</th>
+</tr>
 </thead>
 <tbody>
-<tr><td><strong>Brain / Body</strong></td><td>Hai nửa của hệ thống. Xem 1.2</td></tr>
-<tr><td><strong>Lõi tất định</strong></td><td>Mã Python thuần, không gọi LLM, kiểm thử được. Nơi mọi phép tính nằm</td></tr>
-<tr><td><strong>Guided decoding</strong> / <code>guided_json</code></td><td>Ép đầu ra khớp JSON Schema ngay ở tầng sampling. Token nào làm JSON sai schema thì bị loại khỏi phân phối, nên JSON hỏng trở thành bất khả thi về cấu trúc</td></tr>
-<tr><td><strong>Grammar</strong></td><td>Tên gọi khác của ràng buộc trên. "Grammar cấm" nghĩa là model không sinh nổi, khác hẳn "prompt dặn đừng làm"</td></tr>
-<tr><td><strong>Vòng agentic</strong></td><td>Vòng suy nghĩ, gọi tool, quan sát, lặp lại. Trần 4 bước</td></tr>
-<tr><td><strong><code>bat_buoc_tool</code></strong></td><td>Chế độ bỏ nhánh <code>answer</code> khỏi lược đồ khi còn kế hoạch tool, chỉ để lại <code>tool</code> và <code>hoi_lai</code></td></tr>
-<tr><td><strong>Chốt chặn neo số liệu</strong></td><td><code>guard_answer</code>: mọi số từ 4 chữ số trong câu trả lời phải có trong dữ liệu gốc</td></tr>
-<tr><td><strong>vLLM</strong></td><td>Thư viện phục vụ model. <code>vllm.LLM</code> là API chạy lô ngoại tuyến; chế độ server mới cho continuous batching</td></tr>
-<tr><td><strong>Continuous batching</strong></td><td>Gộp nhiều request vào cùng một vòng lập lịch GPU. Tính năng đắt giá nhất của vLLM</td></tr>
-<tr><td><strong>AWQ</strong></td><td>Lượng tử hoá 4-bit. Qwen3-8B AWQ chiếm khoảng 5,5GB VRAM</td></tr>
-<tr><td><strong>RAG</strong></td><td>Tra tài liệu rồi đưa đoạn tìm được vào prompt</td></tr>
-<tr><td><strong>BM25</strong></td><td>Tìm theo từ khoá. Dùng lai với vector vì mã hàng như <code>VT00039</code> là chuỗi chính xác, mà nhúng vector xử lý loại này tệ</td></tr>
-<tr><td><strong>Rerank</strong></td><td>Xếp lại các đoạn đã truy hồi bằng một model chấm cặp câu hỏi và đoạn</td></tr>
-<tr><td><strong>Recall@20 / MRR</strong></td><td>Hai chỉ số truy hồi. Hiện <strong>chưa đo được cái nào</strong>, xem mục 10</td></tr>
-<tr><td><strong>Faithfulness</strong></td><td>Tỷ lệ khẳng định trong câu trả lời kiểm chứng được từ đoạn đã truy hồi. <code>grounding.py</code> đã là một dạng faithfulness thu hẹp về con số</td></tr>
-<tr><td><strong>MAPE</strong></td><td>Sai lệch phần trăm trung bình. Dùng để đo công thức giá vận tải so với giá thật. Dưới 10% là dùng được, trên 25% là mô hình sai bản chất</td></tr>
-<tr><td><strong>McNemar</strong></td><td>Phép thử so hai model <strong>theo cặp</strong> trên cùng bộ câu hỏi. Nó trả lời "bản mới làm hỏng câu nào mà bản cũ vốn trả lời đúng", thứ mà hai điểm trung bình không trả lời được</td></tr>
-<tr><td><strong>Croston / SBA</strong></td><td>Phương pháp dự báo cho nhu cầu rời rạc, dùng trong <code>forecasting.py</code></td></tr>
-<tr><td><strong><code>pending_review</code></strong></td><td>Trạng thái của mọi bản ghi do AI tạo ra mà chạm tiền hoặc sổ sách. Không tự duyệt</td></tr>
-<tr><td><strong>T0 đến T3</strong></td><td>Bốn bậc hạ tầng. T0 là GPU thuê bật theo giờ hành chính, khoảng 750.000đ/tháng. T3 là máy tự sở hữu</td></tr>
+<tr>
+<td><strong>Brain / Body</strong></td>
+<td>Hai nửa của hệ thống. Xem 1.2</td>
+</tr>
+<tr>
+<td><strong>Lõi tất định</strong></td>
+<td>Mã Python thuần, không gọi LLM, kiểm thử được. Nơi mọi phép tính nằm</td>
+</tr>
+<tr>
+<td><strong>Guided decoding</strong> / <code>guided_json</code></td>
+<td>Ép đầu ra khớp JSON Schema ngay ở tầng sampling. Token nào làm JSON sai schema thì bị loại khỏi phân phối, nên JSON hỏng trở thành bất khả thi về cấu trúc</td>
+</tr>
+<tr>
+<td><strong>Grammar</strong></td>
+<td>Tên gọi khác của ràng buộc trên. "Grammar cấm" nghĩa là model không sinh nổi, khác hẳn "prompt dặn đừng làm"</td>
+</tr>
+<tr>
+<td><strong>Vòng agentic</strong></td>
+<td>Vòng suy nghĩ, gọi tool, quan sát, lặp lại. Trần 4 bước</td>
+</tr>
+<tr>
+<td><strong><code>bat_buoc_tool</code></strong></td>
+<td>Chế độ bỏ nhánh <code>answer</code> khỏi lược đồ khi còn kế hoạch tool, chỉ để lại <code>tool</code> và <code>hoi_lai</code></td>
+</tr>
+<tr>
+<td><strong>Chốt chặn neo số liệu</strong></td>
+<td><code>guard_answer</code>: mọi số từ 4 chữ số trong câu trả lời phải có trong dữ liệu gốc</td>
+</tr>
+<tr>
+<td><strong>vLLM</strong></td>
+<td>Thư viện phục vụ model. <code>vllm.LLM</code> là API chạy lô ngoại tuyến; chế độ server mới cho continuous batching</td>
+</tr>
+<tr>
+<td><strong>Continuous batching</strong></td>
+<td>Gộp nhiều request vào cùng một vòng lập lịch GPU. Tính năng đắt giá nhất của vLLM</td>
+</tr>
+<tr>
+<td><strong>AWQ</strong></td>
+<td>Lượng tử hoá 4-bit. Qwen3-8B AWQ chiếm khoảng 5,5GB VRAM</td>
+</tr>
+<tr>
+<td><strong>RAG</strong></td>
+<td>Tra tài liệu rồi đưa đoạn tìm được vào prompt</td>
+</tr>
+<tr>
+<td><strong>BM25</strong></td>
+<td>Tìm theo từ khoá. Dùng lai với vector vì mã hàng như <code>VT00039</code> là chuỗi chính xác, mà nhúng vector xử lý loại này tệ</td>
+</tr>
+<tr>
+<td><strong>Rerank</strong></td>
+<td>Xếp lại các đoạn đã truy hồi bằng một model chấm cặp câu hỏi và đoạn</td>
+</tr>
+<tr>
+<td><strong>Recall@20 / MRR</strong></td>
+<td>Hai chỉ số truy hồi. Hiện <strong>chưa đo được cái nào</strong>, xem mục 10</td>
+</tr>
+<tr>
+<td><strong>Faithfulness</strong></td>
+<td>Tỷ lệ khẳng định trong câu trả lời kiểm chứng được từ đoạn đã truy hồi. <code>grounding.py</code> đã là một dạng faithfulness thu hẹp về con số</td>
+</tr>
+<tr>
+<td><strong>MAPE</strong></td>
+<td>Sai lệch phần trăm trung bình. Dùng để đo công thức giá vận tải so với giá thật. Dưới 10% là dùng được, trên 25% là mô hình sai bản chất</td>
+</tr>
+<tr>
+<td><strong>McNemar</strong></td>
+<td>Phép thử so hai model <strong>theo cặp</strong> trên cùng bộ câu hỏi. Nó trả lời "bản mới làm hỏng câu nào mà bản cũ vốn trả lời đúng", thứ mà hai điểm trung bình không trả lời được</td>
+</tr>
+<tr>
+<td><strong>Croston / SBA</strong></td>
+<td>Phương pháp dự báo cho nhu cầu rời rạc, dùng trong <code>forecasting.py</code></td>
+</tr>
+<tr>
+<td><strong><code>pending_review</code></strong></td>
+<td>Trạng thái của mọi bản ghi do AI tạo ra mà chạm tiền hoặc sổ sách. Không tự duyệt</td>
+</tr>
+<tr>
+<td><strong>T0 đến T3</strong></td>
+<td>Bốn bậc hạ tầng. T0 là GPU thuê bật theo giờ hành chính, khoảng 750.000đ/tháng. T3 là máy tự sở hữu</td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="9-những-điều-không-bao-giờ-làm">9. Những điều không bao giờ làm</h2>
 <p>Mỗi dòng kèm lý do. Phần lớn lý do là một sự cố đã xảy ra.</p>
 <h3 id="dữ-liệu-và-bảo-mật">Dữ liệu và bảo mật</h3>
-<ol>
+<ol start="1">
 <li><strong>Không gửi dữ liệu khách tới LLM bên thứ ba</strong>, kể cả "chỉ để test". Dữ liệu khách gồm tồn kho, doanh thu, công nợ, bảng giá cước, tỷ lệ biên, danh sách khách, nội dung hoá đơn, lịch sử chat.</li>
 <li><strong>Không hardcode credential</strong>, kể cả trong script một lần, kể cả trong <code>_backups/</code>. Xem 5.6 về sự cố Neon.</li>
 <li><strong>Không đưa giá trị bảo mật vào env hoặc đổi cách quản lý bí mật mà chưa hỏi chủ dự án.</strong> Đây là chỉ thị trực tiếp. Tái sử dụng biến đã có để sửa sự cố thì được, nhưng phải báo lại rõ ràng.</li>
@@ -926,47 +1484,119 @@ git log --all -S &#x27;hf_&#x27; --oneline</code></pre>
 <h3 id="tra-nhanh">Tra nhanh</h3>
 <table>
 <thead>
-<tr><th>Cần gì</th><th>Đọc đâu</th></tr>
+<tr>
+<th>Cần gì</th>
+<th>Đọc đâu</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>Năm ràng buộc đầy đủ, quy trình làm việc</td><td><a href="AGENTS.md">AGENTS.md</a></td></tr>
-<tr><td>Quyết định kiến trúc, sổ lỗi đã biết</td><td><a href="ARCHITECTURE.md">ARCHITECTURE.md</a>, kèm cảnh báo dưới</td></tr>
-<tr><td>Hình vẽ C4, phụ thuộc giữa module, ngân sách VRAM</td><td><a href="ARCHITECTURE_DIAGRAMS.md">ARCHITECTURE_DIAGRAMS.md</a></td></tr>
-<tr><td>Đang ở đâu, cái gì đã chắc, cái gì đang dở</td><td><a href="TIEN_TRINH_BRAIN.md">TIEN_TRINH_BRAIN.md</a></td></tr>
-<tr><td>Lộ trình sản phẩm, cổng ra từng giai đoạn</td><td><a href="ROADMAP.md">ROADMAP.md</a></td></tr>
-<tr><td><strong>Việc của chu kỳ này, có người và hạn</strong></td><td><a href="SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td></tr>
-<tr><td>Bảy việc dài hạn, đã xếp thứ tự</td><td><a href="GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a></td></tr>
-<tr><td>Chạy thử nội bộ, kịch bản từng bước</td><td><a href="CHAY_THU_NOI_BO.md">CHAY_THU_NOI_BO.md</a></td></tr>
-<tr><td>Mảng vận tải, và ba mảng nghiên cứu sâu</td><td><a href="BAN_GIAO_VAN_TAI.md">BAN_GIAO_VAN_TAI.md</a></td></tr>
-<tr><td>Kế hoạch RAG và VLM</td><td><a href="RAG_VLM_KE_HOACH.md">RAG_VLM_KE_HOACH.md</a></td></tr>
-<tr><td>Kết quả soát sổ gửi khách</td><td><a href="HOANG_PHAT_SOAT_SO_1108.md">HOANG_PHAT_SOAT_SO_1108.md</a></td></tr>
-<tr><td>Hợp đồng API với Body</td><td><code>tests/test_body_contract.py</code></td></tr>
-<tr><td>Pipeline fine-tune</td><td><a href="offline_training/README.md">offline_training/README.md</a></td></tr>
+<tr>
+<td>Năm ràng buộc đầy đủ, quy trình làm việc</td>
+<td><a href="AGENTS.md">AGENTS.md</a></td>
+</tr>
+<tr>
+<td>Quyết định kiến trúc, sổ lỗi đã biết</td>
+<td><a href="ARCHITECTURE.md">ARCHITECTURE.md</a>, kèm cảnh báo dưới</td>
+</tr>
+<tr>
+<td>Hình vẽ C4, phụ thuộc giữa module, ngân sách VRAM</td>
+<td><a href="docs/ky-thuat/ARCHITECTURE_DIAGRAMS.md">ARCHITECTURE_DIAGRAMS.md</a></td>
+</tr>
+<tr>
+<td>Đang ở đâu, cái gì đã chắc, cái gì đang dở</td>
+<td><a href="docs/ky-thuat/TIEN_TRINH_BRAIN.md">TIEN_TRINH_BRAIN.md</a></td>
+</tr>
+<tr>
+<td>Lộ trình sản phẩm, cổng ra từng giai đoạn</td>
+<td><a href="ROADMAP.md">ROADMAP.md</a></td>
+</tr>
+<tr>
+<td><strong>Việc của chu kỳ này, có người và hạn</strong></td>
+<td><a href="docs/chu-ky-01/SRS_CHU_KY_01.md">SRS_CHU_KY_01.md</a></td>
+</tr>
+<tr>
+<td>Bảy việc dài hạn, đã xếp thứ tự</td>
+<td><a href="docs/chu-ky-01/GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a></td>
+</tr>
+<tr>
+<td>Chạy thử nội bộ, kịch bản từng bước</td>
+<td><a href="docs/ky-thuat/CHAY_THU_NOI_BO.md">CHAY_THU_NOI_BO.md</a></td>
+</tr>
+<tr>
+<td>Mảng vận tải, và ba mảng nghiên cứu sâu</td>
+<td><a href="docs/khach-hang/BAN_GIAO_VAN_TAI.md">BAN_GIAO_VAN_TAI.md</a></td>
+</tr>
+<tr>
+<td>Kế hoạch RAG và VLM</td>
+<td><a href="docs/ky-thuat/RAG_VLM_KE_HOACH.md">RAG_VLM_KE_HOACH.md</a></td>
+</tr>
+<tr>
+<td>Kết quả soát sổ gửi khách</td>
+<td><a href="docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md">HOANG_PHAT_SOAT_SO_1108.md</a></td>
+</tr>
+<tr>
+<td>Hợp đồng API với Body</td>
+<td><code>tests/test_body_contract.py</code></td>
+</tr>
+<tr>
+<td>Pipeline fine-tune</td>
+<td><a href="offline_training/README.md">offline_training/README.md</a></td>
+</tr>
 </tbody>
 </table>
 <h3 id="tài-liệu-đang-lệch-khỏi-mã-tính-đến-22102026">Tài liệu đang lệch khỏi mã, tính đến 22/10/2026</h3>
 <p>Kiểm bằng cách mở từng file. Đọc bảng này trước khi tin ARCHITECTURE.md hoặc <code>src/README.md</code>.</p>
 <table>
 <thead>
-<tr><th>Chỗ lệch</th><th>Thực tế trong mã</th></tr>
+<tr>
+<th>Chỗ lệch</th>
+<th>Thực tế trong mã</th>
+</tr>
 </thead>
 <tbody>
-<tr><td>AGENTS.md và ARCHITECTURE.md mô tả Body là Flask, Redis + RQ, <code>workflow_engine.py</code></td><td>Body là Next.js, <code>Dgsonn/ANSER-v2</code></td></tr>
-<tr><td>ARCHITECTURE.md §1 và §2.2 trỏ vào <code>core/tools.py</code>, <code>agents/researcher.py</code>, <code>integrations.py</code>, <code>external_data.py</code></td><td>Cả bốn file <strong>không tồn tại</strong>. <code>core/tools.py</code> được nêu làm ví dụ minh hoạ R1</td></tr>
-<tr><td><code>src/README.md</code> mô tả "Project A", entrypoint <code>src/server.py</code>, cổng chất lượng chạy trên <code>core/tools.py</code></td><td><code>src/server.py</code> đã tách thành <code>src/api/</code>. Lệnh uvicorn và lệnh ruff trong file đó đều gãy</td></tr>
-<tr><td><code>config.py</code> docstring "tối ưu cho Google Colab Pro, GPU L4"</td><td>Colab đã bị loại khỏi lộ trình production. Log "Booting COLAB engine" đã gỡ ở BR-03</td></tr>
-<tr><td><code>deploy/.env.example</code> cảnh báo "config.py đang để 4096"</td><td>Mặc định nay là 8192</td></tr>
-<tr><td><code>SCHEMA MAP</code> trong <code>saas_api.py</code></td><td>4 trên 8 định danh lệch Body: <code>stock_quantity</code> so với <code>stock</code>, bảng <code>sales</code> so với <code>sales_invoices</code>, <code>amount</code> so với <code>total</code>, <code>workspace_id</code> so với <code>warehouse_id</code>. Body <strong>không có khái niệm <code>workspace</code></strong> nào cả. Lược đồ thật 13 bảng đã chép vào <a href="GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a> V3, kèm ba cạm bẫy</td></tr>
-<tr><td>ARCHITECTURE.md §5.1 ghi vision <code>Qwen2.5-VL-3B AWQ ~3,0 GB</code>, tổng <code>~15,0 GB</code></td><td>Mã nạp vision bằng <code>torch_dtype=torch.bfloat16</code>, <strong>không lượng tử hoá gì cả</strong>, nên nó tốn ~7,5 GB. <a href="RAG_VLM_KE_HOACH.md">RAG_VLM_KE_HOACH.md §B.2.4</a> đã tính lại ngày 03/08/2026: thật ra ~19,9 GB trên card 22,5 GB sau khi đã đẩy embedder và reranker sang CPU. Dùng bảng ở §B.2.4, đừng dùng §5.1</td></tr>
-<tr><td>ARCHITECTURE.md §13b.3 liệt kê bốn lỗ hổng RAG "phải vá trước khi nạp dữ liệu thật"</td><td><strong>Cả bốn đã vá.</strong> <code>workspace_id</code> bắt buộc ở mọi lối vào, <code>Passage</code> có <code>source</code> và ngày hiệu lực, tài liệu hết hiệu lực bị loại hẳn, <code>ingest_folder</code> đã ra khỏi <code>__init__</code>. Đọc rồi đi vá lại là mất vài ngày cho việc đã xong</td></tr>
-<tr><td>BAN_GIAO_VAN_TAI.md §B.5 hướng dẫn mang gì theo khi tách repo vận tải</td><td><strong>Không tách nữa.</strong> Chủ dự án chốt 22/10/2026: mảng vận tải ở lại repo này, lớp nền giữ một bản</td></tr>
+<tr>
+<td>AGENTS.md và ARCHITECTURE.md mô tả Body là Flask, Redis + RQ, <code>workflow_engine.py</code></td>
+<td>Body là Next.js, <code>Dgsonn/ANSER-v2</code></td>
+</tr>
+<tr>
+<td>ARCHITECTURE.md §1 và §2.2 trỏ vào <code>core/tools.py</code>, <code>agents/researcher.py</code>, <code>integrations.py</code>, <code>external_data.py</code></td>
+<td>Cả bốn file <strong>không tồn tại</strong>. <code>core/tools.py</code> được nêu làm ví dụ minh hoạ R1</td>
+</tr>
+<tr>
+<td><code>src/README.md</code> mô tả "Project A", entrypoint <code>src/server.py</code>, cổng chất lượng chạy trên <code>core/tools.py</code></td>
+<td><code>src/server.py</code> đã tách thành <code>src/api/</code>. Lệnh uvicorn và lệnh ruff trong file đó đều gãy</td>
+</tr>
+<tr>
+<td><code>config.py</code> docstring "tối ưu cho Google Colab Pro, GPU L4"</td>
+<td>Colab đã bị loại khỏi lộ trình production. Log "Booting COLAB engine" đã gỡ ở BR-03</td>
+</tr>
+<tr>
+<td><code>deploy/.env.example</code> cảnh báo "config.py đang để 4096"</td>
+<td>Mặc định nay là 8192</td>
+</tr>
+<tr>
+<td><code>SCHEMA MAP</code> trong <code>saas_api.py</code></td>
+<td>4 trên 8 định danh lệch Body: <code>stock_quantity</code> so với <code>stock</code>, bảng <code>sales</code> so với <code>sales_invoices</code>, <code>amount</code> so với <code>total</code>, <code>workspace_id</code> so với <code>warehouse_id</code>. Body <strong>không có khái niệm <code>workspace</code></strong> nào cả. Lược đồ thật 13 bảng đã chép vào <a href="docs/chu-ky-01/GIAO_VIEC_BRAIN.md">GIAO_VIEC_BRAIN.md</a> V3, kèm ba cạm bẫy</td>
+</tr>
+<tr>
+<td>ARCHITECTURE.md §5.1 ghi vision <code>Qwen2.5-VL-3B AWQ ~3,0 GB</code>, tổng <code>~15,0 GB</code></td>
+<td>Mã nạp vision bằng <code>torch_dtype=torch.bfloat16</code>, <strong>không lượng tử hoá gì cả</strong>, nên nó tốn ~7,5 GB. <a href="docs/ky-thuat/RAG_VLM_KE_HOACH.md">RAG_VLM_KE_HOACH.md §B.2.4</a> đã tính lại ngày 03/08/2026: thật ra ~19,9 GB trên card 22,5 GB sau khi đã đẩy embedder và reranker sang CPU. Dùng bảng ở §B.2.4, đừng dùng §5.1</td>
+</tr>
+<tr>
+<td>ARCHITECTURE.md §13b.3 liệt kê bốn lỗ hổng RAG "phải vá trước khi nạp dữ liệu thật"</td>
+<td><strong>Cả bốn đã vá.</strong> <code>workspace_id</code> bắt buộc ở mọi lối vào, <code>Passage</code> có <code>source</code> và ngày hiệu lực, tài liệu hết hiệu lực bị loại hẳn, <code>ingest_folder</code> đã ra khỏi <code>__init__</code>. Đọc rồi đi vá lại là mất vài ngày cho việc đã xong</td>
+</tr>
+<tr>
+<td>BAN_GIAO_VAN_TAI.md §B.5 hướng dẫn mang gì theo khi tách repo vận tải</td>
+<td><strong>Không tách nữa.</strong> Chủ dự án chốt 22/10/2026: mảng vận tải ở lại repo này, lớp nền giữ một bản</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Đã sửa ngày 26/10/2026 (BR-03), bỏ khỏi bảng:</strong> <code>TEXT_MODEL_ID</code> mặc định trỏ vào Google Drive, và <code>VLLMServerClient</code> không caller nào gọi. Nay <code>engine.py</code> gọi vLLM server khi có <code>VLLM_BASE_URL</code>, và <code>tests/test_engine_backend.py</code> dựng một server HTTP thật trên 127.0.0.1 để chứng minh request tới nơi. Bằng chứng trên Colab với vLLM thật thuộc BR-04.</p>
 <p>Lỗi <code>VLLMServerClient</code> là ví dụ thứ tư của một lỗi mà dự án đã dính bốn lần: một lớp trông như đã có mà thực ra chưa nối. Ba lần trước là <code>API_TOKEN</code> so với <code>API_AUTH_TOKEN</code>, <code>arguments_schema()</code> lọc trường nhưng không đóng object, và trần token benchmark rộng hơn production. Không test đơn vị nào bắt được cả bốn. Cả bốn lộ ra khi chạy thật qua HTTP hoặc khi đọc tay đầu ra.</p>
 <h3 id="năm-bài-tập-làm-quen">Năm bài tập làm quen</h3>
 <p>Làm theo thứ tự. Bài 1 và 2 mất khoảng một giờ, bài 5 mất khoảng nửa ngày.</p>
-<ol>
+<ol start="1">
 <li><strong>Chạy được hệ thống.</strong> Dựng môi trường, <code>pytest -q</code> ra kết quả như 2.5, bật uvicorn, <code>GET /health</code> trả <code>auth_enabled: false</code>. Rồi đặt <code>API_AUTH_TOKEN</code> và xác nhận nó đổi thành <code>true</code>, và <code>GET /tools</code> không có token trả 401.</li>
 <li><strong>Soi một file có lỗi gieo sẵn.</strong> Sinh <code>ton_kho_mau.xlsx</code>, nạp qua <code>/tools/inventory-import</code>, đối chiếu 8 phát hiện trên 7 mã với bảng ở 2.8. Mở file Excel ra và kiểm tay một phát hiện bằng <code>evidence</code> của nó.</li>
 <li><strong>Đọc một phát hiện ngược về mã.</strong> Chọn một <code>kind</code> trong đầu ra của bài 2, tìm hàm <code>_check_*</code> sinh ra nó trong <code>inventory.py</code>, và viết một dòng dữ liệu mới làm nó bắn. Rồi viết một dòng gần giống mà <strong>không</strong> làm nó bắn.</li>
