@@ -16,3 +16,32 @@ pre-commit
 # nhung test do khong fail — chung SKIP, va nhan xanh khong noi gi ve chot chan
 # quan trong nhat cua vong agentic. Phat hien 23/08/2026: 3 test nam im nhu vay.
 jsonschema
+
+# `xgrammar` CỐ Ý KHÔNG CÓ Ở ĐÂY — đã cân, 09/11/2026.
+#
+# Cùng file `tests/test_agentic_plan.py` còn HAI test nữa dùng
+# `pytest.importorskip("xgrammar")`, và chúng đã skip im lặng nhiều tháng. Đó
+# đúng là chuyện khối chú thích `jsonschema` ở trên cảnh báo — chỉ là lần này
+# không ai học lại bài học đó.
+#
+# ĐÃ CHẠY THỬ: cài `xgrammar` rồi chạy -> 25 passed, cả hai test XANH. Nên
+# grammar đúng; vấn đề chỉ là nó không được kiểm tự động ở đâu.
+#
+# VÌ SAO VẪN KHÔNG THÊM. `import xgrammar` kéo theo cả `transformers` LẪN
+# `torch` — đo trên máy dev: transformers 99,1 MB + tokenizers 7,4 MB +
+# huggingface_hub 6,3 MB + xgrammar 3,2 MB, cộng torch. CI hiện KHÔNG cài
+# transformers hay torch (xem `ci.yml`, danh sách cài cố ý tối giản).
+#
+# Thử `pip install --no-deps` cũng không thoát: `import xgrammar` nạp
+# transformers ngay lúc import, không phải lúc dùng.
+#
+# Hơn 100 MB tải về MỖI LẦN PUSH cho hai test là không cân. Và chúng là lớp
+# kiểm THỨ HAI: các test cấu trúc dùng `jsonschema` ở cùng file đã canh hình
+# dạng schema; hai test này chỉ thêm phần "engine thật có hiểu schema đó giống
+# `jsonschema` không".
+#
+# Nên chúng chạy ở nơi vốn đã có vLLM: phiên đo trên Colab. Ai chạy phiên đo
+# thì chạy luôn `pytest tests/test_agentic_plan.py` — ở đó xgrammar có sẵn và
+# không tốn gì thêm.
+#
+# Ghi ra đây để lần sau không ai phải đo lại, và để cái skip đó thôi im lặng.
