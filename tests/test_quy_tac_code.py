@@ -132,23 +132,38 @@ def test_quy_tac_4_khong_nuot_exception():
     )
 
 
-@pytest.mark.parametrize("ten", sorted(BO_QUA))
-def test_file_bo_qua_dung_la_da_chan_chay(ten):
+def test_file_bo_qua_dung_la_da_chan_chay():
     """File trong `BO_QUA` phải thật sự đã chặn chạy.
 
     Bỏ qua một file vì nó đã chết là hợp lý; bỏ qua một file ĐANG CHẠY thì danh
-    sách này thành cửa sau. Mở lại `evaluate_system.py` mà quên xoá khỏi đây là
-    mở lại một file không ai soát.
-    """
-    p = SRC / ten
-    if not p.exists():
-        pytest.skip(f"{ten} đã bị xoá — xoá khỏi BO_QUA luôn")
-    noi_dung = p.read_text(encoding="utf-8")
-    assert "sys.exit" in noi_dung or "SystemExit" in noi_dung or "raise" in noi_dung, (
-        f"{ten} nằm trong BO_QUA nhưng không thấy chốt chặn chạy nào. Nếu nó đã "
-        f"hoạt động lại thì xoá khỏi BO_QUA và sửa các vi phạm trong đó."
-    )
+    sách này thành cửa sau.
 
+    KHÔNG dùng `parametrize` ở đây dù nó gọn hơn. `BO_QUA` hiện RỖNG, và
+    `parametrize` trên tập rỗng sinh ra một ca SKIP vĩnh viễn:
+
+        SKIPPED [1] tests/test_quy_tac_code.py: got empty parameter set
+
+    Một test không bao giờ chạy được là rác trong danh sách skip — và danh sách
+    skip bẩn thì người ta thôi đọc nó. Không phải lo xa: soát 09/11/2026 tìm thấy
+    HAI test khác (`test_agentic_plan.py`, thiếu `xgrammar`) đã skip im lặng
+    nhiều tháng, và chúng sống sót được chính vì danh sách skip không ai soi nữa.
+
+    Vòng lặp bên trong làm đúng việc đó mà không bao giờ skip: tập rỗng thì thân
+    vòng không chạy, test vẫn XANH và vẫn đếm là một ca đã chạy.
+    """
+    xau = []
+    for ten in sorted(BO_QUA):
+        p = SRC / ten
+        if not p.exists():
+            xau.append(f"{ten}: không còn trong src/ — xoá khỏi BO_QUA luôn")
+            continue
+        noi_dung = p.read_text(encoding="utf-8")
+        if not any(x in noi_dung for x in ("sys.exit", "SystemExit", "raise")):
+            xau.append(f"{ten}: trong BO_QUA nhưng không thấy chốt chặn chạy nào")
+    assert not xau, (
+        f"danh sách BO_QUA đã sai lệch: {xau}. File hoạt động lại thì xoá khỏi "
+        f"BO_QUA và sửa các vi phạm trong đó."
+    )
 
 # ---------------------------------------------------------------------------
 # Hằng số `Prompts` — có ai dùng không
