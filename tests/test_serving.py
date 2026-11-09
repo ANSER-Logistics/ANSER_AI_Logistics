@@ -22,6 +22,8 @@ from src.core.serving import (
     ChatRequest,
     CompletionRequest,
     ConcurrencyGuard,
+    DemSinh,
+    KetQuaSinh,
     Overloaded,
     VLLMServerClient,
     guard_from_env,
@@ -408,7 +410,7 @@ async def test_qua_tai_thi_tu_choi_som_thay_vi_dim_backend():
             return await c.complete(CompletionRequest(prompt="p"))
 
     results = await asyncio.gather(*[call() for _ in range(20)], return_exceptions=True)
-    served = [r for r in results if isinstance(r, str)]
+    served = [r for r in results if isinstance(r, KetQuaSinh)]
     refused = [r for r in results if isinstance(r, Overloaded)]
 
     assert len(served) + len(refused) == 20
@@ -482,8 +484,6 @@ async def test_chat_doc_so_token_tu_usage(usage, mong):
 
 
 async def test_dem_sinh_cong_va_khong_biet_lan_ra_ca_tong():
-    from src.core.serving import DemSinh, KetQuaSinh
-
     d = DemSinh()
     assert d.completion_tokens is None and d.model_ms is None, "chưa gọi model -> không biết"
     assert d.cong(KetQuaSinh("a", 10, 100.0)) == "a"
@@ -497,8 +497,6 @@ async def test_dem_sinh_cong_va_khong_biet_lan_ra_ca_tong():
 
 
 async def test_dem_sinh_gop_hai_bo_dem():
-    from src.core.serving import DemSinh, KetQuaSinh
-
     ngoai, vong = DemSinh(), DemSinh()
     ngoai.cong(KetQuaSinh("x", 3, 30.0))
     vong.cong(KetQuaSinh("y", 4, 40.0))
@@ -626,7 +624,7 @@ async def test_chat_chua_cau_hinh_thi_noi_ro():
 
 async def test_chat_content_null_thanh_chuoi_rong_khong_sap():
     c = _client(_server_ghi_payload({}, content=None))
-    assert await c.chat(ChatRequest(messages=_MSGS)) == ""
+    assert (await c.chat(ChatRequest(messages=_MSGS))).text == ""
     await c.aclose()
 
 
