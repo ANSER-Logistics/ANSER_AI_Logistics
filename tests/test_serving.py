@@ -199,7 +199,9 @@ async def test_sinh_text_qua_http():
         return httpx.Response(200, json={"choices": [{"text": "  xin chào  "}]})
 
     c = _client(handler)
-    assert await c.complete(CompletionRequest(prompt="hi")) == "xin chào"
+    out = await c.complete(CompletionRequest(prompt="hi"))
+    assert out.text == "xin chào"
+    assert out.completion_tokens is None, "server không trả `usage` -> KHÔNG BIẾT, không phải 0"
     await c.aclose()
 
 
@@ -448,8 +450,63 @@ async def test_chat_goi_chat_completions_va_doc_message_content():
     assert seen["path"] == "/v1/chat/completions"
     assert seen["messages"] == _MSGS          # server áp template, không phải client
     assert "prompt" not in seen
-    assert out == "tồn 12 thùng"              # cùng hình dạng đường trong tiến trình
+    assert out.text == "tồn 12 thùng"         # cùng hình dạng đường trong tiến trình
     await c.aclose()
+
+
+# ---------------------------------------------------------------------------
+# #16 — số token đi từ `usage` của vLLM, không đoán, không điền 0
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("usage,mong", [
+    ({"completion_tokens": 217}, 217),
+    ({"completion_tokens": 0}, 0),            # sinh 0 token là sự thật, giữ nguyên
+    ({}, None),                               # thiếu trường -> không biết
+    ({"completion_tokens": "217"}, None),     # sai kiểu -> không biết, không ép
+    ({"completion_tokens": True}, None),      # bool là int trong Python — chặn
+    ({"completion_tokens": -3}, None),
+    (None, None),                             # không có `usage`
+], ids=["co-so", "khong-token", "thieu-truong", "chuoi", "bool", "am", "khong-usage"])
+async def test_chat_doc_so_token_tu_usage(usage, mong):
+    def handler(request: httpx.Request) -> httpx.Response:
+        than: dict = {"choices": [{"message": {"content": "ok"}}]}
+        if usage is not None:
+            than["usage"] = usage
+        return httpx.Response(200, json=than)
+
+    c = _client(handler)
+    out = await c.chat(ChatRequest(messages=_MSGS))
+    assert out.completion_tokens == mong
+    assert out.model_ms is not None and out.model_ms >= 0
+    await c.aclose()
+
+
+async def test_dem_sinh_cong_va_khong_biet_lan_ra_ca_tong():
+    from src.core.serving import DemSinh, KetQuaSinh
+
+    d = DemSinh()
+    assert d.completion_tokens is None and d.model_ms is None, "chưa gọi model -> không biết"
+    assert d.cong(KetQuaSinh("a", 10, 100.0)) == "a"
+    d.cong(KetQuaSinh("b", 5, 50.4))
+    assert (d.completion_tokens, d.model_ms, d.so_lan) == (15, 150, 2)
+
+    # Một lần không biết (mock / server không trả usage) là tổng không biết:
+    # cộng phần biết được rồi chia ra ms/token là sai số có hệ thống.
+    d.cong("chuỗi trơn từ test giả")
+    assert d.completion_tokens is None and d.model_ms is None and d.so_lan == 3
+
+
+async def test_dem_sinh_gop_hai_bo_dem():
+    from src.core.serving import DemSinh, KetQuaSinh
+
+    ngoai, vong = DemSinh(), DemSinh()
+    ngoai.cong(KetQuaSinh("x", 3, 30.0))
+    vong.cong(KetQuaSinh("y", 4, 40.0))
+    vong.cong(KetQuaSinh("z", 5, 50.0))
+    ngoai.gop(vong)
+    assert (ngoai.completion_tokens, ngoai.model_ms, ngoai.so_lan) == (12, 120, 3)
+    ngoai.gop(DemSinh())                      # bộ đếm rỗng không đổi gì
+    assert ngoai.so_lan == 3
 
 
 async def test_chat_tat_thinking_qua_chat_template_kwargs():
