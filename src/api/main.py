@@ -21,6 +21,7 @@ from src.api.dependencies import (
     auth_guard,
     runtime,
 )
+from src.core.engine import TASK_REGISTRY
 from src.core.serving import Overloaded
 
 logger = logging.getLogger("projecta.api")
@@ -146,6 +147,11 @@ async def health():
         backend["vllm_server"] = await server.health()
         server_down = not backend["vllm_server"].get("ok", False)
 
+    # Trạng thái tác vụ nền giữ ở đâu (#15). Redis lỗi thì registry đang lùi
+    # về RAM — đúng với --workers 1, SAI với nhiều worker — nên tính vào
+    # `degraded`, để người vận hành thấy trước khi khách thấy "Task not found".
+    task_registry = TASK_REGISTRY.mo_ta()
+
     return JSONResponse(
         {
             "status": "ok",
@@ -162,9 +168,11 @@ async def health():
             "degraded": bool(
                 runtime.engine_error or runtime.kb_error or server_down
                 or memory_schema_error
+                or task_registry["redis_loi"]
                 or (runtime.vision_error and backend["vision_backend"] != "none")
             ),
             **backend,
+            "task_registry": task_registry,
             "engine_ready": runtime.engine is not None,
             "kb_ready": runtime.kb is not None,
             "vision_ready": runtime.vision is not None,

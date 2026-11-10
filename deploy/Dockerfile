@@ -38,9 +38,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
-# Một worker: các engine tất định không giữ trạng thái, nhưng TASK_REGISTRY
-# hiện là dict trong RAM nên nhiều worker sẽ trả lời sai về trạng thái tác vụ.
-# Chỉ nâng --workers SAU KHI đã chuyển TASK_REGISTRY sang Redis.
+# Một worker là mặc định an toàn. Từ 09/11/2026 (#15) TASK_REGISTRY dùng Redis
+# khi có REDIS_URL (compose đã đặt), nên NÂNG --workers ĐƯỢC — với điều kiện
+# `/health` báo `task_registry.backend: "redis"` và `redis_loi: false`. Redis
+# lỗi thì registry lùi về RAM: đúng với 1 worker, SAI với nhiều worker.
 CMD ["uvicorn", "src.api.main:app", \
      "--host", "0.0.0.0", "--port", "8000", \
      "--workers", "1", "--timeout-keep-alive", "65"]

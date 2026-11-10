@@ -136,7 +136,6 @@ ngoài nên **không cổng nào mở vào**.
 
 | Việc | Vì sao chưa làm | Chặn cái gì |
 |---|---|---|
-| `TASK_REGISTRY` vẫn là dict trong RAM | Redis đã dựng sẵn trong compose, chưa nối code | **`--workers 1`** — nhiều worker sẽ trả lời sai về trạng thái tác vụ |
 | Vision tắt ở `ENV: SERVER` | Chưa có client HTTP cho `vllm-vision` (chu kỳ 02) | Đọc ảnh hoá đơn qua compose. `/health` khai `vision_backend: "none"` |
 | Dockerfile vẫn cài `vllm` + `torch` | `requirements.txt` chưa tách phần CPU và phần GPU | Image Brain nặng hơn chú thích "không CUDA" của nó |
 
@@ -144,3 +143,9 @@ ngoài nên **không cổng nào mở vào**.
 `VLLMServerClient` khi có `VLLM_BASE_URL`; `max_model_len` mặc định 8192 từ
 15/08; `TEXT_MODEL_ID` không còn mặc định trỏ vào model v2, thiếu biến khi nạp
 trong tiến trình là báo lỗi ngay. Bằng chứng trên GPU thật thuộc BR-04.
+
+Đã sửa ngày 09/11/2026 (#15), bỏ khỏi bảng: `TASK_REGISTRY` dùng Redis khi có
+`REDIS_URL` (compose đã đặt), TTL 24 giờ (`TASK_TTL_S`). Nâng `--workers` trong
+Dockerfile được, với điều kiện `/health` báo `task_registry.backend: "redis"` và
+`redis_loi: false`. Redis lỗi thì registry lùi về RAM và `/health` báo `degraded`
+— đúng với một worker, sai với nhiều worker.

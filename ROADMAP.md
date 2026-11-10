@@ -129,7 +129,7 @@ sau là làm tốt hơn.
 **Ba chỗ compose mô tả mà code chưa làm** — đã ghi thẳng trong file và khoá bằng
 `tests/test_deploy_config.py`:
 
-1. `redis` chạy nhưng không code nào dùng — `TASK_REGISTRY` vẫn trong RAM
+1. ~~`redis` chạy nhưng không code nào dùng — `TASK_REGISTRY` vẫn trong RAM~~ — đã nối 09/11/2026 (#15)
 2. `vllm-vision` chưa có client HTTP — vision vẫn nạp trong tiến trình
 3. Vì (2), `brain` **không** chạy được bằng CPU như sơ đồ vẽ
 
