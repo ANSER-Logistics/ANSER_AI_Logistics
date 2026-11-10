@@ -142,7 +142,7 @@ Ra `sample_data/ton_kho_mau.xlsx`: 11 mã dầu nhờn, kỳ 01/01–30/06/2026,
 ## 3. Brain trên Colab
 
 ```bash
-!cd /content/ANSER_AI && pip install -q -r requirements.txt
+!cd /content/ANSER_AI && pip install -q -r requirements-gpu.txt   # gồm cả phần CPU; vllm nằm ở file này từ 10/11/2026 (#17)
 !cd /content/ANSER_AI && uvicorn src.api.main:app --host 0.0.0.0 --port 8000 &
 ```
 
