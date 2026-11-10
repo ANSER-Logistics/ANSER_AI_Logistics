@@ -1,12 +1,18 @@
-# ANSER_AI — requirements.txt (Colab / Linux GPU, Python 3.12)
+# ANSER_AI — requirements.txt: PHẦN CPU. Thứ service web + RAG cần.
 # Khác file gốc: underthesea==1.3.18 (version KHÔNG tồn tại) -> 9.5.0. Xuống dòng LF.
+#
+# TÁCH ĐÔI từ 10/11/2026 (issue #17). File này KHÔNG có gì cần GPU, nên
+# deploy/Dockerfile cài nó mà không kéo CUDA. Phần nạp model trong tiến trình
+# (vllm, bitsandbytes, accelerate, vision Qwen-VL) ở `requirements-gpu.txt`,
+# file đó `-r` lại file này — máy có GPU chỉ cần một lệnh.
+#
+# Lý do tách, đo được: vllm 0.11.2 ghim CỨNG `torch==2.9.0`. Dockerfile cài
+# torch 2.15.0+cpu trước, nên khi vllm còn ở đây pip buộc phải gỡ bản CPU và
+# kéo torch CUDA từ PyPI cùng 16 gói nvidia-* (3,16 GB wheel nén). Tổng tải về
+# 5,31 GB cho một image chú thích là "~1GB, KHÔNG có CUDA".
  
-accelerate>=1.0.0
-bitsandbytes>=0.44.1
 chromadb
-decord
 ddgs<10
-einops
 # TRẦN CHẶT, không phải `<1` (10/11/2026, issue #6). FastAPI còn ở 0.x nên số
 # thứ hai mới là số lớn. Đo được: lên 0.162.2 thì `include_router` không trải
 # route ra `app.routes` nữa mà gói vào `_IncludedRouter`, nên
@@ -15,14 +21,6 @@ einops
 # đã kiểm là 0.136.1. Nâng trần thì chạy lại file test đó trước.
 fastapi<0.137
 json_repair<0.65
-# Ràng buộc giải mã JSON cho ĐƯỜNG ẢNH. Đường text đi qua vLLM nên đã có
-# `guided_json`; đường ảnh chạy qua transformers.generate() nên trước giờ không
-# có gì ràng buộc — JSON hỏng là chuyện thường, mà `json_repair` chỉ vá được cú
-# pháp chứ không dựng lại được trường bị thiếu.
-# Chọn lm-format-enforcer chứ không phải outlines: nó cắm thẳng vào
-# `prefix_allowed_tokens_fn` — cơ chế transformers đã có sẵn — nên không phải
-# bọc lại vòng sinh và không đụng gì tới đường vLLM.
-lm-format-enforcer
 lunardate<0.3
 nest_asyncio
 numpy
@@ -38,7 +36,6 @@ python-multipart<0.1
 # bản mới luôn đúng hơn bản cũ. Trần `<2027` chỉ ép nâng mỗi năm mà không bảo
 # vệ gì.
 pytz
-qwen_vl_utils
 requests<3
 scikit-learn
 # PHỤ THUỘC RUNTIME, không phải công cụ phát triển.
@@ -56,21 +53,12 @@ openpyxl<4
 sqlalchemy<3
 sentence-transformers
 sentencepiece
-timm
+# torch có ở CẢ HAI phía nhưng khác bản: ở đây sentence-transformers (RAG) chỉ
+# cần bản CPU — Dockerfile cài sẵn từ index CPU, ràng buộc này nhận bản đó.
+# Phía GPU, vllm tự ghim bản CUDA nó cần. Đừng xoá dòng này.
 torch>=2.4.0
 transformers>=4.46.0
 uvicorn<0.47
-# TRẦN TRÊN LÀ BẮT BUỘC, không phải cho gọn.
-#
-# vLLM 0.12.0 GỠ `GuidedDecodingParams` (đổi sang `StructuredOutputsParams`).
-# `engine.py::_build_guided_decoding` bắt `ImportError` rồi trả None và chạy
-# tiếp — nghĩa là Brain sẽ phục vụ với guided decoding TẮT ÂM THẦM, chỉ để
-# lại một dòng log. Đúng sự cố 04/08/2026, lần đó extraction và agentic rơi
-# gần 0 và trông y hệt một model dở.
-#
-# Sàn 0.10.2: bản sớm nhất cài được trên Python 3.13 (Colab đã lên 3.13, các
-# bản <= 0.10.1 khai `Requires-Python <3.13` nên pip bỏ qua hết).
-vllm>=0.10.2,<0.12
 
 # `pytest==8.2.0` ĐÃ BỎ khỏi file này (04/11/2026). Ba lý do, cái thứ hai là
 # cái đáng kể:
