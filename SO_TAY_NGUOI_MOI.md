@@ -142,11 +142,19 @@ pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs py
 
 Mức nhẹ chạy được toàn bộ bộ test và toàn bộ `/tools/*`. Bằng chứng: CI dùng đúng hai lệnh trên và suite xanh.
 
-`requirements.txt` đầy đủ kéo theo `torch`, `vllm`, `chromadb`, `sentence-transformers`. Khoảng vài GB, và chỉ cần khi bạn nạp model thật hoặc chạy kho tri thức. Cài khi nào cần:
+Hai mức nặng hơn, cài khi nào cần:
+
+| File | Kéo theo | Cần khi |
+|---|---|---|
+| `requirements.txt` | `torch` (bản CPU là đủ), `chromadb`, `sentence-transformers`. Khoảng 0,4 GB wheel | chạy kho tri thức (RAG); đây cũng là thứ `deploy/Dockerfile` cài |
+| `requirements-gpu.txt` | toàn bộ file trên, cộng `vllm`, `bitsandbytes`, `accelerate`, vision Qwen-VL. `vllm` ghim cứng torch bản CUDA: khoảng 5,3 GB wheel | nạp model thật trong tiến trình, phiên Colab. **Không** cài được trên Windows |
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt       # phần CPU
+pip install -r requirements-gpu.txt   # máy có GPU: một lệnh, đã gồm phần CPU
 ```
+
+Hai file tách ra từ 10/11/2026 (issue #17). Trước đó chung một file, và Dockerfile kéo về torch CUDA dù chú thích của nó nói "không CUDA".
 
 Ba thư viện dễ bị quên và hậu quả của chúng:
 
