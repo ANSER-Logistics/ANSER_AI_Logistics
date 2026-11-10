@@ -36,9 +36,18 @@ import pytest
 
 GOC = pathlib.Path(__file__).resolve().parent.parent
 RUNTIME = GOC / "requirements.txt"
+# Phần GPU tách khỏi RUNTIME ngày 10/11/2026 (issue #17). Nó `-r` lại RUNTIME,
+# nên `_doc(GPU)` chỉ chứa phần RIÊNG của nó (dòng bắt đầu bằng "-" bị bỏ qua).
+GPU = GOC / "requirements-gpu.txt"
 DEV = GOC / "requirements-dev.txt"
 
-# Gói trong `requirements.txt` chưa ghim version, đo 04/11/2026. Đây là MÓN NỢ
+
+def _runtime_va_gpu() -> dict[str, str]:
+    """Hai file cùng là phụ thuộc runtime — luật ghim áp cho cả hai như một."""
+    return {**_doc(RUNTIME), **_doc(GPU)}
+
+# Gói trong `requirements.txt` + `requirements-gpu.txt` chưa ghim version, đo
+# 04/11/2026. Đây là MÓN NỢ
 # ĐƯỢC KHAI, không phải danh sách miễn trừ: mỗi lần ghim được một gói thì xoá
 # khỏi đây, và test ở dưới đỏ nếu còn sót tên đã ghim.
 CHUA_GHIM: frozenset[str] = frozenset({
@@ -79,7 +88,9 @@ def test_hai_file_requirements_ton_tai():
     Sai đường dẫn làm chúng đọc dict rỗng và xanh hết. Lớp lỗi này đã xảy ra bốn
     lần trong ngày 04/11/2026 — xem 0c11d8f, 9efad94, 43bde4b, f036880.
     """
-    assert len(_doc(RUNTIME)) >= 30
+    # 25 chứ không 30 nữa: tách GPU (10/11/2026) chuyển 8 gói sang file kia.
+    assert len(_doc(RUNTIME)) >= 25
+    assert len(_doc(GPU)) >= 5
     assert len(_doc(DEV)) >= 5
 
 
@@ -88,7 +99,7 @@ def test_khong_them_goi_moi_ma_khong_ghim_version():
 
     Gói mới phải ghim. Gói cũ thì ghim dần, mỗi lần một ít, có kiểm.
     """
-    chua = _chua_ghim(_doc(RUNTIME))
+    chua = _chua_ghim(_runtime_va_gpu())
     moi = chua - {t.lower().replace("_", "-") for t in CHUA_GHIM}
     assert not moi, (
         f"gói mới thêm mà không ghim version: {sorted(moi)}. "
@@ -110,7 +121,7 @@ def test_danh_sach_chua_ghim_khong_chua_goi_da_ghim():
     Để lại thì danh sách món nợ dài hơn thực tế, và lần sau không ai tin nó nữa
     — đúng cái làm một danh sách khai báo trở thành vô dụng.
     """
-    chua = _chua_ghim(_doc(RUNTIME))
+    chua = _chua_ghim(_runtime_va_gpu())
     da_ghim_nhung_con_khai = {
         t for t in (x.lower().replace("_", "-") for x in CHUA_GHIM)
         if t not in chua
@@ -128,10 +139,34 @@ def test_khong_goi_nao_khai_o_ca_hai_file():
     chuyện không ai ghi ở đâu. Đo 04/11: cái thắng là 9.0.3, còn con số 8.2.0 ở
     `requirements.txt` mô tả một version không ai chạy.
     """
-    trung = set(_doc(RUNTIME)) & set(_doc(DEV))
-    assert not trung, (
-        f"khai ở cả hai file: {sorted(trung)}. Chọn MỘT chỗ — dep của test thì "
-        f"ở requirements-dev.txt, dep của runtime thì ở requirements.txt."
+    for a, b in ((RUNTIME, DEV), (RUNTIME, GPU), (GPU, DEV)):
+        trung = set(_doc(a)) & set(_doc(b))
+        assert not trung, (
+            f"khai ở cả {a.name} lẫn {b.name}: {sorted(trung)}. Chọn MỘT chỗ — dep "
+            f"của test ở requirements-dev.txt, dep cần GPU ở requirements-gpu.txt, "
+            f"còn lại ở requirements.txt."
+        )
+
+
+def test_phan_gpu_keo_lai_phan_cpu():
+    """`pip install -r requirements-gpu.txt` phải là MỘT lệnh đủ cho máy GPU.
+
+    Thiếu dòng `-r requirements.txt` thì notebook Colab cài phần GPU mà không có
+    FastAPI, SQLAlchemy... — và lỗi chỉ lộ ra giữa phiên đo đã trả tiền.
+    """
+    dong = [d.strip() for d in GPU.read_text(encoding="utf-8").splitlines()]
+    assert "-r requirements.txt" in dong
+
+
+@pytest.mark.parametrize("ten", ["vllm", "bitsandbytes", "accelerate"])
+def test_goi_gpu_khong_quay_lai_phan_cpu(ten):
+    """`deploy/Dockerfile` cài `requirements.txt`. Một gói GPU lọt lại vào đó là
+    image kéo torch CUDA về: vllm ghim cứng `torch==2.9.0`, pip gỡ torch CPU
+    Dockerfile vừa cài. Đo 10/11/2026 (issue #17): 5,31 GB wheel thay vì 0,43 GB.
+    """
+    assert ten not in _doc(RUNTIME), (
+        f"'{ten}' nằm trong requirements.txt — deploy/Dockerfile sẽ kéo CUDA về. "
+        f"Chuyển nó sang requirements-gpu.txt."
     )
 
 
@@ -155,6 +190,6 @@ def test_file_requirements_ket_thuc_bang_xuong_dong():
     sẽ sinh ra `rank_bm25==0.2.2numpy` — pip báo lỗi, nhưng chỉ sau khi người ta
     đã mất thời gian đoán.
     """
-    for p in (RUNTIME, DEV):
+    for p in (RUNTIME, GPU, DEV):
         noi_dung = p.read_text(encoding="utf-8")
         assert noi_dung.endswith("\n"), f"{p.name} không kết thúc bằng xuống dòng"

@@ -1,8 +1,15 @@
 # deploy/Dockerfile — Brain, KHÔNG có CUDA.
 #
 # Mọi phần cần GPU đã nằm sau HTTP (vllm-text, vllm-vision). Còn lại là FastAPI
-# + các engine tất định. Hệ quả: image ~1GB thay vì ~8GB nếu kéo theo CUDA, và
-# sửa một dòng code nghiệp vụ không phải nạp lại 6GB weights.
+# + các engine tất định, và sửa một dòng code nghiệp vụ không phải nạp lại 6GB
+# weights.
+#
+# Chỉ cài `requirements.txt` (phần CPU). Phần GPU ở `requirements-gpu.txt` và
+# KHÔNG vào image. Trước 10/11/2026 hai phần chung một file, và câu "không CUDA"
+# ở đây là sai: vllm ghim cứng torch==2.9.0 nên pip gỡ torch CPU ở dưới rồi kéo
+# torch CUDA + 16 gói nvidia-*. Đo bằng pip --dry-run cho Linux/py3.12 (issue
+# #17): wheel tải về 5,31 GB trước khi tách, 0,43 GB sau — 0 gói CUDA, torch
+# giữ 2.15.0+cpu. Đó là dung lượng NÉN; con số `docker images` thật chưa đo.
 #
 # torch bản CPU vẫn cần cho sentence-transformers (embedder + reranker của RAG).
 # Cài từ index CPU riêng để không kéo về ~2.5GB wheel CUDA.

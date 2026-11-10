@@ -143,7 +143,11 @@ ngoài nên **không cổng nào mở vào**.
 |---|---|---|
 | `TASK_REGISTRY` vẫn là dict trong RAM | Redis đã dựng sẵn trong compose, chưa nối code | **`--workers 1`** — nhiều worker sẽ trả lời sai về trạng thái tác vụ |
 | Vision tắt ở `ENV: SERVER` | Chưa có client HTTP cho `vllm-vision` (chu kỳ 02) | Đọc ảnh hoá đơn qua compose. `/health` khai `vision_backend: "none"` |
-| Dockerfile vẫn cài `vllm` + `torch` | `requirements.txt` chưa tách phần CPU và phần GPU | Image Brain nặng hơn chú thích "không CUDA" của nó |
+
+Đã sửa ngày 10/11/2026 (issue #17), bỏ khỏi bảng: Dockerfile cài cả `vllm` +
+torch CUDA. Nay `requirements.txt` chỉ còn phần CPU, phần GPU tách sang
+`requirements-gpu.txt`; wheel tải về khi build giảm 5,31 GB -> 0,43 GB (đo
+bằng pip dry-run, chưa phải `docker images`).
 
 Đã sửa ngày 26/10/2026 (BR-03), bỏ khỏi bảng: Brain nay gọi `vllm-text` qua
 `VLLMServerClient` khi có `VLLM_BASE_URL`; `max_model_len` mặc định 8192 từ
