@@ -2,6 +2,12 @@ import os
 
 from src.core.prompts import Prompts
 
+# Trần kích thước tệp tải lên (ảnh hoá đơn, tài liệu KB). Ở đây — tầng T1 — vì
+# HAI tầng cùng cần: route nhận file (`api/routes`, T4) và client vision qua HTTP
+# (`core/engine`, T3, #14) — engine không được import ngược lên `api`. Một chỗ
+# khai, không hai bản mặc định (R4). `api/dependencies.py` re-export tên này.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+
 
 class Config:
     """
