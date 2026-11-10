@@ -163,7 +163,7 @@ class RedisTaskRegistry:
     """Cùng giao diện với `TaskRegistry`, giữ trạng thái trên Redis."""
 
     def __init__(self, url: str, ttl_s: int = TASK_TTL_S):
-        import redis   # nạp lười: ENV=LOCAL không cần gói này
+        import redis  # nạp lười: ENV=LOCAL không cần gói này
 
         # Timeout ngắn: Redis treo thì /chat chờ tối đa ~1s rồi lùi về RAM,
         # không đứng chờ theo mặc định của thư viện.
