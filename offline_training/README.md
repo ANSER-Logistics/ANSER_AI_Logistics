@@ -106,5 +106,17 @@ data tư vấn — data tư vấn hiện lấy từ v2 convert lại.
 `train_v2.py`, `benchmark_integration.py` — pipeline v2 (Qwen2.5-7B, ép
 `<think>`, loss trên cả prompt, đo hợp đồng JSON đã bỏ). Lý do thay thế ghi
 trong docstring của `train_v3.py` và ARCHITECTURE §5.3. `seed_prompts.jsonl`
-(400 seed retail) vẫn là input hợp lệ nếu cần distill thêm data tư vấn.
+(400 seed retail) vẫn là input hợp lệ nếu cần distill thêm data tư vấn;
+`validate_seeds.py` kiểm file đó trước khi gửi DeepSeek (chỉ đọc, an toàn để
+chạy) — nhưng lệnh "tiếp theo" nó in ra là `training.py`, tức pipeline v2.
 `legal_miner.py` (scrape pháp lý cho RAG) và `vlm_invoice_prompt.py` vẫn dùng.
+
+## Công cụ đo và soát, chạy tay
+
+Không file nào import chúng, và đó là bình thường: chúng chạy bằng
+`python offline_training/<tên>.py`. Ghi ở đây để không ai tưởng chúng là code
+chết (soát #21, 10/11/2026).
+
+- `do_hinh_dang_tien.py` — đo hai luật phân loại con số của chốt neo số liệu
+  (brain#42). Chỉ đọc. Còn sống cho tới khi `la_hinh_dang_tien` được bật hoặc
+  bỏ hẳn.
