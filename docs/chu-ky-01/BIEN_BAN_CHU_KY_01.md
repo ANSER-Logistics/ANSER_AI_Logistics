@@ -106,7 +106,7 @@ Câu hoá đơn 5.000.000 + 500.000, model gửi cho `vat` **một** dòng; Brai
 | `e057f2c` | thêm `l = 1` vào `src/core/nguong_p95.py` (ruff E741) | **đỏ** | Ruff ✗ · Mypy, Pytest, Dataset preflight bỏ qua |
 | `49d7711` | gỡ ra | **xanh** | Ruff ✓ · Mypy ✓ · Pytest ✓ · Dataset preflight ✓ |
 
-Hai commit chỉ khác nhau đúng một dòng, nên bước Ruff đỏ là do lỗi được cài vào chứ không vì gì khác. Đạt đúng yêu cầu SRS: *"lỗi mới PHẢI làm CI đỏ"*. Hai nhánh phụ (`ci/br07-nghiem-thu` của 29/10 và `ci/br07-nghiem-thu-2`) **giữ lại** làm bằng chứng nghiệm thu.
+Hai commit chỉ khác nhau đúng một dòng, nên bước Ruff đỏ là do lỗi được cài vào chứ không vì gì khác. Đạt đúng yêu cầu SRS: *"lỗi mới PHẢI làm CI đỏ"*. Hai nhánh phụ (`ci/br07-nghiem-thu` của 29/10 và `ci/br07-nghiem-thu-2`) **đã xoá 10/11** — không chứa mã nào (hai commit triệt tiêu nhau). Bằng chứng là hai lượt CI có link ở dòng BR-07 của bảng mục 2: trang lượt chạy còn sau khi xoá nhánh; log chi tiết GitHub giữ khoảng 90 ngày, kết quả từng bước đã chép vào bảng trên.
 
 ---
 
@@ -170,7 +170,7 @@ Hai commit chỉ khác nhau đúng một dòng, nên bước Ruff đỏ là do l
 | 4 | Dựng lại bản PDF `docs/ban-in` | Thành | **Xong 29/10** (`e1d5e49`), dựng lại sau bản cập nhật này |
 | 5 | Mở PR cho nhánh làm việc để review (không merge `main`) | chủ dự án | **Còn mở** |
 | 6 | ~~Sửa câu "không tự tạo notebook" trong SO_TAY và AGENTS~~ | — | **Ghi nhầm:** câu đó đã sửa từ 26/10, lẽ ra không có mục này |
-| 7 | Xoá nhánh nghiệm thu BR-07 | Thành | **Không xoá** — giữ làm bằng chứng nghiệm thu |
+| 7 | Xoá nhánh nghiệm thu BR-07 | Thành | **Xong 10/11** — bằng chứng là hai lượt CI có link (mục 2, dòng BR-07) |
 
 ---
 
