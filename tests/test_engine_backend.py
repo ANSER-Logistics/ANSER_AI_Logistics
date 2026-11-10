@@ -257,7 +257,7 @@ async def test_vision_tat_o_env_server_bao_ro_ly_do(monkeypatch, vllm_gia):
     monkeypatch.setenv("VLLM_BASE_URL", vllm_gia.url)
     eng = ModelEngine()   # không import torch/transformers: vision = none
     assert eng.vision_model is None
-    with pytest.raises(BackendUnavailable, match="chu kỳ 02"):
+    with pytest.raises(BackendUnavailable, match="VLLM_VISION_BASE_URL"):
         await eng.generate_vision("anh.png", "đọc hoá đơn")
     monkeypatch.setattr(ModelEngine, "_instance", None)
 

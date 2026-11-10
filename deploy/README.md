@@ -137,10 +137,15 @@ ngoài nên **không cổng nào mở vào**.
 | Việc | Vì sao chưa làm | Chặn cái gì |
 |---|---|---|
 | `TASK_REGISTRY` vẫn là dict trong RAM | Redis đã dựng sẵn trong compose, chưa nối code | **`--workers 1`** — nhiều worker sẽ trả lời sai về trạng thái tác vụ |
-| Vision tắt ở `ENV: SERVER` | Chưa có client HTTP cho `vllm-vision` (chu kỳ 02) | Đọc ảnh hoá đơn qua compose. `/health` khai `vision_backend: "none"` |
 | Dockerfile vẫn cài `vllm` + `torch` | `requirements.txt` chưa tách phần CPU và phần GPU | Image Brain nặng hơn chú thích "không CUDA" của nó |
 
 Đã sửa ngày 26/10/2026 (BR-03), bỏ khỏi bảng: Brain nay gọi `vllm-text` qua
 `VLLMServerClient` khi có `VLLM_BASE_URL`; `max_model_len` mặc định 8192 từ
 15/08; `TEXT_MODEL_ID` không còn mặc định trỏ vào model v2, thiếu biến khi nạp
 trong tiến trình là báo lỗi ngay. Bằng chứng trên GPU thật thuộc BR-04.
+
+Đã sửa ngày 09/11/2026 (#14), bỏ khỏi bảng: Brain có client HTTP cho
+`vllm-vision`. Bật vision: đặt `VLLM_VISION_BASE_URL=http://vllm-vision:8002`
+trong `.env` VÀ chạy `docker compose --profile vision up -d`; `/health` phải báo
+`vision_backend: "server"` và `vllm_vision_server.ok: true`. Để trống biến đó
+(mặc định) thì vision tắt có tuyên bố như trước.

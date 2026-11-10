@@ -426,6 +426,17 @@ class VLLMServerClient:
         self._client: Any = None
         self._client_loop: Any = None
 
+    @classmethod
+    def cho_vision(cls) -> "VLLMServerClient":
+        """
+        Client cho container `vllm-vision` (#14): `VLLM_VISION_BASE_URL` +
+        `VLLM_VISION_MODEL`. Gán model SAU khi dựng: hàm khởi tạo rơi về
+        `VLLM_MODEL` khi model rỗng — gọi vision bằng tên model text là lỗi.
+        """
+        c = cls(base_url=os.getenv("VLLM_VISION_BASE_URL", ""))
+        c.model = os.getenv("VLLM_VISION_MODEL", "")
+        return c
+
     @property
     def configured(self) -> bool:
         return bool(self.base_url)
@@ -545,6 +556,48 @@ class VLLMServerClient:
         except (KeyError, IndexError, TypeError) as exc:
             raise BackendError(
                 f"vLLM trả nội dung không đọc được: {str(data)[:200]}"
+            ) from exc
+
+    async def vision(
+        self, anh: bytes, mime: str, prompt: str,
+        max_tokens: int = 512, json_schema: Optional[dict[str, Any]] = None,
+    ) -> str:
+        """
+        Ảnh + câu lệnh qua `/v1/chat/completions` của vllm-vision (#14).
+
+        Ảnh đi dưới dạng `image_url` là data URI base64 — cách vLLM nhận ảnh
+        trong `messages`. Đi chung `_post` với đường text: cùng timeout, cùng
+        cách tách lỗi mạng khỏi lỗi model.
+
+        Không dùng `ChatRequest`: nó đòi `content` là chuỗi, còn tin nhắn có ảnh
+        là một danh sách phần. Hai bất biến của nó vẫn giữ theo cách riêng:
+        - `repetition_penalty = 1.0` — giống đường ảnh trong tiến trình
+          (`generate()` của transformers không phạt lặp), và bắt buộc khi có
+          `guided_json` (bẫy 3).
+        - `enable_thinking` không gửi: Qwen2.5-VL không có chế độ think.
+        `temperature = 0`: đọc hoá đơn cần tất định, như `generate()` mặc định.
+        """
+        import base64
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": [
+                {"type": "image_url", "image_url": {
+                    "url": f"data:{mime};base64,{base64.b64encode(anh).decode()}"}},
+                {"type": "text", "text": prompt},
+            ]}],
+            "max_tokens": max_tokens,
+            "temperature": 0.0,
+            "repetition_penalty": REPETITION_PENALTY_GRAMMAR,
+        }
+        if json_schema:
+            payload["guided_json"] = json_schema
+        data = await self._post("/v1/chat/completions", payload)
+        try:
+            return _chuoi_tra_ve(data["choices"][0]["message"]["content"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise BackendError(
+                f"vllm-vision trả nội dung không đọc được: {str(data)[:200]}"
             ) from exc
 
     async def aclose(self):

@@ -18,6 +18,28 @@ from src.core.serving import (
 logger = logging.getLogger("projecta.engine")
 
 
+def _doc_anh(duong_dan: str) -> tuple[bytes, str]:
+    """
+    (bytes, mime) của ảnh gửi cho vllm-vision (#14). Ảnh đi trong JSON dưới dạng
+    data URI base64 — to thêm ~1/3 — nên giữ đúng trần `MAX_UPLOAD_BYTES` của
+    route nhận file: ảnh nào lọt được tới đây mà vượt trần là lỗi gọi, báo rõ.
+    """
+    import mimetypes
+
+    from src.core.config import MAX_UPLOAD_BYTES
+
+    with open(duong_dan, "rb") as f:
+        du_lieu = f.read(MAX_UPLOAD_BYTES + 1)
+    if len(du_lieu) > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"Ảnh {duong_dan} vượt MAX_UPLOAD_BYTES={MAX_UPLOAD_BYTES} — không gửi cho vllm-vision"
+        )
+    mime = mimetypes.guess_type(duong_dan)[0] or "image/jpeg"
+    if not mime.startswith("image/"):
+        raise ValueError(f"{duong_dan} không phải ảnh ({mime}) — vllm-vision chỉ nhận ảnh")
+    return du_lieu, mime
+
+
 # ---------------------------------------------------------------------------
 # Chọn backend — MỘT chỗ quyết định (SRS chu kỳ 01, BR-03 yêu cầu 1, 2, 7)
 # ---------------------------------------------------------------------------
@@ -30,11 +52,12 @@ class CauHinhSai(ValueError):
     """`ENV` / `VLLM_BASE_URL` không ghép thành một cấu hình chạy được."""
 
 
-def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
+def chon_backend(env: str, vllm_base_url: str,
+                 vllm_vision_base_url: str = "") -> tuple[str, str]:
     """
     -> (text_backend, vision_backend). Hàm thuần, không đọc env, không nạp gì.
 
-    | ENV        | VLLM_BASE_URL | text       | vision     |
+    | ENV        | VLLM_BASE_URL | text       | vision (không có VLLM_VISION_BASE_URL) |
     |------------|---------------|------------|------------|
     | LOCAL      | rỗng          | mock       | mock       |
     | LOCAL      | có            | server     | mock       |
@@ -44,6 +67,10 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
     | SERVER     | rỗng          | lỗi        |            |
     | khác       |               | lỗi        |            |
 
+    Có `VLLM_VISION_BASE_URL` thì vision = `server` ở MỌI môi trường (#14,
+    09/11/2026) — cùng nguyên tắc với text. Compose đặt sẵn biến đó trỏ vào
+    container `vllm-vision`, nên ENV=SERVER không còn vision tắt.
+
     Rẽ theo BACKEND, không theo tên môi trường: có `VLLM_BASE_URL` thì text đi
     server ở MỌI môi trường. Nhờ vậy phép thử server giả chạy được dưới
     `ENV=LOCAL` mà không phải import torch/vllm, và máy dev gọi được vLLM ở xa.
@@ -52,8 +79,8 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
     vision nạp trong tiến trình (chủ dự án chốt 24/10: thiếu chỗ thì hạ ctx,
     không tách vision sang tiến trình riêng).
 
-    `SERVER` nghĩa là "Brain không nạp model nào": text qua HTTP, vision tắt có
-    tuyên bố, vì `vllm-vision` qua HTTP thuộc chu kỳ 02. Trước đây `SERVER` rơi
+    `SERVER` nghĩa là "Brain không nạp model nào": text qua HTTP, vision qua
+    HTTP nếu có `VLLM_VISION_BASE_URL`, không thì tắt có tuyên bố. Trước đây `SERVER` rơi
     vào nhánh nạp CUDA ngay trong container Brain (`env == "LOCAL"` là phép rẽ
     duy nhất). Giá trị lạ ném lỗi luôn: gõ nhầm `LCOAL` mà lặng lẽ nạp CUDA là
     đúng loại hỏng im lặng SRS §3.3 cảnh báo.
@@ -72,7 +99,9 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
         )
 
     text = "server" if co_server else ("mock" if env == "LOCAL" else "in_process")
-    if env == "LOCAL":
+    if (vllm_vision_base_url or "").strip():
+        vision = "server"
+    elif env == "LOCAL":
         vision = "mock"
     elif env == "SERVER":
         vision = "none"
@@ -245,7 +274,7 @@ class ModelEngine:
         # Quyết định MỘT lần ở đây. Các phương thức bên dưới chỉ đọc hai thuộc
         # tính này, không đọc lại ENV hay VLLM_BASE_URL (BR-03 yêu cầu 2).
         self.text_backend, self.vision_backend = chon_backend(
-            self.env, os.getenv("VLLM_BASE_URL", "")
+            self.env, os.getenv("VLLM_BASE_URL", ""), os.getenv("VLLM_VISION_BASE_URL", "")
         )
         self.config = Config()
 
@@ -261,6 +290,7 @@ class ModelEngine:
 
         self.llm = None
         self.server: VLLMServerClient | None = None
+        self.vision_server: VLLMServerClient | None = None
         self.vision_model = None
         self.vision_processor = None
 
@@ -279,6 +309,13 @@ class ModelEngine:
 
         if self.vision_backend == "in_process":
             self._nap_vision_trong_tien_trinh()
+        elif self.vision_backend == "server":
+            self.vision_server = VLLMServerClient.cho_vision()
+            logger.info(
+                "Vision qua vLLM server %s (model=%s)",
+                self.vision_server.base_url,
+                self.vision_server.model or "<mặc định của server>",
+            )
 
         logger.info("Engine online")
 
@@ -528,9 +565,20 @@ class ModelEngine:
             return '{"mock_vision": "LOCAL mock OCR/caption result."}'
         if self.vision_backend == "none":
             raise BackendUnavailable(
-                "Vision chưa có ở cấu hình ENV=SERVER: vllm-vision qua HTTP thuộc "
-                "chu kỳ 02. Cần vision thì đặt ENV=GPU để nạp trong tiến trình."
+                "Vision tắt ở ENV=SERVER: chưa đặt VLLM_VISION_BASE_URL. Trỏ biến "
+                "đó vào vllm-vision (compose đặt sẵn), hoặc đặt ENV=GPU để nạp "
+                "trong tiến trình."
             )
+        if self.vision_backend == "server":
+            # Trả CHỮ như đường trong tiến trình: VisionAgent làm sạch đầu ra
+            # (repair_json, lược đồ ở documents.py) y như cũ — client này không
+            # đi vòng qua lớp đó (AGENTS §4.1 quy tắc 8: hoá đơn là dữ liệu ngoài).
+            assert self.vision_server is not None
+            anh, mime = _doc_anh(image_path)
+            async with self.vision_guard.slot():
+                return await self.vision_server.vision(
+                    anh, mime, prompt, max_tokens=max_new_tokens, json_schema=json_schema,
+                )
 
         loop = asyncio.get_running_loop()
 

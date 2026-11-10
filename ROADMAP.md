@@ -130,7 +130,7 @@ sau là làm tốt hơn.
 `tests/test_deploy_config.py`:
 
 1. `redis` chạy nhưng không code nào dùng — `TASK_REGISTRY` vẫn trong RAM
-2. `vllm-vision` chưa có client HTTP — vision vẫn nạp trong tiến trình
+2. ~~`vllm-vision` chưa có client HTTP — vision vẫn nạp trong tiến trình~~ — đã nối 09/11/2026 (#14)
 3. Vì (2), `brain` **không** chạy được bằng CPU như sơ đồ vẽ
 
 Ba thứ này **không chặn GĐ B** nếu chỉ chạy phần kế toán: phần đó không cần model.

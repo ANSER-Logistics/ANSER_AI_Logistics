@@ -165,8 +165,9 @@ chú thích:
 
 1. **`redis`** — container chạy, **không code nào dùng**. `TASK_REGISTRY` vẫn là
    `OrderedDict` trong RAM. Restart là mất task đang chạy.
-2. **`vllm-vision`** — chưa có client HTTP cho vision. Vision vẫn nạp thẳng trong
-   tiến trình qua transformers.
+2. ~~**`vllm-vision`** — chưa có client HTTP cho vision.~~ **Đã nối 09/11/2026
+   (#14):** `VLLM_VISION_BASE_URL` có thì vision đi HTTP ở mọi môi trường;
+   compose để trống mặc định vì container thuộc profile `vision`.
 3. Vì (2), **`brain` không thật sự chạy được bằng CPU** khi bật nhánh vision. Sơ
    đồ trong compose là đích đến, chưa phải hiện trạng. *(Từ BR-03, 26/10:
    `ENV=SERVER` tắt vision có tuyên bố, nên `brain` chạy CPU được — đổi lại là
@@ -329,7 +330,7 @@ nới, nhưng **cách chữa đúng là hâm nóng lúc dựng**.
 | 2 | **Bộ đo RAG** | không | Không cần GPU. Sinh câu hỏi từ chính tài liệu đã nạp — xem bàn giao mục E.3 |
 | 3 | **Kế toán thật rà kết quả** | tìm được người | Thứ duy nhất **không mua được bằng code**. Một buổi là đủ |
 | 4 | **Nối `redis` cho TASK_REGISTRY** | không | Chỉ cần khi có nhiều tiến trình. Chưa gấp |
-| 5 | **Nối `vllm-vision` qua HTTP** | không | Mở đường chạy Brain bằng CPU |
+| 5 | ~~**Nối `vllm-vision` qua HTTP**~~ | không | **Xong 09/11/2026 (#14)** |
 
 Việc 1 và 2 **làm song song được** — một cần GPU, một không.
 
