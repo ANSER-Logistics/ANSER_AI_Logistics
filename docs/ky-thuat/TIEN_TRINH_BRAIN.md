@@ -163,8 +163,9 @@ Ghi thẳng trong `deploy/docker-compose.yml` và khoá bằng
 `tests/test_deploy_config.py` — nối xong cái nào thì test đỏ, buộc phải sửa cả
 chú thích:
 
-1. **`redis`** — container chạy, **không code nào dùng**. `TASK_REGISTRY` vẫn là
-   `OrderedDict` trong RAM. Restart là mất task đang chạy.
+1. ~~**`redis`** — container chạy, **không code nào dùng**.~~ **Đã nối 09/11/2026
+   (#15):** `TASK_REGISTRY` dùng Redis khi có `REDIS_URL`, TTL 24 giờ; không có
+   hoặc Redis lỗi thì lùi về RAM và `/health` báo `degraded`.
 2. **`vllm-vision`** — chưa có client HTTP cho vision. Vision vẫn nạp thẳng trong
    tiến trình qua transformers.
 3. Vì (2), **`brain` không thật sự chạy được bằng CPU** khi bật nhánh vision. Sơ
@@ -328,7 +329,7 @@ nới, nhưng **cách chữa đúng là hâm nóng lúc dựng**.
 | 1 | **Phiên đo Colab** | một buổi GPU L4 | Đóng luôn việc treo #1 và #2. ~1 giờ vì bỏ được bước sinh dữ liệu |
 | 2 | **Bộ đo RAG** | không | Không cần GPU. Sinh câu hỏi từ chính tài liệu đã nạp — xem bàn giao mục E.3 |
 | 3 | **Kế toán thật rà kết quả** | tìm được người | Thứ duy nhất **không mua được bằng code**. Một buổi là đủ |
-| 4 | **Nối `redis` cho TASK_REGISTRY** | không | Chỉ cần khi có nhiều tiến trình. Chưa gấp |
+| 4 | ~~**Nối `redis` cho TASK_REGISTRY**~~ | không | **Xong 09/11/2026 (#15)** |
 | 5 | **Nối `vllm-vision` qua HTTP** | không | Mở đường chạy Brain bằng CPU |
 
 Việc 1 và 2 **làm song song được** — một cần GPU, một không.

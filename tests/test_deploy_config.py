@@ -31,11 +31,7 @@ ENV_MAU = GOC / "deploy" / ".env.example"
 # tồn tại để một biến chưa nối phải được KHAI BÁO, thay vì nằm im trông như đã
 # chạy. Nối xong thì xoá khỏi đây.
 CHUA_NOI: dict[str, str] = {
-    "REDIS_URL": (
-        "Redis đã có container nhưng TASK_REGISTRY vẫn là OrderedDict trong RAM "
-        "(src/core/engine.py). Tác vụ nền vẫn mất khi restart, và vẫn sai nếu "
-        "chạy nhiều worker."
-    ),
+    # REDIS_URL đã nối 09/11/2026 (#15): engine.tao_task_registry() đọc nó.
     "VLLM_VISION_BASE_URL": (
         "Chưa có client HTTP cho vision — serving.py mới chỉ có đường text. "
         "Từ BR-03, ENV=SERVER nghĩa là vision TẮT CÓ TUYÊN BỐ (vision_backend "
@@ -196,21 +192,21 @@ def test_cau_hinh_compose_that_ra_dung_backend():
     assert chon_backend(gia_tri("ENV"), gia_tri("VLLM_BASE_URL")) == ("server", "none")
 
 
-def test_redis_chay_nhung_task_registry_van_trong_RAM():
+def test_compose_dat_redis_url_thi_task_registry_dung_redis(monkeypatch):
     """
-    Khoá lại một sự thật khó chịu để nó không bị quên: compose dựng Redis và
-    ghi chú rằng đó là chỗ giữ trạng thái tác vụ nền, nhưng code chưa dùng.
-    Restart Brain là mất sạch task đang chạy.
-
-    Test này sẽ ĐỎ ngay khi ai đó nối Redis vào — lúc ấy sửa cả nó lẫn CHUA_NOI.
+    Thay cho test cũ khoá chuyện "Redis chạy mà TASK_REGISTRY vẫn trong RAM"
+    (#15, 09/11/2026). Giờ đúng chiều ngược lại: giá trị compose đặt cho
+    `brain` phải làm registry chọn Redis — không thì compose dựng Redis vô ích
+    và nhiều worker vẫn trả "Task not found".
     """
-    from src.core.engine import TASK_REGISTRY
+    pytest.importorskip("redis", reason="cần gói `redis` (requirements.txt)")
+    from src.core import engine
 
-    assert type(TASK_REGISTRY).__name__ == "TaskRegistry"
-    assert not any(
-        "redis" in p.read_text(encoding="utf-8").lower()
-        for p in (GOC / "src").rglob("*.py")
-    ), "đã có code dùng Redis — cập nhật CHUA_NOI và xoá test này"
+    text = COMPOSE.read_text(encoding="utf-8")
+    m = re.search(r"^\s{6}REDIS_URL:\s*(\S+)", text, re.M)
+    assert m, "compose không đặt REDIS_URL cho brain"
+    monkeypatch.setenv("REDIS_URL", m.group(1))
+    assert isinstance(engine.tao_task_registry(), engine.RedisTaskRegistry)
 
 
 # ---------------------------------------------------------------------------

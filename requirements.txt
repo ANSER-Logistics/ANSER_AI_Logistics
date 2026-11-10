@@ -81,3 +81,6 @@ vllm>=0.10.2,<0.12
 httpx==0.27.0
 underthesea==9.5.0
 rank_bm25==0.2.2
+# TASK_REGISTRY dùng chung giữa các worker khi có REDIS_URL (#15). Chỉ dùng
+# GET/SET EX — có từ redis-py 3.x; sàn 5 vì đó là dòng hỗ trợ Python 3.12+.
+redis>=5,<7

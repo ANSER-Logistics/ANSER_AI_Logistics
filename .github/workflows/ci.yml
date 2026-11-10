@@ -7,6 +7,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Redis THẬT cho test TASK_REGISTRY dùng chung giữa hai tiến trình (#15).
+    # Không giả lập được bằng thư viện: cái cần chứng minh là HAI tiến trình
+    # thấy cùng task_id, và một kho giả trong bộ nhớ không dùng chung được.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s
+          --health-timeout 2s --health-retries 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +31,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl
+          pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl redis
       # BR-07 (chu kỳ 01): cả ba thư mục, không còn danh sách file chọn tay. Bản
       # cũ chỉ soi chín file nên không thấy tám lỗi sửa ngày 22/10 — trong đó
       # một F821 làm notebook Colab ném NameError giữa phiên đo, sau khi đã nạp
@@ -58,6 +69,9 @@ jobs:
       - name: Pytest
         env:
           ENV: LOCAL
+          # Chỉ test Redis đọc biến này. KHÔNG đặt REDIS_URL ở đây: phần còn lại
+          # của bộ test phải chạy với TASK_REGISTRY trong RAM, đúng ENV=LOCAL.
+          REDIS_TEST_URL: redis://localhost:6379/15
         run: pytest -q
       # Dựng lại dataset từ nguồn trong repo rồi chạy preflight. Bắt sớm việc
       # đổi prompt/schema/catalog mà quên sinh lại dữ liệu train (P4) — đúng
