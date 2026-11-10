@@ -833,7 +833,7 @@ Mỗi dòng kèm lý do. Phần lớn lý do là một sự cố đã xảy ra.
 19. **Không sửa repo Body.** Viết bản đặc tả thay đổi rồi dừng lại chờ người quyết định.
 20. **Không gộp nhánh làm việc vào `main`.** `main` là bản trước khi có lõi tất định.
 21. **Không push lịch sử lên remote mới hoặc public mà chưa quét secret toàn bộ lịch sử.** Xem 5.6.
-22. **Không nâng `--workers` của uvicorn.** `TASK_REGISTRY` còn là dict trong RAM, nhiều worker sẽ trả lời sai về trạng thái tác vụ.
+22. **Chỉ nâng `--workers` của uvicorn khi `/health` báo `task_registry.backend: "redis"` và `redis_loi: false`.** Từ 09/11/2026 (#15) `TASK_REGISTRY` dùng Redis khi có `REDIS_URL`; không có hoặc Redis lỗi thì nó lùi về RAM, và khi đó nhiều worker sẽ trả lời sai về trạng thái tác vụ.
 23. **Không dùng Colab để phục vụ traffic thật.** Điều khoản Colab Paid cấm web service. Colab chỉ cho fine-tune, lượng tử hoá, thử nghiệm rời rạc.
 
 ---

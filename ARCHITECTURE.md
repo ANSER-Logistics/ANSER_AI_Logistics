@@ -121,7 +121,7 @@ flowchart LR
     E & F & G & H & K --> Z[guard_answer: neo số liệu]
     Z --> I[clean_output]
     I -->|webhook| A
-    I --> J[(TASK_REGISTRY in-memory)]
+    I --> J[(TASK_REGISTRY: Redis khi có REDIS_URL, không thì RAM)]
     A -->|GET /api/v1/task/id| J
 ```
 
@@ -592,7 +592,7 @@ Riêng việc bỏ lần retry 1200 token cắt được phần lớn độ tr�
 | # | Vấn đề | Vị trí |
 |---|---|---|
 | 1 | `sales.amount` vs `sales.total_amount` — hai nguồn mâu thuẫn, một cái sai. Benchmark T2 cũng kiểm tra `total_amount` | [`saas_api.py:29`](src/core/saas_api.py#L29) vs [`prompts.py:28`](src/core/prompts.py#L28) |
-| 2 | `TASK_REGISTRY` in-memory → mất task khi restart, không dùng được nhiều worker | [`engine.py:41`](src/core/engine.py#L41) |
+| 2 | ~~`TASK_REGISTRY` in-memory → mất task khi restart, không dùng được nhiều worker~~ — **đã sửa 09/11/2026 (#15):** Redis khi có `REDIS_URL`, lùi về RAM khi không có hoặc Redis lỗi | `engine.py::tao_task_registry` |
 | 3 | Không có hàng đợi giới hạn / backpressure → nguồn gốc "quá tải, treo" | [`chat.py:343`](src/api/routes/chat.py#L343) |
 | 7 | ~~Chưa có `ai_metrics_log`~~ **ĐÃ SỬA (28/07/2026):** [`metrics.py`](src/core/metrics.py) ghi mọi lượt (nhánh, độ trễ, hỏi-lại, workflow hợp lệ); `summarize()` so sánh trước/sau. Nội dung tin nhắn chỉ ghi khi bật `AI_METRICS_LOG_CONTENT=1`; biên lợi nhuận + secret luôn bị che | [`metrics.py`](src/core/metrics.py) |
 | 4 | ~~5 file nguồn tập train không có trong repo → không train lại được~~ **ĐANG ĐÓNG (27/07/2026):** file còn trên Drive (xác nhận của chủ dự án); đích đến [`offline_training/v2_sources/`](offline_training/v2_sources/), `build_dataset_v3.py` convert + quét secret trước khi commit | [`merge_all.py:23-29`](offline_training/merge_all.py#L23-L29) |

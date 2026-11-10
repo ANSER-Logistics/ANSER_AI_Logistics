@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 import os
 import threading
 import time
 from collections import OrderedDict
+from typing import Any
 
 from src.core.config import Config
 from src.core.serving import (
@@ -119,8 +121,117 @@ class TaskRegistry:
         with self._lock:
             return task_id in self._store
 
+    def mo_ta(self) -> dict[str, Any]:
+        """Cho /health: đang giữ trạng thái tác vụ ở đâu."""
+        return {"backend": "ram", "redis_loi": False}
 
-TASK_REGISTRY = TaskRegistry(max_size=1000)
+
+# ---------------------------------------------------------------------------
+# TASK_REGISTRY trên Redis (#15, 09/11/2026)
+# ---------------------------------------------------------------------------
+# RAM thì mỗi worker một bản: worker A ghi task, lượt hỏi kết quả rơi vào worker
+# B -> "Task not found". Nên Brain buộc chạy `--workers 1`, và restart là mất
+# sạch task đang chạy. Có `REDIS_URL` thì mọi worker dùng chung một chỗ.
+#
+# Ba quyết định, ghi lại vì issue đòi quyết TRƯỚC:
+#
+# 1. Redis không truy cập được -> LÙI VỀ RAM cho đúng lời gọi đó, ghi log lỗi
+#    kèm task_id, và `redis_loi` bật lên để /health báo `degraded`. Không ném
+#    lỗi ra: /chat không được sập vì một kho trạng thái phụ. Lùi về RAM chỉ sai
+#    khi chạy nhiều worker — và `degraded` cho người vận hành thấy ngay lúc đó.
+#    `get` đọc Redis trước rồi tới RAM, để task lỡ ghi vào RAM lúc Redis chập
+#    chờn vẫn tìm thấy được trên chính worker đó.
+#
+# 2. TTL mặc định 24 giờ (`TASK_TTL_S`). Body hỏi kết quả trong vài phút sau
+#    khi gửi; 24 giờ dư cho việc thử lại, hoặc đọc lại sau khi restart Brain.
+#    Không có TTL thì Redis không quên như RAM (RAM tự đuổi khi quá 1000), và
+#    task_id tích mãi.
+#
+# 3. Lưu JSON, không pickle. Mọi thứ ghi vào đây đã là JSON được (kết quả là
+#    `RetailChatResponse.model_dump()`). Thứ không JSON được thì `json.dumps`
+#    ném TypeError — không lặng lẽ biến nó thành chuỗi (`default=str` sẽ làm
+#    hỏng dữ liệu mà không ai biết).
+#
+# `_owner` (kiểm quyền đọc ở chat.get_task_status) và `_created_at` mang theo
+# qua mọi lần ghi, đúng như bản RAM.
+
+TASK_TTL_S = int(os.getenv("TASK_TTL_S", str(24 * 3600)))
+_KHOA_REDIS = "anser:task:"
+
+
+class RedisTaskRegistry:
+    """Cùng giao diện với `TaskRegistry`, giữ trạng thái trên Redis."""
+
+    def __init__(self, url: str, ttl_s: int = TASK_TTL_S):
+        import redis  # nạp lười: ENV=LOCAL không cần gói này
+
+        # Timeout ngắn: Redis treo thì /chat chờ tối đa ~1s rồi lùi về RAM,
+        # không đứng chờ theo mặc định của thư viện.
+        self._r = redis.Redis.from_url(
+            url, socket_timeout=0.5, socket_connect_timeout=0.5, decode_responses=True,
+        )
+        self._loi_redis = redis.RedisError
+        self._ttl = ttl_s
+        self._ram = TaskRegistry(max_size=1000)
+        self._url_an = url.split("@")[-1]          # không ghi mật khẩu vào log
+        self.redis_loi = False
+
+    def _loi(self, viec: str, task_id: str, exc: Exception) -> None:
+        self.redis_loi = True
+        logger.error("TASK_REGISTRY: Redis lỗi khi %s task %s (%s) — lùi về RAM: %s",
+                     viec, task_id, self._url_an, exc)
+
+    def get(self, task_id: str):
+        try:
+            # `Any`: redis-py khai kiểu trả về là `Awaitable | Any` cho cả bản
+            # sync lẫn async; client ở đây là bản sync nên luôn là chuỗi/None.
+            raw: Any = self._r.get(_KHOA_REDIS + task_id)
+            self.redis_loi = False
+            if raw is not None:
+                return json.loads(raw)
+        except self._loi_redis as exc:
+            self._loi("đọc", task_id, exc)
+        return self._ram.get(task_id)
+
+    def set(self, task_id: str, data: dict):
+        try:
+            raw: Any = self._r.get(_KHOA_REDIS + task_id)
+            cu = json.loads(raw) if raw else (self._ram.get(task_id) or {})
+            data["_created_at"] = data.get("_created_at", cu.get("_created_at", time.time()))
+            if "_owner" not in data and "_owner" in cu:
+                data["_owner"] = cu["_owner"]
+            self._r.set(_KHOA_REDIS + task_id, json.dumps(data, ensure_ascii=False),
+                        ex=self._ttl)
+            self.redis_loi = False
+        except self._loi_redis as exc:
+            self._loi("ghi", task_id, exc)
+            self._ram.set(task_id, data)
+
+    def __contains__(self, task_id: str):
+        return self.get(task_id) is not None
+
+    def mo_ta(self) -> dict[str, Any]:
+        return {"backend": "redis", "redis_loi": self.redis_loi, "ttl_s": self._ttl}
+
+
+def tao_task_registry() -> "TaskRegistry | RedisTaskRegistry":
+    """
+    `REDIS_URL` có -> Redis; không có -> RAM (ENV=LOCAL chạy đủ bộ test không
+    cần hạ tầng nào, AGENTS §3.1). Thiếu gói `redis` dù đã đặt URL thì cũng lùi
+    về RAM, nhưng ghi lỗi to: đó là triển khai sai, không phải chủ ý.
+    """
+    url = os.getenv("REDIS_URL", "").strip()
+    if not url:
+        return TaskRegistry(max_size=1000)
+    try:
+        return RedisTaskRegistry(url)
+    except ImportError as exc:
+        logger.error("REDIS_URL đã đặt nhưng thiếu gói `redis` (%s) — TASK_REGISTRY "
+                     "lùi về RAM, chỉ đúng khi chạy --workers 1", exc)
+        return TaskRegistry(max_size=1000)
+
+
+TASK_REGISTRY = tao_task_registry()
 
 # Số lượt hội thoại tối đa đưa lại vào prompt. 6 lượt (3 cặp hỏi-đáp) đủ cho
 # các câu nối tiếp thực tế ("thế xe 3 tấn thì sao?") mà không ăn hết ngân sách
