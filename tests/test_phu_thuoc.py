@@ -42,12 +42,14 @@ DEV = GOC / "requirements-dev.txt"
 # ĐƯỢC KHAI, không phải danh sách miễn trừ: mỗi lần ghim được một gói thì xoá
 # khỏi đây, và test ở dưới đỏ nếu còn sót tên đã ghim.
 CHUA_GHIM: frozenset[str] = frozenset({
-    "chromadb", "decord", "ddgs", "einops", "fastapi", "json_repair",
-    "lm-format-enforcer", "lunardate", "nest_asyncio", "numpy", "openai",
-    "openpyxl", "pillow", "protobuf", "psycopg2-binary", "pypdf",
-    "pyngrok", "python-docx", "python-multipart", "pytz", "qwen_vl_utils",
-    "requests", "scikit-learn", "sentence-transformers", "sentencepiece",
-    "sqlalchemy", "timm", "uvicorn",
+    # Nhóm AI — cần một phiên có GPU thật để xác nhận (issue #6, phần cuối).
+    "chromadb", "decord", "einops", "lm-format-enforcer", "numpy", "openai",
+    "qwen_vl_utils", "scikit-learn", "sentence-transformers", "sentencepiece",
+    "timm",
+    # Chưa cài trên máy soát nên không có bản nào làm căn cứ.
+    "nest_asyncio", "pyngrok",
+    # Cố ý không ghim — lý do ngay trên dòng của nó trong requirements.txt.
+    "pytz",
 })
 
 CHUA_GHIM_DEV: frozenset[str] = frozenset({
