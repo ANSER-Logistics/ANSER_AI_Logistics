@@ -100,6 +100,12 @@ def _canh_bao_lech_pham_vi(kb_ws: str, request_id: str) -> None:
     try:
         khac = [w for w in liet_ke() if w != kb_ws]
     except Exception:
+        # Hàm này tồn tại để biến một lỗi lệch phạm vi không dấu vết thành một dòng
+        # log (xem docstring). Chính nó hỏng mà im lặng thì chỉ chuyển chỗ giấu.
+        logger.warning(
+            "Không liệt kê được phạm vi của kho tri thức để chẩn đoán lệch phạm vi",
+            exc_info=True,
+        )
         return
     if khac:
         logger.warning(

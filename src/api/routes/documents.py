@@ -20,6 +20,20 @@ from src.core.mcp_server import MCPServer
 from src.core.schemas import InvoicePayload
 
 logger = logging.getLogger("projecta.api.documents")
+
+
+def _log_loi_luoc_do(ten: str, exc: Exception) -> None:
+    """Ghi lại việc VLM trả dữ liệu không qua lược đồ, mà KHÔNG chép nội dung.
+
+    Thông báo của pydantic kèm theo GIÁ TRỊ đầu vào (tên nhà xe, mã số thuế, số
+    tiền trên hoá đơn), và log cũng là một nơi dữ liệu khách nằm lại. Nên chỉ ghi
+    loại lỗi và số lỗi — đủ để biết tỷ lệ VLM trả sai hình dạng, không đủ để dựng
+    lại hoá đơn.
+    """
+    dem = exc.error_count() if hasattr(exc, "error_count") else None
+    logger.warning(
+        "VLM trả dữ liệu không qua lược đồ %s (%s, %s lỗi)", ten, type(exc).__name__, dem
+    )
 router = APIRouter()
 
 
@@ -120,6 +134,7 @@ async def ocr_endpoint(
         try:
             invoice = InvoicePayload(**extracted)
         except Exception as exc:
+            _log_loi_luoc_do("InvoicePayload", exc)
             return {
                 "success": False,
                 "backend": _vision_backend(),
@@ -183,6 +198,7 @@ async def ocr_freight_endpoint(
         try:
             invoice = FreightInvoice(**extracted)
         except Exception as exc:
+            _log_loi_luoc_do("FreightInvoice", exc)
             return {"success": False, "backend": _vision_backend(),
                     "error": f"schema_invalid: {exc}", "raw_json": extracted}
 
