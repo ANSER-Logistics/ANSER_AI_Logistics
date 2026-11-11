@@ -215,7 +215,14 @@ class SaasAPI:
                 "Lỗi truy vấn báo cáo bán hàng workspace_id=%s period=%s",
                 workspace_id, period, exc_info=True,
             )
-            return {"period": period, "revenue": "Lỗi", "orders": 0}
+            # `orders: 0` ở đây là một câu NÓI DỐI: nó đi thẳng vào ngữ cảnh của
+            # model (chat.py dựng `[DOANH SỐ …]` từ JSON này) và model đọc "0 đơn".
+            # Truy vấn hỏng thì số đơn là CHƯA BIẾT. Giữ `revenue: "Lỗi"` (chỗ đọc
+            # hiện có dựa vào nó) và thêm một câu nói thẳng để model không suy diễn.
+            return {
+                "period": period, "revenue": "Lỗi", "orders": None,
+                "ghi_chú": "KHÔNG LẤY ĐƯỢC số liệu — đây không phải 0 đơn.",
+            }
 
     def update_price(self, product_name, new_price, workspace_id=1):
         self._require_engine()
