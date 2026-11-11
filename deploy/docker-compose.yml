@@ -153,15 +153,18 @@ services:
       # Phải KHỚP `BRAIN_KB_WORKSPACE` bên Body. Lệch thì tra sai kho tri
       # thức — xem cảnh báo đầu src/api/routes/knowledge.py.
       KB_WORKSPACE_ID: ${KB_WORKSPACE_ID:-default}
-      # Trỏ tới workflow_templates/ của Body. Rỗng = dùng catalog dự phòng,
-      # typeVersion có thể không khớp n8n instance của Body (có log cảnh báo).
-      N8N_TEMPLATES_DIR: ${N8N_TEMPLATES_DIR:-}
+      # Workflow n8n THẬT của Body (#20), tải bằng
+      #   python offline_training/dong_bo_n8n_body.py tai   -> deploy/n8n-body/
+      # và mount ở /app/n8n-body (volumes dưới). Chưa tải thì thư mục rỗng,
+      # Brain tự lùi về catalog dự phòng và ghi log cảnh báo — không sập.
+      N8N_TEMPLATES_DIR: ${N8N_TEMPLATES_DIR:-/app/n8n-body}
       # Rỗng = TẮT webhook chủ động. Đặt URL là BẬT một lời gọi ra ngoài mang
       # theo câu trả lời của AI — đọc kỹ trước khi điền.
       BODY_CALLBACK_URL: ${BODY_CALLBACK_URL:-}
     volumes:
       - ../src/data/docs:/app/src/data/docs:ro
       - vector-db:/app/data/vector_db
+      - ./n8n-body:/app/n8n-body:ro
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

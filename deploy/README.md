@@ -59,6 +59,11 @@ Cái mất: một chặng mạng nội bộ (~1ms), không đáng kể so với 
 mkdir -p deploy/models
 rclone copy drive:ANSER_AI_Logistics/anser-v3-awq deploy/models/anser-v3-awq
 
+# Workflow n8n THẬT của Body -> deploy/n8n-body/ (chỉ đọc repo Body, #20).
+# Thiếu bước này Brain vẫn chạy, nhưng sinh workflow theo catalog dự phòng.
+python offline_training/dong_bo_n8n_body.py tai
+python offline_training/dong_bo_n8n_body.py kiem --thu-muc deploy/n8n-body   # mã thoát 1 = lệch
+
 cd deploy
 cp .env.example .env && nano .env          # điền API_TOKEN + CLOUDFLARE_TUNNEL_TOKEN
 docker compose up -d
