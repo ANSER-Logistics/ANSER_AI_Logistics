@@ -24,8 +24,11 @@ khách hay không", loại luật cần đọc được bằng mắt và kiểm 
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 # Dấu hiệu người hỏi đang nói về CHÍNH DOANH NGHIỆP MÌNH. Có bất kỳ dấu hiệu nào
 # thì web bị loại thẳng, kể cả khi câu có nhắc tới thuế hay nghị định — "bên mình
@@ -110,8 +113,11 @@ _SO_VAN_BAN = re.compile(r"\b\d+\s*/\s*\d{4}\s*(?:/\s*[A-ZĐ][\w-]*)?", re.IGNOR
 # là ký tự chữ nên không có ranh giới, regex lùi dần và chỉ bắt được "18.500.",
 # bỏ lại "000đ". Đúng cái bẫy đã sập một lần ở `src/core/grounding.py`.
 _SO_TIEN = re.compile(
-    # 1. Số kèm thang bậc: "4,2 tỷ", "340 triệu", "25 nghìn", "2tr"
-    r"\d[\d.,]*\s*(?:nghìn|ngàn|triệu|tỷ|tỉ|tr|k)(?![^\W\d_])"
+    # 1. Số kèm thang bậc: "4,2 tỷ", "340 triệu", "25 nghìn", "2tr", và cả khi
+    #    gõ KHÔNG DẤU ("3 ty", "5 trieu", "2 nghin") hay nói tắt "12tr5".
+    #    Bản trước chỉ có dạng có dấu, nên "cong no 5 trieu qua han" đi nguyên
+    #    văn tới DuckDuckGo; gõ điện thoại không dấu là chuyện thường.
+    r"\d[\d.,]*\s*(?:nghìn|ngàn|nghin|ngan|triệu|trieu|tỷ|tỉ|ty|ti|tr|k)\d*(?![^\W\d_])"
     # 2. Phần trăm: "23%", "23 phần trăm"
     r"|\d[\d.,]*\s*(?:%|phần trăm)"
     # 3. Số kèm đơn vị tiền: "18.500.000đ", "500000 VNĐ"
@@ -243,7 +249,24 @@ def loc_truy_van_web(query: str) -> str:
     # thêm ngoại lệ cho từng từ ghép.
     sach = _SO_TIEN.sub(" ", sach)
     sach = re.sub(r"\x00(\d+)\x00", lambda m: giu[int(m.group(1))], sach)
-    return _xoa_ten_rieng(" ".join(sach.split()))
+    ra = _xoa_ten_rieng(" ".join(sach.split()))
+
+    # Chốt chặn cuối, FAIL-CLOSED. Regex ở trên chỉ biết những HÌNH DẠNG ta đã
+    # nghĩ ra; `doc_so_tien` là bộ đọc số tiền của cổng đầu vào và biết thêm
+    # chữ ("ba tỷ rưỡi", "hai trăm nghìn"). Hai bộ đọc lệch nhau thì phần lệch là
+    # chỗ dữ liệu khách đi qua. Còn đọc ra được số tiền SAU khi đã lọc nghĩa là
+    # không lọc sạch được -> KHÔNG gửi gì. Một lần tra web hụt rẻ hơn một con
+    # số công nợ nằm lại trong log của bên thứ ba (R2).
+    from src.core.doc_dau_vao import doc_so_tien  # nạp muộn: tránh vòng import
+
+    con_lai = doc_so_tien(ra)
+    if con_lai:
+        logger.warning(
+            "Truy vấn web còn số tiền sau khi lọc — không gửi (R2)",
+            extra={"so_khoan": len(con_lai)},
+        )
+        return ""
+    return ra
 
 
 def decide_web_fallback(query: str) -> WebDecision:
