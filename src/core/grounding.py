@@ -75,6 +75,26 @@ _SO_KEM_THANG = re.compile(
 )
 
 
+# Số thực NGUYÊN GIÁ TRỊ: "12500000.0", "1000.00", "12.500.000,00".
+#
+# JSON của tool in số tiền kiểu float, nên `12500000.0` là hình dạng thường gặp
+# trong context — và bộ đọc cũ bỏ dấu chấm rồi dính phần "0" vào: 12500000.0 ->
+# "125000000", GẤP MƯỜI. Lỗi đó đi hai chiều:
+#
+#   - câu đúng "12.500.000" bị chặn oan (context chỉ còn "125000000");
+#   - câu SAI "125.000.000" qua được, vì nó khớp đúng cái số đã bị nhân mười.
+#
+# Phần thập phân CHỈ là 1–2 chữ số 0. Ba chữ số 0 là dấu phân tách nghìn của tiếng
+# Việt ("1.000" = một nghìn), nên tuyệt đối không được ăn chúng.
+_SO_THUC_NGUYEN = re.compile(r"(\d[\d.,]*?)[.,]0{1,2}")
+
+
+def _bo_khong_thap_phan(tho: str) -> str:
+    """'12500000.0' -> '12500000'; '1.000' giữ nguyên (đó là một nghìn)."""
+    m = _SO_THUC_NGUYEN.fullmatch(tho)
+    return m.group(1) if m else tho
+
+
 def _hai_cach_doc(tho: str) -> set[float]:
     """
     '10.25' đọc được HAI cách và tiếng Việt dùng lẫn lộn cả hai.
@@ -123,7 +143,7 @@ def numbers_in(text: str) -> set[str]:
     """
     ra: set[str] = set()
     for m in _SO_KEM_THANG.finditer(text or ""):
-        tho, hau_to = m.group(1), m.group(2)
+        tho, hau_to = _bo_khong_thap_phan(m.group(1)), m.group(2)
         ra.add(tho.replace(".", "").replace(",", ""))
         ra |= _nhan_thang(tho, hau_to)
     return ra
@@ -222,7 +242,7 @@ def narration_numbers_ok(
     """
     ctx_numbers = numbers_in(context)
     for m in _SO_KEM_THANG.finditer(answer or ""):
-        tho, hau_to = m.group(1), m.group(2)
+        tho, hau_to = _bo_khong_thap_phan(m.group(1)), m.group(2)
         chinh = tho.replace(".", "").replace(",", "")
         if chi_kiem_so_tien:
             if not la_hinh_dang_tien(tho, hau_to, (answer or "")[m.end():]):
