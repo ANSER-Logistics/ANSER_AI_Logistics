@@ -33,6 +33,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.api import dependencies as _deps
 from src.api.dependencies import MAX_UPLOAD_BYTES, require_api_token
 from src.core import carrier_selection as cs
 from src.core import forecasting as fc
@@ -915,8 +916,14 @@ async def run_tool(name: str, arguments: dict) -> Any:
     except Exception as exc:
         return {"error": "tham số không hợp lệ", "detail": str(exc)}
     try:
-        # x_api_token=None: gọi nội bộ, đã qua kiểm tra token ở tầng /chat
-        return await handler(req, None)
+        # Gọi nội bộ: người gọi đã qua cổng token (`auth_guard` của router /chat,
+        # hoặc `require_api_token` ngay trong `/mcp/tools/call`). Mỗi handler lại
+        # gọi `require_api_token(x_api_token)` lần nữa, nên phải đưa đúng token
+        # cấu hình vào đây. Bản cũ đưa `None`: khi `API_AUTH_TOKEN` được đặt thì
+        # MỌI tool agentic và MỌI lời gọi /mcp trả `Unauthorized`, và model viết
+        # câu trả lời từ một observation lỗi. Đọc `_deps.API_AUTH_TOKEN` lúc gọi,
+        # không phải lúc import, vì giá trị này được vá/đặt sau khi module nạp.
+        return await handler(req, _deps.API_AUTH_TOKEN or None)
     except HTTPException as exc:
         return {"error": exc.detail}
     except Exception as exc:
