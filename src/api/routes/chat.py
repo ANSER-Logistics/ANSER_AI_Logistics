@@ -445,7 +445,7 @@ async def _handle_logistics_quote(
         r = await client.post(webhook_url, json=data, timeout=30.0)
         r.raise_for_status()
         body = r.json()
-        draft_id = body.get("draft_id", "?")
+        draft_id = body.get("draft_id") if isinstance(body, dict) else None
     except Exception as exc:
         logger.error(
             "LOGISTICS: gọi webhook n8n thất bại: %s", exc,
@@ -454,6 +454,20 @@ async def _handle_logistics_quote(
         return (
             "Tôi đã hiểu yêu cầu nhưng chưa kích hoạt được quy trình báo giá "
             "(lỗi kết nối n8n). Thử lại sau ít phút hoặc báo quản trị viên."
+        )
+
+    if not draft_id:
+        # n8n trả 200 nhưng không kèm mã nháp. Bản trước thay bằng "?" rồi vẫn nói
+        # "Đã tạo nháp báo giá ?" — tuyên bố thành công mà không có gì để chỉ vào.
+        # Không có mã thì không ai tìm lại được nháp, nên nói thật là chưa xác nhận.
+        logger.error(
+            "LOGISTICS: n8n trả thành công nhưng không có draft_id",
+            extra={"request_id": request_id},
+        )
+        return (
+            "Yêu cầu báo giá đã được gửi đi nhưng tôi chưa nhận được mã bản nháp "
+            "từ hệ thống, nên chưa xác nhận được là đã tạo xong. Bạn kiểm tra danh "
+            "sách nháp báo giá, hoặc báo quản trị viên kiểm tra quy trình n8n."
         )
 
     # Câu xác nhận dựng bằng hàm DÙNG CHUNG với dữ liệu train đa lượt (P4):

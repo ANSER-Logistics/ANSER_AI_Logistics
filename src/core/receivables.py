@@ -37,7 +37,18 @@ _TIEN_TOL = 1.0           # đồng
 
 
 def _so_du(p: Partner) -> float:
+    """Số dư để CỘNG. Chưa biết (None) thì không góp gì vào tổng — nhưng người gọi
+    phải đếm riêng những dòng đó qua `_chua_biet`, không được coi chúng là 0.
+
+    API khai rõ ở `tools.PartnerIn.balance`: "Bỏ trống = CHƯA BIẾT, không phải 0".
+    Bản trước đổi thẳng None thành 0 rồi cộng, nên mẫu số của "một khách chiếm X%"
+    co lại và X bị thổi lên, mà kết quả không hề nói có dòng nào bị bỏ.
+    """
     return p.balance or 0.0
+
+
+def _chua_biet(ds: Iterable[Partner]) -> list[Partner]:
+    return [p for p in ds if p.balance is None]
 
 
 def _tong(ds: Iterable[Partner]) -> float:
@@ -94,6 +105,12 @@ def _kiem_tap_trung(khach: list[Partner]) -> list[dict[str, Any]]:
     xep = sorted(duong, key=lambda p: -_so_du(p))
     ra: list[dict[str, Any]] = []
 
+    # Tỷ lệ chỉ tính trên khách ĐÃ CÓ số dư. Có khách chưa biết số dư thì mẫu số
+    # thật còn lớn hơn và tỷ lệ thật thấp hơn: nói ra trong bằng chứng, để người
+    # đọc không tưởng "56%" là con số đầy đủ.
+    thieu = len(_chua_biet(khach))
+    them: dict[str, Any] = {"khách_chưa_có_số_dư": thieu} if thieu else {}
+
     dau = xep[0]
     pct = _so_du(dau) / tong * 100
     if pct >= _MOT_KHACH_PCT:
@@ -101,7 +118,7 @@ def _kiem_tap_trung(khach: list[Partner]) -> list[dict[str, Any]]:
             "customer_concentration", "cao",
             f"Một khách chiếm {pct:.0f}% tổng phải thu",
             {"khách": dau.label(), "số_dư": _so_du(dau),
-             "tổng_phải_thu": round(tong), "tỷ_lệ_%": round(pct, 1)},
+             "tổng_phải_thu": round(tong), "tỷ_lệ_%": round(pct, 1)} | them,
             "Khách này chậm trả là dòng tiền cả công ty bị ảnh hưởng. Đặt hạn mức "
             "công nợ và điều kiện thanh toán riêng cho nhóm khách lớn.",
             code=dau.code, product=dau.label(), money_impact=_so_du(dau),
@@ -116,7 +133,7 @@ def _kiem_tap_trung(khach: list[Partner]) -> list[dict[str, Any]]:
                 f"Ba khách lớn nhất chiếm {pct3:.0f}% tổng phải thu",
                 {"khách": [p.label() for p in xep[:3]],
                  "số_dư": [_so_du(p) for p in xep[:3]],
-                 "tổng_phải_thu": round(tong), "tỷ_lệ_%": round(pct3, 1)},
+                 "tổng_phải_thu": round(tong), "tỷ_lệ_%": round(pct3, 1)} | them,
                 "Doanh nghiệp đang phụ thuộc số ít khách. Theo dõi riêng nhóm này "
                 "hằng tuần thay vì gộp chung vào báo cáo công nợ.",
                 money_impact=ba,
@@ -296,12 +313,23 @@ def audit_partners(
         "tổng_phải_thu": round(phai_thu),
         "tổng_phải_trả": round(phai_tra),
         "khách_có_số_dư": sum(1 for p in khach_hang if abs(_so_du(p)) > _TIEN_TOL),
+        # CHƯA BIẾT khác với bằng 0. Hai khoá này luôn có mặt (kể cả 0) để người
+        # đọc phân biệt được "không có ai thiếu" với "không ai nói".
+        "khách_chưa_có_số_dư": len(_chua_biet(khach_hang)),
+        "nhà_cung_cấp_chưa_có_số_dư": len(_chua_biet(ncc)),
         "số_phát_hiện": len(fs),
         "không_phân_tích_được": [
             "Tuổi nợ (30/60/90 ngày) và nợ quá hạn — số dư không kèm ngày hoá đơn. "
             "Cần thêm 'Sổ chi tiết công nợ phải thu' mới tính được.",
         ],
     }
+    thieu_khach, thieu_ncc = len(_chua_biet(khach_hang)), len(_chua_biet(ncc))
+    if thieu_khach or thieu_ncc:
+        tom_tat["không_phân_tích_được"].append(
+            f"{thieu_khach} khách hàng và {thieu_ncc} nhà cung cấp CHƯA CÓ số dư "
+            "(chưa biết, không phải bằng 0) — tổng phải thu, phải trả và các tỷ lệ "
+            "tập trung chỉ tính trên những dòng còn lại."
+        )
     if gia_von_moi_ngay and gia_von_moi_ngay > 0:
         tom_tat["phải_thu_quy_ra_ngày"] = round(phai_thu / gia_von_moi_ngay, 1)
     return {"findings": sap_xep(fs), "summary": tom_tat}

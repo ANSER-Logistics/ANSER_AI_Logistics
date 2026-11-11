@@ -114,7 +114,7 @@ class _KyBaoCao(TypedDict):
     gross_margin_pct: Optional[float]
     net_margin_pct: Optional[float]
     orders: int
-    cogs_coverage_pct: float
+    cogs_coverage_pct: Optional[float]   # None = chưa biết (kỳ không có doanh thu), KHÔNG phải 0
     revenue_growth_pct: Optional[float]
     net_profit_growth_pct: Optional[float]
 
@@ -219,7 +219,12 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
         b = buckets[key]
         gross_profit = b["revenue_with_cogs"] - b["cogs"]
         net_profit = gross_profit - b["expenses"]
-        coverage = b["revenue_with_cogs"] / b["revenue"] if b["revenue"] else 0.0
+        # Kỳ chỉ có chi phí (không có dòng bán nào): phủ giá vốn là CHƯA BIẾT,
+        # không phải 0%. "0%" là một phép đo ("có doanh thu mà không dòng nào có
+        # giá vốn"); kỳ không có doanh thu thì chưa đo gì cả.
+        ky_coverage: Optional[float] = (
+            b["revenue_with_cogs"] / b["revenue"] if b["revenue"] else None
+        )
 
         periods.append({
             "period": key,
@@ -231,7 +236,7 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
             "gross_margin_pct": _pct(gross_profit, b["revenue_with_cogs"]),
             "net_margin_pct": _pct(net_profit, b["revenue"]),
             "orders": int(b["orders"]),
-            "cogs_coverage_pct": round(coverage * 100, 1),
+            "cogs_coverage_pct": None if ky_coverage is None else round(ky_coverage * 100, 1),
             # Tăng trưởng so với kỳ LIỀN TRƯỚC trong chính báo cáo này
             "revenue_growth_pct": _pct(b["revenue"] - prev_revenue, prev_revenue)
             if prev_revenue else None,
@@ -243,22 +248,35 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
     # --- độ tin cậy dựa trên phủ giá vốn của TOÀN báo cáo -------------------
     total_revenue = sum(p["revenue"] for p in periods)
     total_with_cogs = sum(buckets[k]["revenue_with_cogs"] for k in ordered)
-    coverage = total_with_cogs / total_revenue if total_revenue else 0.0
-
-    if coverage >= _COGS_COVERAGE_GOOD:
-        confidence = "cao"
-    elif coverage >= _COGS_COVERAGE_FAIR:
-        confidence = "trung bình"
+    if not total_revenue:
+        # Có kỳ (vì có chi phí) nhưng KHÔNG có doanh thu nào: không đo được phủ giá
+        # vốn. Trước đây rơi xuống nhánh "thấp" và ra "0%, Chỉ 0% doanh thu có giá
+        # vốn" — một phép đo trông như kết quả mà thực ra chưa đo gì. Cùng hình dạng
+        # với nhánh "không có dữ liệu" ở trên (đủ khoá, giá trị tự nói là chưa biết)
+        # vì Body render đúng các khoá này.
         warnings.append(
-            f"Chỉ {coverage * 100:.0f}% doanh thu có giá vốn — lãi gộp tính trên "
-            "phần đó, số thực có thể thấp hơn."
+            "Không có doanh thu nào trong các kỳ này (chỉ có chi phí) — không tính "
+            "được phủ giá vốn và lãi gộp."
         )
+        coverage_pct: Optional[float] = None
+        confidence = "không có dữ liệu"
     else:
-        confidence = "thấp"
-        warnings.append(
-            f"Chỉ {coverage * 100:.0f}% doanh thu có giá vốn — CHƯA đủ để kết luận "
-            "về lãi. Cần bổ sung giá vốn cho các mặt hàng còn thiếu."
-        )
+        coverage = total_with_cogs / total_revenue
+        coverage_pct = round(coverage * 100, 1)
+        if coverage >= _COGS_COVERAGE_GOOD:
+            confidence = "cao"
+        elif coverage >= _COGS_COVERAGE_FAIR:
+            confidence = "trung bình"
+            warnings.append(
+                f"Chỉ {coverage * 100:.0f}% doanh thu có giá vốn — lãi gộp tính trên "
+                "phần đó, số thực có thể thấp hơn."
+            )
+        else:
+            confidence = "thấp"
+            warnings.append(
+                f"Chỉ {coverage * 100:.0f}% doanh thu có giá vốn — CHƯA đủ để kết luận "
+                "về lãi. Cần bổ sung giá vốn cho các mặt hàng còn thiếu."
+            )
 
     if not req.expenses:
         warnings.append(
@@ -271,7 +289,7 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
         "periods": periods,
         "products": product_profitability(req.sales, top_n=req.top_n),
         "explain": {
-            "cogs_coverage_pct": round(coverage * 100, 1),
+            "cogs_coverage_pct": coverage_pct,
             "confidence": confidence,
             "formula": (
                 "lãi_gộp = doanh_thu_có_giá_vốn − giá_vốn; "

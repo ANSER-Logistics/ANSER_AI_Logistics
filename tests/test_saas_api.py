@@ -224,7 +224,7 @@ def test_loi_sql_khong_lam_sap_ca_cau_tra_loi(saas):
     with saas.engine.begin() as conn:
         conn.execute(text(f"DROP TABLE {SALES_TABLE}"))
     kq = saas.get_sales_report(workspace_id=1, period="today")
-    assert kq["revenue"] == "Lỗi" and kq["orders"] == 0
+    assert kq["revenue"] == "Lỗi" and kq["orders"] is None  # chưa biết, KHÔNG phải 0 đơn
 
 
 def test_chua_noi_duoc_db_thi_bao_ro(monkeypatch):
