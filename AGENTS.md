@@ -66,7 +66,7 @@ Từ 04/11/2026 `_ToolIn` đặt `extra="forbid"`, nên mỗi chỗ lệch khôn
 | Cho LLM suy ra "vì sao lệch 3 triệu" | `reconciliation.py` phân rã kèm bằng chứng, LLM chỉ diễn giải |
 | Cho LLM sinh SQL tự do rồi chạy | Tool có tham số ràng buộc, SQL viết sẵn |
 | Cho LLM tự cộng doanh thu/chi phí ra lợi nhuận | `reporting.build_report()` — code thuần, LLM chỉ diễn giải |
-| Trong vòng agentic: model tự tính rồi tuyên bố kết quả | Grammar `oneOf` gọi-tool/trả-lời; mọi con số phải đến từ kết quả tool |
+| Trong vòng agentic: model tự tính rồi tuyên bố kết quả | Grammar `anyOf` gọi-tool/trả-lời (không dùng `oneOf`: grammar mặc định của vLLM 0.11 bỏ qua các nhánh `oneOf` — xem docstring `agentic.build_decision_schema`); mọi con số phải đến từ kết quả tool. Còn kế hoạch tool mà model trả `answer` thì vòng lặp từ chối (PR #32) |
 
 Kiểm tra nhanh trước khi commit: *nếu model đọc sai một chữ số, có bản ghi sổ sách nào sai theo không?* Nếu có — thiếu lớp tất định.
 
@@ -93,7 +93,7 @@ Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham
 
 > ⚠️ `src/evaluate_system.py` **ĐÃ XOÁ** (07/11/2026, chủ dự án duyệt). Chặn chạy từ 04/11, xoá hẳn ba ngày sau. Lấy lại bằng `git show 75ead8a:src/evaluate_system.py`. Nó đã bị [`benchmark_v3.py`](offline_training/benchmark_v3.py) thay thế. Ngoài rủi ro R2 (gửi prompt + ground truth + đầu ra model tới DeepSeek, không rào nào chặn việc lỡ chạy trên dữ liệu khách), judge của nó chấm theo **định dạng Make.com** — thứ R4 đã bỏ — nên mọi điểm số nó đưa ra đều đo sai thứ. `benchmark_v3` chấm n8n bằng chính `validate_workflow()` của runtime và chấm narration bằng `src/core/grounding.py`, tức phép kiểm lúc đo và lúc chạy là MỘT. Lý do đầy đủ ở docstring đầu file.
 
-> ⚠️ `requirements.txt` có `openai`. Nếu package này được dùng để gọi API ngoài với dữ liệu khách — đó là vi phạm R2. Dùng nó làm client cho vLLM OpenAI-compatible server **nội bộ** thì hợp lệ.
+> ⚠️ `requirements.txt` có `openai`. Đo 12/11/2026: **`src/` không import nó**; chỉ `offline_training/` dùng (`dgen_common.py`, `day*_batch.py` gọi DeepSeek trên kịch bản hư cấu; `providers.py`, `benchmark_v3.py` cho bộ đo). Dùng nó để gọi API ngoài với dữ liệu khách là vi phạm R2 — riêng `providers.py` cho phép provider `anthropic:` nhận số tiền "đã ẩn danh", việc đó đang chờ chủ dự án ([#11](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/11) mục 19).
 
 **R2b — Kỷ luật bí mật (bổ sung 27/07/2026, sau sự cố lộ mật khẩu Neon):**
 
@@ -124,12 +124,12 @@ Không có 3 mục này ⇒ PR bị từ chối.
 | Nơi | Thực tế trong mã nguồn hôm nay |
 |---|---|
 | [`prompts.py::CODER_SYSTEM`](src/core/prompts.py) | Chỉ có chỗ giữ chỗ `{tools}` / `{example}`. Không chứa tên node nào. |
-| [`agent_middleware.py`](src/core/agent_middleware.py) | Lớp mỏng, 6 hàm, mỗi hàm một dòng `return workflow_schema.…`. Không giữ trạng thái. |
+| [`agent_middleware.py`](src/core/agent_middleware.py) | Lớp mỏng, 6 hàm, không giữ trạng thái. Năm hàm mỗi hàm một dòng `return workflow_schema.…`; hàm thứ sáu `get_db_schema` trả một placeholder (lược đồ DB do Body gửi kèm). |
 | [`chat.py`](src/api/routes/chat.py) | `_validate_workflow = validate_workflow` — một dòng gán bí danh. |
 
 Bản trước của mục này ghi *"Ba nơi sau phải luôn khớp nhau. Sửa một nơi mà không sửa hai nơi kia là lỗi"*. **Chỉ dẫn đó sai hướng** (sửa 04/11/2026) — nó bảo người đọc *bảo trì ba bản sao*, đúng thứ R4 cấm. Đoạn lược đồ DB ngay dưới đây đã tự nhận ra điều đó cho trường hợp của nó ("Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn") nhưng bảng n8n thì chưa ai soát lại. Mã nguồn đã hợp nhất xong từ 27/07/2026 — chỉ tài liệu còn kẹt lại ở cấu trúc cũ.
 
-**Đối chiếu bằng lệnh, đừng nhớ.** Đo 04/11/2026: 10 node type, cả bốn chỗ (catalog, prompt, `allowed_types()`, grammar) khớp tuyệt đối; `BLOCKED_NODE_TYPES` rời khỏi catalog.
+**Đối chiếu bằng lệnh, đừng nhớ.** Đo 12/11/2026: **12** node type trong catalog dự phòng (10 ở lần đo 04/11; thêm `emailSend`, `splitOut` khi khớp với workflow thật của Body ở PR #24), cả bốn chỗ (catalog, prompt, `allowed_types()`, grammar) khớp tuyệt đối; `BLOCKED_NODE_TYPES` rời khỏi catalog.
 
 ```bash
 pytest tests/test_agent_middleware.py tests/test_deterministic_core.py -q
@@ -168,7 +168,7 @@ Bản trước của danh sách này ghi `GPU_MEMORY_UTILIZATION`, `MAX_MODEL_LE
 
 `TEXT_GPU_FRACTION` cũng **chưa từng được code đọc** cho tới 04/11/2026 — `config.py` hardcode `0.55`, con số đo trên L4 22,5GB. Đường server đọc được từ env từ trước (compose truyền `--gpu-memory-utilization`), chỉ đường trong-tiến-trình còn kẹt. Nên tiêu chí nghiệm thu bên dưới **đang không đạt** ở đúng đường đó: chuyển sang 3090 24GB thì phải sửa code. Đã nối vào env, mặc định giữ `0.55` nên hành vi không đổi.
 
-Cặp `ENV` + `VLLM_BASE_URL` chọn backend ở đúng một chỗ, `engine.py::chon_backend()`. Có `VLLM_BASE_URL` thì text đi vLLM server ở mọi `ENV`. `SERVER` nghĩa là Brain không nạp model nào: bắt buộc có `VLLM_BASE_URL`, vision tắt có tuyên bố. Giá trị `ENV` lạ là lỗi cấu hình, không lặng lẽ nạp CUDA. Bảng đầy đủ ở [SO_TAY_NGUOI_MOI.md §2.4](SO_TAY_NGUOI_MOI.md).
+Cặp `ENV` + `VLLM_BASE_URL` chọn backend text/vision ở đúng một chỗ, `engine.py::chon_backend()`. (Một chỗ khác cũng đọc `ENV`: `agents/manager.py` quyết định `SemanticRouter` có tự nạp embedder không — đó là chuyện của bộ định tuyến, không phải chọn backend.) Có `VLLM_BASE_URL` thì text đi vLLM server ở mọi `ENV`. `SERVER` nghĩa là Brain không nạp model nào: bắt buộc có `VLLM_BASE_URL`, vision tắt có tuyên bố. Giá trị `ENV` lạ là lỗi cấu hình, không lặng lẽ nạp CUDA. Bảng đầy đủ ở [SO_TAY_NGUOI_MOI.md §2.4](SO_TAY_NGUOI_MOI.md).
 
 Tiêu chí nghiệm thu: **chuyển từ GPU thuê sang máy tự sở hữu chỉ đổi `.env`, không sửa dòng code nào.**
 
@@ -198,7 +198,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 
 1. Tool nào nhận tham số giá (`current_fuel_price`...) thì **caller phải lấy giá mới nhất tại thời điểm gọi**, không đọc giá trị cache cũ từ hôm trước.
 2. Nguồn giá công khai (dầu, tỷ giá) cập nhật bằng n8n scheduled job — được phép gọi ra ngoài vì là dữ liệu công khai một chiều (R2).
-3. Kết quả báo giá phải ghi kèm **thời điểm và giá đầu vào** đã dùng (đã có trong `internal` của `/tools/quote`) — để khi giá đổi, biết báo giá cũ dựa trên gì.
+3. Kết quả báo giá phải ghi kèm **thời điểm và giá đầu vào** đã dùng — để khi giá đổi, biết báo giá cũ dựa trên gì. **Thực hiện từ 12/11/2026 (PR #41):** `internal.inputs` (giá nhà xe, giá dầu hiện tại và gốc, `fuel_price_as_of`, `fuel_price_age_days`, `fuel_adjustment_applied`) và `internal.computed_at`. Trước ngày đó câu này ghi "đã có" nhưng `internal` chỉ có `fuel_ratio`. **Chưa đặt ngưỡng** giá dầu cũ bao nhiêu ngày thì cảnh báo/từ chối — code chỉ đo tuổi và ghi ra; con số đó chờ chủ dự án ([#11](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/11) mục 17).
 
 ### 3.2. Cross-platform
 
@@ -321,7 +321,7 @@ Hệ quả, và chúng đi ngược thói quen gộp sớm:
    - `git add . && git commit && git push`
 3. **Nếu sandbox chặn:** sinh script Python cross-platform `execute_backup_and_push.py` để người dùng chạy một lần.
 4. **Không commit:** credential, model weights, dữ liệu khách hàng thật.
-5. **Phải commit:** 5 file nguồn tập train mà [`merge_all.py`](offline_training/merge_all.py) cần (`train_retail_base`, `module_a_clean`, `module_b`, `module_c`, `module_d`). Hiện thiếu ⇒ **không train lại được model** ⇒ single point of failure.
+5. **Phải commit:** nguồn tập train. Đã đóng 27/07/2026: bốn file khôi phục từ Drive nằm ở [`offline_training/v2_sources/`](offline_training/v2_sources/) và `build_dataset_v3.py` đọc từ đó. *(Bản trước của mục này đòi 5 file mà `merge_all.py` cần — `train_retail_base`, `module_a_clean`, `module_b`, `module_c`, `module_d`. Ba trong số đó **chưa từng tồn tại** trên Drive (`v2_sources/README.md`); `merge_all.py` thuộc pipeline v2 đã bị thay và từ PR #42 không còn ghi đè file đầu ra bằng file rỗng khi vắng nguồn.)*
 
 ---
 
@@ -346,17 +346,17 @@ Theo [ARCHITECTURE.md §12](ARCHITECTURE.md):
 | Thứ tự | Việc | Trạng thái |
 |---|---|---|
 | S0 | Tài liệu chiến lược — ARCHITECTURE.md + AGENTS.md | ✅ Xong |
-| S1 | Chốt n8n làm định dạng duy nhất + bật `guided_json` + xoá vòng retry | ✅ Xong |
+| S1 | Chốt n8n làm định dạng duy nhất + bật `guided_json` + xoá vòng retry | ✅ Xong — còn đúng **một** lần thử lại có feedback khi workflow không qua `validate_workflow` (`chat.py`, đo bằng `workflow_retried`) |
 | S1b | Pipeline fine-tune v3 (Qwen3-8B, reverse-generation) + khôi phục data v2 | ✅ Mã xong, **cổng đo chưa chạy đủ** — xem dưới |
 | S3 | Tầng tool + vòng lặp agentic + MCP bọc REST | ✅ Xong |
-| S4 | Metrics `ai_metrics_log` | ✅ Xong |
-| S7 | Hội thoại nhiều lượt (runtime + data đa lượt) | ✅ Xong |
-| S8 | Kênh giải thích xAI (nhánh EXPLAIN) + engine báo cáo DT/CP/LN | ✅ Xong |
-| **S2** | **Hạ tầng: vLLM server riêng, Qwen3-8B, ctx 32k, Redis, Cloudflare Tunnel** | 🔵 **Kế tiếp** |
+| S4 | Metrics `ai_metrics_log` | 🟡 Ghi được, **chưa dùng**: `TurnMetric` ghi vào file cục bộ (không phải volume, không đẩy sang Body); p95 tính ra nhưng chưa nối `/health` ([#9](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/9)) |
+| S7 | Hội thoại nhiều lượt (runtime + data đa lượt) | 🔴 Mã xong nhưng **không lưu được gì** với DB thật của Body (6 bảng `memory.py` đọc không tồn tại). Đã chốt hướng 3 (Body gửi kèm `history`), chờ [Body#28](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/28) — xem [#19](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/19) |
+| S8 | Kênh giải thích xAI (nhánh EXPLAIN) + engine báo cáo DT/CP/LN | ✅ Engine báo cáo xong (`/tools/report`). Đường **chat → báo cáo** chưa có nguồn dòng bán (`saas.get_report_lines` không tồn tại, [#2](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/2)); nhánh EXPLAIN tìm khối JSON của engine trong lịch sử chat, mà lịch sử hiện không lưu được (S7) |
+| **S2** | **Hạ tầng: vLLM server riêng, Qwen3-8B, ctx 32k, Redis, Cloudflare Tunnel** | 🔵 **Đang làm** — text qua vLLM server đã nối và chạy trên Colab L4; Redis ([#15](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/15)) và vision qua HTTP ([#14](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/14)) đang chờ PR; Cloudflare Tunnel chưa có mã; `deploy/docker-compose.yml` **chưa từng được chạy** |
 | S5 | XAI hoá đơn: `reconciliation.py` + `InvoiceFieldValidator` + gộp prompt hoá đơn | ⚪ Chờ |
 | S6 | Lược đồ Logistics bên Body + API xuất dòng bán/chi phí cho `/tools/report` — **cần phối hợp repo Body** | ⚪ Chặn |
 
-Nghiệp vụ ưu tiên 1 là **logistics / báo giá vận tải**. Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
+**Chủ dự án chốt 12/11/2026: chu kỳ 02 chạy song song hai nghiệp vụ** — sổ sách/kế toán (phần đã chạy trên dữ liệu thật của khách pilot) và logistics/báo giá vận tải. Hai tài liệu từng nói ngược nhau: `ROADMAP.md` (13/08) ghi báo giá cước "tạm gác" vì khách pilot chuyên bán dầu, còn bản trước của đoạn này ghi báo giá vận tải là ưu tiên 1. Mỗi cái đúng ở thời điểm viết; từ nay theo quyết định này và [`docs/chu-ky-02/SRS_CHU_KY_02.md`](docs/chu-ky-02/SRS_CHU_KY_02.md). Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
 
 ### S1b — cổng đo chất lượng chưa chạy đủ (soát 04/11/2026)
 
@@ -373,10 +373,10 @@ Tập duy nhất còn lại đúng là tập duy nhất sinh được không c�
 
 **Mã nguồn xử lý chuyện này trung thực** — đây không phải lỗi che giấu. `benchmark_v3` in `"KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model đạt)"`, và câu kết luận của nó có điều kiện: *"Qua mọi ngưỡng ĐO ĐƯỢC — nhưng xem hai mục ⚠ ở trên trước khi kết luận là model đạt"*. `preflight_check.py` cũng cảnh báo.
 
-**Nhưng mã thoát vẫn là 0 khi thiếu tập đo.** Người đọc output thì hiểu đúng; một job CI đọc `$?` thì không. Hiện chưa ai đọc — `ci.yml` không gọi `benchmark_v3`. Nối nó vào CI thì phải xử chuyện này trước.
+**Nhưng mặc định mã thoát vẫn là 0 khi thiếu tập đo.** Người đọc output thì hiểu đúng; một job CI đọc `$?` thì không. Từ `d8669a3` có cờ `--doi-du-tap-do` (mặc định **tắt**) thoát **2** khi không đủ dữ liệu — `--no-gate` không tha trường hợp này. `ci.yml` vẫn không gọi `benchmark_v3`, nên nối nó vào CI phải bật cờ đó.
 
 Dùng DeepSeek ở ba generator trên **không phạm R2**: chúng sinh trên kịch bản hư cấu, con số do engine thật tính, không có dữ liệu khách nào rời hệ thống. Khác hẳn `evaluate_system.py` đã xoá — cái đó gửi dữ liệu **thật** đi chấm điểm.
 
-> **Hệ quả của việc xoá:** `DEEPSEEK_API_KEY` không còn chỗ dùng nào trong `src/`. Mọi chỗ cần nó giờ nằm trong `offline_training/`, và chúng sinh trên kịch bản hư cấu. Nhờ vậy `openai` trong `requirements.txt` — thứ cảnh báo ở đầu mục R2 đánh dấu là đáng ngờ — giờ rõ ràng là chỉ dùng làm client cho vLLM nội bộ.
+> **Hệ quả của việc xoá:** `DEEPSEEK_API_KEY` không còn chỗ dùng nào trong `src/`. Mọi chỗ cần nó giờ nằm trong `offline_training/`, và chúng sinh trên kịch bản hư cấu. Bản trước của câu này kết luận `openai` "chỉ dùng làm client cho vLLM nội bộ" — **sai** (đo 12/11/2026): `src/` không import `openai` chút nào; nó chỉ nằm ở `offline_training/`. Một gói chỉ script offline dùng mà vẫn nằm trong `requirements.txt` của service là việc dọn cho sau khi #17 (tách `requirements-gpu.txt`) gộp.
 
 Chi tiết và các hướng xử: xem việc trên bảng kanzo.
