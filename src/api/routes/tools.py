@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
@@ -133,6 +134,13 @@ class QuoteRequest(_ToolIn):
     pricing_rule: PricingRuleIn
     current_fuel_price: Optional[float] = Field(None, gt=0)
     extra_surcharges: list[SurchargeIn] = []
+    fuel_price_as_of: Optional[str] = Field(
+        None,
+        description=(
+            "Ngày của `current_fuel_price`, YYYY-MM-DD. Tuỳ chọn; có thì kết quả ghi "
+            "lại ngày và tuổi của giá dầu để biết báo giá dựa trên giá ngày nào."
+        ),
+    )
 
 
 class CarrierIn(_ToolIn):
@@ -382,12 +390,18 @@ async def tool_quote(req: QuoteRequest, x_api_token: Optional[str] = Header(None
             min_margin_amount=req.pricing_rule.min_margin_amount,
             surcharges=[Surcharge(**s.model_dump()) for s in req.pricing_rule.surcharges],
         )
-        return compute_quote(
+        out = compute_quote(
             carrier_cost=req.carrier_cost,
             rule=rule,
             current_fuel_price=req.current_fuel_price,
             extra_surcharges=[Surcharge(**s.model_dump()) for s in req.extra_surcharges],
+            fuel_price_as_of=req.fuel_price_as_of,
         )
+        # Thời điểm tính nằm ở ĐÂY chứ không trong `compute_quote`: hàm đó là phép
+        # tính thuần, cùng đầu vào phải ra cùng kết quả. Chỉ vào `internal` — phần
+        # `quote` đi ra khách cuối không cần biết.
+        out["internal"]["computed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        return out
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
