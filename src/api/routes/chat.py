@@ -40,6 +40,7 @@ from src.core.engine import TASK_REGISTRY
 from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
 from src.core.retrieval_policy import KHONG_CO_TAI_LIEU, decide_web_fallback
 from src.core.schemas import RetailChatResponse
+from src.core.serving import DemSinh
 from src.core.tool_planner import (
     la_cau_so_chao_gia,
     la_cau_soat_hoa_don,
@@ -302,13 +303,13 @@ async def _provide_tool_data(
     return args, None
 
 
-async def _run_agentic(user_msg, plan, store_id, history, request_id, metric):
+async def _run_agentic(user_msg, plan, store_id, history, request_id, metric, dem: DemSinh):
     """
     Vòng agentic với TOOL ĐÃ ĐƯỢC CHỌN SẴN bằng luật.
 
     Trả (câu_trả_lời, dữ_liệu_neo). Dữ liệu neo là kết quả tool — mọi con số
     trong câu trả lời phải có ở đó, và chốt chặn ở cuối `process_chat` kiểm
-    đúng điều đó.
+    đúng điều đó. Số token của mọi lần gọi model trong vòng cộng vào `dem`.
     """
     from src.agents.agentic import AgenticLoop
     from src.api.routes.tools import get_tool_defs, run_tool
@@ -324,6 +325,9 @@ async def _run_agentic(user_msg, plan, store_id, history, request_id, metric):
         data_provider=provider,
     ).run(user_msg, history=history)
 
+    dem_vong = out.get("dem_sinh")
+    if isinstance(dem_vong, DemSinh):
+        dem.gop(dem_vong)
     metric.tool_calls = out.get("tool_calls")
     metric.tool_plan = ",".join(plan)
     metric.asked_back = bool(out.get("data_missing"))
@@ -362,7 +366,8 @@ def _find_explainable(history: Optional[list]) -> Optional[str]:
 
 
 async def _handle_logistics_quote(
-    user_msg: str, request_id: str, history: Optional[list] = None
+    user_msg: str, request_id: str, history: Optional[list] = None,
+    dem: Optional[DemSinh] = None,
 ) -> str:
     """
     Nhánh LOGISTICS: trích xuất -> kiểm tra đủ trường -> gọi webhook n8n.
@@ -389,9 +394,9 @@ async def _handle_logistics_quote(
     # 1) Trích xuất (LLM, guided_json)
     #    Lịch sử phải được bọc y hệt lúc train (P4) — xem
     #    Prompts.format_extraction_history.
-    raw = await runtime.manager.extract_quote_request(
+    raw = (dem or DemSinh()).cong(await runtime.manager.extract_quote_request(
         user_msg, history=Prompts.format_extraction_history(history)
-    )
+    ))
     obj, err = _extract_json_block(raw)
     if obj is None:
         logger.warning(
@@ -580,6 +585,9 @@ async def chat_endpoint(
             request_id=request_id, route="?", ok=False, latency_ms=0,
             user_id=user_id, store_id=store_id, message_chars=len(user_msg),
         )
+        # Cộng số token của MỌI lần gọi model trong lượt này (#16). Một bộ đếm
+        # riêng cho mỗi lượt — biến cục bộ của `process_chat`, không dùng chung.
+        dem = DemSinh()
 
         # Lịch sử hội thoại — thiếu nó thì mọi tin nhắn là một phiên độc lập,
         # "thế xe 3 tấn thì sao?" không thể hiểu được.
@@ -653,12 +661,12 @@ async def chat_endpoint(
         cau_noi_thue = noi_tra_loi_hoi_thue(user_msg, history)
         if cau_noi_thue:
             resp, grounding_ctx = await _run_agentic(
-                cau_noi_thue, ["vat"], store_id, history, request_id, metric
+                cau_noi_thue, ["vat"], store_id, history, request_id, metric, dem
             )
         elif plan and (cat not in ("LOGISTICS", "TECHNICAL")
                        or y_dinh_agentic_trong_logistics):
             resp, grounding_ctx = await _run_agentic(
-                user_msg, plan, store_id, history, request_id, metric
+                user_msg, plan, store_id, history, request_id, metric, dem
             )
 
         # ------------------------------------------------------------------
@@ -668,7 +676,7 @@ async def chat_endpoint(
         # xác nhận. Toàn bộ đọc Sheet + tính giá + nháp + duyệt nằm bên n8n +
         # /tools (luồng logistics_quote_request -> logistics_quote_approve).
         elif cat == "LOGISTICS":
-            resp = await _handle_logistics_quote(user_msg, request_id, history=history)
+            resp = await _handle_logistics_quote(user_msg, request_id, history=history, dem=dem)
             metric.asked_back = "tôi cần thêm" in resp.lower()
 
         # ------------------------------------------------------------------
@@ -687,9 +695,9 @@ async def chat_endpoint(
                 resp = report_err
                 metric.asked_back = True
             else:
-                resp = await runtime.manager.answer_report(
+                resp = dem.cong(await runtime.manager.answer_report(
                     user_msg, context=report_ctx, history=history
-                )
+                ))
 
         # ------------------------------------------------------------------
         # EXPLAIN — xAI: giải thích kết quả vừa đưa ra
@@ -707,19 +715,21 @@ async def chat_endpoint(
                 metric.asked_back = True
             else:
                 grounding_ctx = explain_ctx
-                resp = await runtime.manager.explain_result(
+                resp = dem.cong(await runtime.manager.explain_result(
                     user_msg, context=explain_ctx, history=history
-                )
+                ))
 
         elif cat == "TECHNICAL":
-            plan = await runtime.manager.plan_or_ask(req.message)
+            # Tên riêng, KHÔNG dùng lại `plan`: ở trên `plan` là kế hoạch tool
+            # (list[str]), còn đây là văn bản kế hoạch workflow model viết ra.
+            ke_hoach_wf = dem.cong(await runtime.manager.plan_or_ask(req.message))
 
-            if "[PLAN]" not in plan:
+            if "[PLAN]" not in ke_hoach_wf:
                 # Model hỏi lại cho rõ yêu cầu -> trả nguyên câu hỏi
-                resp = clean_output(plan)
+                resp = clean_output(ke_hoach_wf)
                 metric.asked_back = True
             else:
-                raw = await runtime.coder.write_code(user_msg, plan)
+                raw = dem.cong(await runtime.coder.write_code(user_msg, ke_hoach_wf))
                 obj, err = _extract_json_block(raw)
 
                 ok = False
@@ -737,7 +747,8 @@ async def chat_endpoint(
                         f"Lần trước JSON bị lỗi: {err}. "
                         "Sửa lại và chỉ xuất JSON hợp lệ, không thêm chữ nào khác."
                     )
-                    raw = await runtime.coder.write_code(user_msg, plan, feedback=feedback)
+                    raw = dem.cong(await runtime.coder.write_code(
+                        user_msg, ke_hoach_wf, feedback=feedback))
                     obj, err = _extract_json_block(raw)
                     if obj is not None:
                         ok, err = _validate_workflow(obj)
@@ -797,9 +808,9 @@ async def chat_endpoint(
                 db_context = "(không lấy được dữ liệu từ cơ sở dữ liệu)"
 
             grounding_ctx = db_context
-            resp = await runtime.manager.answer_data(
+            resp = dem.cong(await runtime.manager.answer_data(
                 user_msg, context=db_context, history=history
-            )
+            ))
 
         # ------------------------------------------------------------------
         # RETRIEVAL — RAG tài liệu nội bộ, fallback web
@@ -858,15 +869,15 @@ async def chat_endpoint(
 
             if not resp:
                 grounding_ctx = context_docs
-                resp = await runtime.manager.answer_retrieval(
+                resp = dem.cong(await runtime.manager.answer_retrieval(
                     user_msg, context=context_docs, history=history
-                )
+                ))
 
         # ------------------------------------------------------------------
         # GENERAL — hội thoại, tính toán, giải thích
         # ------------------------------------------------------------------
         else:
-            resp = await runtime.manager.answer_general(user_msg, history=history)
+            resp = dem.cong(await runtime.manager.answer_general(user_msg, history=history))
 
         cleaned = clean_output(resp)
 
@@ -912,6 +923,11 @@ async def chat_endpoint(
         metric.latency_ms = timer.ms
         metric.answer_chars = len(cleaned)
         metric.ok = cleaned != _WORKFLOW_FAILED_MSG
+        # Số token và thời gian gọi model của CẢ lượt (#16). None = không biết
+        # (mock, hoặc có lần gọi server không trả `usage`) — không bao giờ 0.
+        metric.completion_tokens = dem.completion_tokens
+        metric.model_ms = dem.model_ms
+        metric.model_calls = dem.so_lan or None
         metrics.record(metric)
 
         chat_response = RetailChatResponse(answer=cleaned, sources=None)

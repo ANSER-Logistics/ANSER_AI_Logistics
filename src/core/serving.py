@@ -387,6 +387,83 @@ def _chuoi_tra_ve(x: Any) -> str:
     return x.strip()
 
 
+# ---------------------------------------------------------------------------
+# Kết quả một lần sinh — chữ KÈM số token (#16, 09/11/2026)
+# ---------------------------------------------------------------------------
+# Trước đây mọi hàm sinh trả `str`, và `usage.completion_tokens` vLLM trả về
+# nằm ngay cạnh nội dung thì bị VỨT. Hệ quả: ngưỡng `P95_MS_MOI_TOKEN` (NFR-03)
+# chỉ đo được trong script Colab, service đang chạy không tính nổi ms/token,
+# nên #9 (nối ngưỡng vào /health) không xây được.
+#
+# Chọn ĐỔI KIỂU TRẢ VỀ (hướng 1 của #16) chứ không để số token trên một trường
+# của client đọc sau lời gọi: hai request đồng thời sẽ giẫm lên trường đó.
+#
+# `None` = KHÔNG BIẾT (mock, server không trả `usage`, trả sai kiểu). Không bao
+# giờ điền 0 — 0 nghĩa là "sinh ra không token nào" — và không bao giờ đoán từ
+# số ký tự: tỷ lệ ký tự/token của tiếng Việt khác tiếng Anh và khác giữa các bộ
+# tách từ, đoán là bịa một con số rồi dựng ngưỡng lên nó (R1).
+
+@dataclass(frozen=True)
+class KetQuaSinh:
+    """Một lần sinh: chữ đã `strip()`, số token sinh ra, và thời gian gọi model."""
+    text: str
+    completion_tokens: Optional[int] = None
+    # Thời gian của RIÊNG lời gọi model, không gồm tool/RAG/n8n trong cùng lượt.
+    # ms/token phải chia trên số này; chia trên latency cả lượt là sai.
+    model_ms: Optional[float] = None
+
+    @staticmethod
+    def tu(x: "KetQuaSinh | str") -> "KetQuaSinh":
+        """Chấp nhận cả `str` (test giả, mã cũ) — khi đó số token là KHÔNG BIẾT."""
+        return x if isinstance(x, KetQuaSinh) else KetQuaSinh(str(x))
+
+
+def _so_token(data: dict[str, Any]) -> Optional[int]:
+    """`usage.completion_tokens` nếu là số nguyên >= 0; còn lại -> None, không đoán."""
+    usage = data.get("usage")
+    n = usage.get("completion_tokens") if isinstance(usage, dict) else None
+    if isinstance(n, int) and not isinstance(n, bool) and n >= 0:
+        return n
+    return None
+
+
+@dataclass
+class DemSinh:
+    """
+    Cộng dồn mọi lần sinh trong MỘT lượt chat (vòng agentic gọi model nhiều lần,
+    nhánh workflow có thể sinh lại). Chỉ cần một lần KHÔNG BIẾT là tổng cũng
+    không biết: cộng phần biết được rồi chia ra ms/token là sai số có hệ thống.
+    """
+    so_lan: int = 0
+    _token: Optional[int] = 0
+    _ms: Optional[float] = 0.0
+
+    def cong(self, kq: "KetQuaSinh | str") -> str:
+        """Cộng một lần sinh, trả về chữ để dùng tiếp."""
+        k = KetQuaSinh.tu(kq)
+        self.so_lan += 1
+        self._token = None if self._token is None or k.completion_tokens is None \
+            else self._token + k.completion_tokens
+        self._ms = None if self._ms is None or k.model_ms is None else self._ms + k.model_ms
+        return k.text
+
+    def gop(self, khac: "DemSinh") -> None:
+        if khac.so_lan == 0:
+            return
+        self.so_lan += khac.so_lan
+        self._token = None if self._token is None or khac._token is None \
+            else self._token + khac._token
+        self._ms = None if self._ms is None or khac._ms is None else self._ms + khac._ms
+
+    @property
+    def completion_tokens(self) -> Optional[int]:
+        return self._token if self.so_lan else None
+
+    @property
+    def model_ms(self) -> Optional[int]:
+        return round(self._ms) if self.so_lan and self._ms is not None else None
+
+
 class VLLMServerClient:
     """
     Gọi vLLM đang chạy chế độ server qua HTTP.
@@ -519,29 +596,36 @@ class VLLMServerClient:
                 f"vLLM trả nội dung không đọc được: {resp.text[:200]}"
             ) from exc
 
-    async def complete(self, req: CompletionRequest) -> str:
+    async def complete(self, req: CompletionRequest) -> KetQuaSinh:
         """Sinh text từ prompt THÔ qua `/v1/completions`. Không áp chat template."""
+        t0 = time.perf_counter()
         data = await self._post("/v1/completions", req.to_payload(self.model))
+        ms = (time.perf_counter() - t0) * 1000
         try:
-            return _chuoi_tra_ve(data["choices"][0]["text"])
+            return KetQuaSinh(_chuoi_tra_ve(data["choices"][0]["text"]), _so_token(data), ms)
         except (KeyError, IndexError, TypeError) as exc:
             raise BackendError(
                 f"vLLM trả nội dung không đọc được: {str(data)[:200]}"
             ) from exc
 
-    async def chat(self, req: ChatRequest) -> str:
+    async def chat(self, req: ChatRequest) -> KetQuaSinh:
         """
         Sinh text từ `messages` qua `/v1/chat/completions` — server áp chat template.
 
-        Trả `str` đã `strip()`, cùng hình dạng với `ModelEngine.generate_chat`
-        đường trong tiến trình, để tầng gọi không biết mình đang đi đường nào.
+        Trả `KetQuaSinh` (chữ đã `strip()` + `usage.completion_tokens` + thời
+        gian gọi), cùng hình dạng với `ModelEngine.generate_chat` đường trong
+        tiến trình, để tầng gọi không biết mình đang đi đường nào.
 
-        `content` là `null` (model chỉ sinh token đặc biệt) thì trả chuỗi rỗng,
-        đúng như đường trong tiến trình làm với `outputs[0].outputs[0].text`.
+        `content` là `null` (model chỉ sinh token đặc biệt) thì chữ là chuỗi
+        rỗng, đúng như đường trong tiến trình làm với `outputs[0].outputs[0].text`.
         """
+        t0 = time.perf_counter()
         data = await self._post("/v1/chat/completions", req.to_payload(self.model))
+        ms = (time.perf_counter() - t0) * 1000
         try:
-            return _chuoi_tra_ve(data["choices"][0]["message"]["content"])
+            return KetQuaSinh(
+                _chuoi_tra_ve(data["choices"][0]["message"]["content"]), _so_token(data), ms,
+            )
         except (KeyError, IndexError, TypeError) as exc:
             raise BackendError(
                 f"vLLM trả nội dung không đọc được: {str(data)[:200]}"
@@ -582,6 +666,8 @@ __all__ = [
     "ConcurrencyGuard",
     "CompletionRequest",
     "ChatRequest",
+    "DemSinh",
+    "KetQuaSinh",
     "REPETITION_PENALTY_TU_DO",
     "REPETITION_PENALTY_GRAMMAR",
     "VLLMServerClient",

@@ -97,6 +97,15 @@ class TurnMetric:
     # "lộ nội bộ"). Đếm được cái này mới biết model bịa bao nhiêu LÚC CHẠY THẬT
     # — trước đây chỉ biết con số lúc benchmark, trên tập eval 27 câu.
     blocked_reason: Optional[str] = None
+    # Số token model sinh ra trong CẢ lượt, lấy từ `usage.completion_tokens` của
+    # vLLM (#16) — đầu vào của ngưỡng `P95_MS_MOI_TOKEN` (#9). None = KHÔNG BIẾT
+    # (mock, server không trả `usage`); không bao giờ 0, không bao giờ đoán từ
+    # `answer_chars` (tỷ lệ ký tự/token của tiếng Việt không cố định).
+    completion_tokens: Optional[int] = None
+    # Thời gian của riêng các lời gọi model trong lượt. ms/token phải chia trên
+    # số này: `latency_ms` gồm cả tool, RAG, n8n — chia trên nó là sai.
+    model_ms: Optional[int] = None
+    model_calls: Optional[int] = None        # số lần gọi model trong lượt
     error: Optional[str] = None
     extra: dict = field(default_factory=dict)
     ts: str = ""

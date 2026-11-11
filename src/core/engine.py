@@ -11,11 +11,23 @@ from src.core.serving import (
     BackendUnavailable,
     ChatRequest,
     CompletionRequest,
+    KetQuaSinh,
     VLLMServerClient,
     guard_from_env,
 )
 
 logger = logging.getLogger("projecta.engine")
+
+
+def _ket_qua_trong_tien_trinh(out) -> tuple[str, int | None]:
+    """
+    (chữ đã strip, số token sinh ra) từ một `CompletionOutput` của vLLM.
+
+    Số token đếm từ `token_ids` THẬT của output — cùng con số vLLM server ghi
+    vào `usage.completion_tokens`. Thiếu `token_ids` thì None, không đoán (#16).
+    """
+    ids = getattr(out, "token_ids", None)
+    return out.text.strip(), (len(ids) if ids is not None else None)
 
 
 # ---------------------------------------------------------------------------
@@ -350,11 +362,12 @@ class ModelEngine:
     # ------------------------------------------------------------------
     # TEXT
     # ------------------------------------------------------------------
-    async def generate_text(self, prompt, max_tokens=1024, temperature=0.1):
-        """Sinh text từ prompt THÔ. Cùng hình dạng trả về (`str`) ở cả ba backend."""
+    async def generate_text(self, prompt, max_tokens=1024, temperature=0.1) -> KetQuaSinh:
+        """Sinh text từ prompt THÔ. Cùng hình dạng trả về (`KetQuaSinh`) ở cả ba backend."""
         if self.text_backend == "mock":
             await asyncio.sleep(0.05)
-            return '{"mock_response": "LOCAL mock text response."}'
+            # Số token KHÔNG BIẾT (None), không phải 0 — mock không sinh token nào thật.
+            return KetQuaSinh('{"mock_response": "LOCAL mock text response."}')
 
         if self.text_backend == "server":
             assert self.server is not None
@@ -380,13 +393,15 @@ class ModelEngine:
 
         def _blocking_generate():
             outputs = self.llm.generate([prompt], params)
-            return outputs[0].outputs[0].text.strip()
+            return _ket_qua_trong_tien_trinh(outputs[0].outputs[0])
 
         # vLLM generate là blocking -> đẩy ra thread pool để không nghẽn event loop.
         # Guard chặn trước cửa: quá tải thì từ chối dứt khoát (503 + Retry-After)
         # thay vì để mọi request cùng chậm dần đều cho tới lúc hết giờ.
         async with self.text_guard.slot():
-            return await loop.run_in_executor(None, _blocking_generate)
+            t0 = time.perf_counter()
+            text, so_token = await loop.run_in_executor(None, _blocking_generate)
+            return KetQuaSinh(text, so_token, (time.perf_counter() - t0) * 1000)
 
     @staticmethod
     def _messages(system: str, user: str, history: list[dict] | None) -> list[dict]:
@@ -428,7 +443,7 @@ class ModelEngine:
         temperature=0.1,
         json_schema: dict | None = None,
         history: list[dict] | None = None,
-    ):
+    ) -> KetQuaSinh:
         """
         Sinh text theo ĐÚNG định dạng chat của Qwen.
         Tự dựng messages [system, ...history, user] rồi để
@@ -450,7 +465,7 @@ class ModelEngine:
         """
         if self.text_backend == "mock":
             await asyncio.sleep(0.05)
-            return '{"mock_response": "LOCAL mock chat response."}'
+            return KetQuaSinh('{"mock_response": "LOCAL mock chat response."}')
 
         messages = self._messages(system, user, history)
 
@@ -500,10 +515,12 @@ class ModelEngine:
                 enable_thinking=False,
             )
             outputs = self.llm.generate([prompt], params)
-            return outputs[0].outputs[0].text.strip()
+            return _ket_qua_trong_tien_trinh(outputs[0].outputs[0])
 
         async with self.text_guard.slot():
-            return await loop.run_in_executor(None, _blocking_generate)
+            t0 = time.perf_counter()
+            text, so_token = await loop.run_in_executor(None, _blocking_generate)
+            return KetQuaSinh(text, so_token, (time.perf_counter() - t0) * 1000)
 
     # ------------------------------------------------------------------
     # VISION  (method MỚI — để vision_model không còn là "dead load")

@@ -53,6 +53,7 @@ import logging
 from typing import Any, Callable, Optional
 
 from src.core.prompts import Prompts
+from src.core.serving import DemSinh
 from src.core.utils import extract_json_block
 
 logger = logging.getLogger("projecta.agents.agentic")
@@ -366,9 +367,17 @@ class AgenticLoop:
         """
         Chạy tới khi model đưa `answer` hoặc chạm trần bước.
 
-        Trả {answer, steps[], tool_calls, hit_limit} — `steps` là vết đầy đủ,
-        dùng cho xAI ("vì sao ra kết quả này") và cho ai_metrics_log.
+        Trả {answer, steps[], tool_calls, hit_limit, dem_sinh} — `steps` là vết
+        đầy đủ, dùng cho xAI ("vì sao ra kết quả này") và cho ai_metrics_log.
+        `dem_sinh` cộng số token của MỌI lần gọi model trong vòng (#16) — một
+        bộ đếm riêng cho mỗi lần `run`, nên hai request đồng thời không lẫn số.
         """
+        dem = DemSinh()
+        out = await self._run(question, history, dem)
+        out["dem_sinh"] = dem
+        return out
+
+    async def _run(self, question: str, history: list[dict] | None, dem: DemSinh) -> dict:
         full_schema = build_decision_schema(self._names)
         answer_schema = build_answer_schema()
         system = self._system()
@@ -400,7 +409,7 @@ class AgenticLoop:
             else:
                 schema = full_schema
 
-            raw = await self.manager.generate_chat(
+            raw = dem.cong(await self.manager.generate_chat(
                 system=system,
                 user=user_turn,
                 # Trần không phải cách sửa gốc: nguyên nhân là `arguments_schema`
@@ -410,7 +419,7 @@ class AgenticLoop:
                 temperature=0.1,
                 json_schema=schema,
                 history=transcript,
-            )
+            ))
             decision = self._parse(raw)
 
             if decision is None:
