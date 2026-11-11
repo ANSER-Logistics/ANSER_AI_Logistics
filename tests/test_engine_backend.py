@@ -63,8 +63,14 @@ def test_env_la_bao_loi_thay_vi_lang_le_nap_cuda(env):
 class _VllmGia:
     """Trả lời đúng hình dạng vLLM OpenAI-compatible, ghi lại mọi request."""
 
-    def __init__(self, noi_dung: str = '  {"tool": "vat"}  ', ma: int = 200):
+    def __init__(self, noi_dung: str = '  {"tool": "vat"}  ', ma: int = 200,
+                 so_token: int | None = 7):
         self.requests: list[tuple[str, dict]] = []
+        # `usage.completion_tokens` như vLLM thật (#16). None = server không trả
+        # `usage` — để kiểm Brain ghi "không biết" chứ không ghi 0.
+        usage = {} if so_token is None else {
+            "usage": {"prompt_tokens": 40, "completion_tokens": so_token,
+                      "total_tokens": 40 + so_token}}
         # Số lần client ngắt trước khi server giả kịp trả lời — xem `_tra`.
         self.ngat_giua_chung: int = 0
         gia = self
@@ -108,9 +114,9 @@ class _VllmGia:
                 if ma != 200:
                     self._tra(ma, {"error": "loi gia"})
                 elif self.path == "/v1/chat/completions":
-                    self._tra(200, {"choices": [{"message": {"content": noi_dung}}]})
+                    self._tra(200, {"choices": [{"message": {"content": noi_dung}}], **usage})
                 elif self.path == "/v1/completions":
-                    self._tra(200, {"choices": [{"text": noi_dung}]})
+                    self._tra(200, {"choices": [{"text": noi_dung}], **usage})
                 else:
                     self._tra(404, {})
 
@@ -180,8 +186,11 @@ async def test_generate_chat_thuc_su_goi_toi_vllm_server(engine_server, vllm_gia
     assert than["chat_template_kwargs"] == {"enable_thinking": False}
     assert than["guided_json"] == schema
     assert than["repetition_penalty"] == 1.0
-    # Yêu cầu 3: cùng hình dạng với đường trong tiến trình (`str` đã strip)
-    assert out == '{"tool": "vat"}'
+    # Yêu cầu 3: cùng hình dạng với đường trong tiến trình (chữ đã strip)
+    assert out.text == '{"tool": "vat"}'
+    # #16: số token đi nguyên từ `usage` của server, không đoán
+    assert out.completion_tokens == 7
+    assert out.model_ms is not None and out.model_ms >= 0
 
 
 @pytest.mark.asyncio
@@ -201,7 +210,8 @@ async def test_generate_text_di_completions_prompt_tho(engine_server, vllm_gia):
     _, than = vllm_gia.requests[0]
     assert than["prompt"] == "PROMPT THÔ"
     assert than["max_tokens"] == 32 and than["repetition_penalty"] == 1.25
-    assert isinstance(out, str) and out == out.strip()
+    assert isinstance(out.text, str) and out.text == out.text.strip()
+    assert out.completion_tokens == 7
 
 
 @pytest.mark.asyncio
@@ -246,7 +256,9 @@ async def test_local_khong_co_url_van_la_mock_va_khong_tao_client(monkeypatch):
     eng = ModelEngine()
     assert (eng.text_backend, eng.vision_backend) == ("mock", "mock")
     assert eng.server is None
-    assert "mock_response" in await eng.generate_chat(system="s", user="u")
+    out = await eng.generate_chat(system="s", user="u")
+    assert "mock_response" in out.text
+    assert out.completion_tokens is None, "mock không sinh token thật: KHÔNG BIẾT, không phải 0"
     monkeypatch.setattr(ModelEngine, "_instance", None)
 
 
@@ -379,7 +391,7 @@ def test_engine_dung_qua_nhieu_event_loop_khong_vo(monkeypatch, vllm_gia):
     monkeypatch.setenv("VLLM_BASE_URL", vllm_gia.url)
     eng = ModelEngine()
     for _ in range(3):
-        assert asyncio.run(eng.generate_chat(system="s", user="u")) == '{"tool": "vat"}'
+        assert asyncio.run(eng.generate_chat(system="s", user="u")).text == '{"tool": "vat"}'
     assert vllm_gia.cac_duong().count("/v1/chat/completions") == 3
     monkeypatch.setattr(ModelEngine, "_instance", None)
 
