@@ -145,8 +145,9 @@ def test_duong_ocr_ban_le_van_con(gia_lap_vision):
     # Đọc từ lược đồ OpenAPI, KHÔNG duyệt `app.routes`. Từ FastAPI 0.141 /
     # Starlette 1.6, router được include vào bọc trong `_IncludedRouter` — object đó
     # không có `.path`, nên bản cũ ném AttributeError chứ không phải báo thiếu
-    # đường. `requirements.txt` không ghim fastapi nên đây là lỗi tự đến theo thời
-    # gian, không phải do ai sửa gì.
+    # đường. Lúc đó `requirements.txt` không ghim fastapi nên đây là lỗi tự đến
+    # theo thời gian, không phải do ai sửa gì. Từ 10/11/2026 (#6) có trần
+    # `fastapi<0.137`, nhưng cách đọc này vẫn giữ: nó không phụ thuộc trần đó.
     routes = set(app.openapi()["paths"])
     assert "/ocr" in routes
     assert "/ocr/freight" in routes
