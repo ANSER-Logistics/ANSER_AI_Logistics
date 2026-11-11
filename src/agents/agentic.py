@@ -446,6 +446,27 @@ class AgenticLoop:
                     "data_missing": True,
                 }
 
+            # --- backstop cho grammar: còn kế hoạch thì KHÔNG được kết luận ---
+            # Ở tầng sampling `answer` đã bị bỏ khỏi lược đồ (xem trên), nên nhánh
+            # này chỉ chạy khi backend KHÔNG thực thi grammar (thiếu guided
+            # decoding, hoặc phiên bản vLLM đọc lược đồ khác bản đã đo). Khi đó
+            # model tự kết luận mà chưa gọi tool nào: `observations` rỗng nên
+            # `guard_answer` không có gì để đối chiếu và câu trả lời đi thẳng ra
+            # khách. Không nhận; coi như một bước hỏng và nhắc lại kế hoạch.
+            if plan and decision.get("answer") and not decision.get("hoi_lai"):
+                logger.warning(
+                    "Agentic: model kết luận khi còn kế hoạch %s — từ chối", plan
+                )
+                steps.append({
+                    "step": step_no,
+                    "error": f"kết luận khi còn tool chưa chạy: {plan[0]}",
+                })
+                user_turn = (
+                    f"Chưa được trả lời. Phải gọi tool '{plan[0]}' trước, rồi mới "
+                    f"kết luận từ KẾT QUẢ TOOL."
+                )
+                continue
+
             # --- model kết luận ---
             if decision.get("answer"):
                 steps.append({
