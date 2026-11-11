@@ -39,6 +39,9 @@ src/data/*.jsonl
 offline_training/*.jsonl
 offline_training/product_catalogs.json
 *.pyc
+# Workflow n8n của Body tải về lúc triển khai (#20) — bản dẫn xuất, nguồn sự thật
+# là repo Body. Không commit: commit là tạo bản sao thứ hai (R4).
+deploy/n8n-body/
 # Staging catalog tạm do make_n8n_pairs/benchmark_v3 tự dựng lại mỗi lần chạy
 offline_training/generated/_catalog/
 # train_v3/eval_v3 là SẢN PHẨM của build_dataset_v3.py — dựng lại được từ
