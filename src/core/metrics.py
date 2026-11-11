@@ -169,14 +169,22 @@ def summarize(path: str | None = None, limit: int = 5000) -> dict[str, Any]:
         return {"count": 0, "note": "chưa có dữ liệu đo"}
 
     rows = []
+    dong_hong = 0
     for line in target.read_text(encoding="utf-8").splitlines()[-limit:]:
         if line.strip():
             try:
                 rows.append(json.loads(line))
-            except Exception:
-                continue
+            except ValueError:
+                dong_hong += 1
+    if dong_hong:
+        # Bỏ qua dòng hỏng rồi tính p50/p95 trên phần còn lại mà không nói gì là
+        # đưa ra một thống kê trông đầy đủ trên dữ liệu thiếu — và dòng hỏng hay là
+        # dấu hiệu hai tiến trình ghi đè lên nhau.
+        logger.warning(
+            "%d dòng không đọc được trong %s — bỏ qua khi thống kê", dong_hong, target
+        )
     if not rows:
-        return {"count": 0, "note": "chưa có dữ liệu đo"}
+        return {"count": 0, "note": "chưa có dữ liệu đo", "dong_hong": dong_hong}
 
     lat = sorted(r.get("latency_ms", 0) for r in rows)
     by_route = Counter(r.get("route", "?") for r in rows)
@@ -186,6 +194,7 @@ def summarize(path: str | None = None, limit: int = 5000) -> dict[str, Any]:
 
     return {
         "count": len(rows),
+        "dong_hong": dong_hong,          # dòng không đọc được, đã bỏ qua (0 = đủ)
         "ok_rate": round(n_ok / len(rows), 4),
         "latency_ms": {
             "p50": lat[len(lat) // 2],
