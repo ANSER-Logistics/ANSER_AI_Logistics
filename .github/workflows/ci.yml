@@ -17,10 +17,16 @@ jobs:
         # cho CI và ENV=LOCAL không cần chúng (manager.py đã import lười — thiếu
         # torch thì router lùi về lớp từ khoá, suite vẫn chạy đủ).
         # Danh sách dưới = đúng những gì tầng API + tầng tất định import trực tiếp.
+        #
+        # `-c requirements.txt`: cài ĐÚNG danh sách ngắn này, nhưng theo trần đã
+        # ghim ở requirements.txt (issue #6). Không có nó thì CI luôn lấy bản mới
+        # nhất — đo 10/11/2026: fastapi 0.162.2, bản làm tests/test_auth_bao_phu.py
+        # thấy 0 endpoint và 46 ca kiểm token skip im lặng. `-c` chỉ ràng buộc gói
+        # có cài, nên torch/vllm trong file đó KHÔNG bị kéo vào CI.
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl
+          pip install -c requirements.txt fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl
       # BR-07 (chu kỳ 01): cả ba thư mục, không còn danh sách file chọn tay. Bản
       # cũ chỉ soi chín file nên không thấy tám lỗi sửa ngày 22/10 — trong đó
       # một F821 làm notebook Colab ném NameError giữa phiên đo, sau khi đã nạp

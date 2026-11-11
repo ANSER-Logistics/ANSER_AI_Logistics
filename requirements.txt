@@ -5,10 +5,16 @@ accelerate>=1.0.0
 bitsandbytes>=0.44.1
 chromadb
 decord
-ddgs
+ddgs<10
 einops
-fastapi
-json_repair
+# TRẦN CHẶT, không phải `<1` (10/11/2026, issue #6). FastAPI còn ở 0.x nên số
+# thứ hai mới là số lớn. Đo được: lên 0.162.2 thì `include_router` không trải
+# route ra `app.routes` nữa mà gói vào `_IncludedRouter`, nên
+# tests/test_auth_bao_phu.py thấy 0 endpoint và 46 ca kiểm token SKIP IM LẶNG.
+# Cổng token vẫn chặn đúng — chỉ là không còn gì chứng minh điều đó. Bản xanh
+# đã kiểm là 0.136.1. Nâng trần thì chạy lại file test đó trước.
+fastapi<0.137
+json_repair<0.65
 # Ràng buộc giải mã JSON cho ĐƯỜNG ẢNH. Đường text đi qua vLLM nên đã có
 # `guided_json`; đường ảnh chạy qua transformers.generate() nên trước giờ không
 # có gì ràng buộc — JSON hỏng là chuyện thường, mà `json_repair` chỉ vá được cú
@@ -17,20 +23,23 @@ json_repair
 # `prefix_allowed_tokens_fn` — cơ chế transformers đã có sẵn — nên không phải
 # bọc lại vòng sinh và không đụng gì tới đường vLLM.
 lm-format-enforcer
-lunardate
+lunardate<0.3
 nest_asyncio
 numpy
 openai
-pillow
-protobuf
+pillow<13
+protobuf<7
 pyngrok
-pypdf
-psycopg2-binary
-python-docx
-python-multipart
+pypdf<7
+psycopg2-binary<3
+python-docx<2
+python-multipart<0.1
+# CỐ Ý KHÔNG GHIM: version là năm.số (2026.2) và gói là bảng dữ liệu múi giờ —
+# bản mới luôn đúng hơn bản cũ. Trần `<2027` chỉ ép nâng mỗi năm mà không bảo
+# vệ gì.
 pytz
 qwen_vl_utils
-requests
+requests<3
 scikit-learn
 # PHỤ THUỘC RUNTIME, không phải công cụ phát triển.
 #
@@ -43,14 +52,14 @@ scikit-learn
 # deploy/. Chạy được suốt vì Colab cài sẵn openpyxl — một bản dựng docker sạch
 # thì cả ba endpoint 500 ngay lần gọi đầu. Cùng lúc đó, 34 test của chính ba
 # đường này `importorskip` rồi nằm im: nhãn xanh không nói gì về chúng.
-openpyxl
-sqlalchemy
+openpyxl<4
+sqlalchemy<3
 sentence-transformers
 sentencepiece
 timm
 torch>=2.4.0
 transformers>=4.46.0
-uvicorn
+uvicorn<0.47
 # TRẦN TRÊN LÀ BẮT BUỘC, không phải cho gọn.
 #
 # vLLM 0.12.0 GỠ `GuidedDecodingParams` (đổi sang `StructuredOutputsParams`).

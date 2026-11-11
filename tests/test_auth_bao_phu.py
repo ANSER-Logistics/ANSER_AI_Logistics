@@ -72,6 +72,27 @@ def moi_endpoint():
             yield pytest.param(method, r.path, id=f"{method} {r.path}")
 
 
+def test_bang_route_khong_rong():
+    """Chốt chống xanh suông cho HAI test parametrize ngay dưới.
+
+    `parametrize` trên danh sách rỗng không đỏ — nó sinh một ca SKIP
+    ("got empty parameter set"), và `pytest -q` không in lý do skip. Đo
+    10/11/2026: FastAPI 0.162.2 gói route của `include_router` vào
+    `_IncludedRouter` thay vì trải ra `app.routes`, nên `moi_endpoint()` ra rỗng
+    và cả 46 ca kiểm token biến mất trong im lặng. Cổng token vẫn chặn đúng —
+    chỉ là không còn gì chứng minh điều đó.
+
+    Ngưỡng 20, không phải con số chính xác: thêm hay bớt một endpoint không được
+    làm test này đỏ; chỉ mất GẦN HẾT bảng route mới đỏ. Đỏ ở đây thì xem
+    `fastapi<0.137` trong requirements.txt trước khi nghi code.
+    """
+    so = len(list(moi_endpoint()))
+    assert so >= 20, (
+        f"chỉ thấy {so} endpoint trong app.routes — bảng route bị đổi hình dạng "
+        f"(thường do nâng FastAPI), hai test kiểm token dưới đây đang không kiểm gì."
+    )
+
+
 @pytest.mark.parametrize("method,path", list(moi_endpoint()))
 def test_moi_endpoint_deu_chan_khi_khong_co_token(method, path):
     """
