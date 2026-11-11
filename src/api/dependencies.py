@@ -361,6 +361,12 @@ def web_search_fallback(query: str, max_results: int = 3) -> str:
     from src.core.retrieval_policy import loc_truy_van_web
 
     truy_van = loc_truy_van_web(query)
+    if query and not truy_van:
+        # `loc_truy_van_web` trả rỗng khi KHÔNG lọc sạch được (còn số tiền sau
+        # khi lọc). Tra "" ra DuckDuckGo là một lời gọi vô nghĩa, và quay về gửi
+        # bản gốc thì đảo ngược chính mục đích của chốt chặn.
+        logger.info("Bỏ tra web: truy vấn không lọc sạch được dữ liệu (R2)")
+        return ""
     if truy_van != query:
         logger.info(
             "Đã lọc số liệu khỏi truy vấn web trước khi gửi (R2)",
