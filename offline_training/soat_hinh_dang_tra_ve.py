@@ -3,8 +3,9 @@ offline_training/soat_hinh_dang_tra_ve.py — hàm nào trả về hai hình d�
 
     python offline_training/soat_hinh_dang_tra_ve.py
 
-Tìm hàm có nhiều nhánh `return {…}` mà TẬP KHOÁ không giống nhau. Luôn thoát 0:
-đây là công cụ SOÁT, không phải cổng chặn.
+Tìm hàm có nhiều nhánh `return {…}` mà TẬP KHOÁ không giống nhau. Thoát 0 dù có
+kết quả: đây là công cụ SOÁT, không phải cổng chặn. Chỉ thoát 2 khi quét được 0
+file (chưa soát gì).
 
 VÌ SAO
 ------
@@ -35,7 +36,11 @@ import ast
 import pathlib
 import sys
 
-GOC = pathlib.Path(r"D:\AI_ANSER")
+# Gốc repo suy từ vị trí file này, KHÔNG viết cứng. Bản trước ghi cứng một ổ đĩa
+# của một máy dev: chạy ở máy nào khác thì quét ra 0 file, in "tổng hàm có nhánh
+# lệch hình dạng: 0", và AGENTS §R1 chỉ người đọc chạy đúng lệnh này để soát —
+# tức là kết quả sạch nhất là kết quả của một phép soát chưa hề chạy.
+GOC = pathlib.Path(__file__).resolve().parent.parent
 
 
 def khoa_cua_dict(node):
@@ -79,10 +84,12 @@ def soat_file(p):
 
 def main():
     tong = 0
+    da_quet = 0
     for p in sorted(GOC.rglob("*.py")):
         r = p.relative_to(GOC)
         if any(x in r.parts for x in (".git", "node_modules", "__pycache__", "tests")):
             continue
+        da_quet += 1
         for ten, dong, tap, lech in soat_file(p):
             print(f"\n{r}:{dong}  {ten}()")
             for ln, k in tap:
@@ -90,7 +97,12 @@ def main():
             for ln, thieu in lech:
                 print(f"    -> dòng {ln} THIẾU: {thieu}")
             tong += 1
-    print(f"\ntổng hàm có nhánh lệch hình dạng: {tong}")
+    if da_quet == 0:
+        # Quét 0 file không phải "không có gì lệch" mà là "chưa soát gì". Mã thoát
+        # khác 0 để ai chạy trong script/CI cũng không đọc nhầm thành kết quả sạch.
+        print(f"KHÔNG quét được file .py nào dưới {GOC} — chưa soát gì cả.", file=sys.stderr)
+        return 2
+    print(f"\ntổng hàm có nhánh lệch hình dạng: {tong}  (đã quét {da_quet} file)")
     return 0
 
 

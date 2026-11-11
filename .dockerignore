@@ -1,0 +1,39 @@
+# Ngữ cảnh build của deploy/docker-compose.yml là GỐC repo (`context: ..`), và
+# deploy/Dockerfile chỉ COPY ba thứ: requirements.txt, src/, offline_training/.
+# Mọi thứ khác gửi vào ngữ cảnh build chỉ để nặng thêm — và vài thứ còn nguy hơn.
+#
+# Chưa có file này trước 12/11/2026, nên `COPY src/` kéo theo cả
+# `src/data/ai_metrics_log.jsonl` (~1 MB, nội dung các lượt hỏi đáp thật khi chạy
+# trên máy dev) vào ảnh Docker. File đó nằm trong .gitignore nhưng .gitignore
+# KHÔNG áp cho Docker: hai cơ chế riêng.
+#
+# CỐ Ý KHÔNG loại `src/data/` nói chung (có dữ liệu mà mã đọc lúc chạy) và không
+# loại `offline_training/generated/` (chưa đo được mã nào không đọc nó).
+
+# lịch sử và bản sao lưu
+.git
+.github
+_backups
+
+# bí mật và cấu hình máy dev (R2b)
+.env
+.env.*
+
+# nhật ký đo đạc chứa nội dung thật
+src/data/ai_metrics_log.jsonl
+
+# môi trường và rác biên dịch
+.venv
+venv
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+node_modules
+
+# không COPY vào ảnh, chỉ làm ngữ cảnh build phình ra
+tests
+docs
+deploy/n8n-body
+.grapuco

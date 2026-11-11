@@ -223,33 +223,3 @@ class SaasAPI:
                 "period": period, "revenue": "Lỗi", "orders": None,
                 "ghi_chú": "KHÔNG LẤY ĐƯỢC số liệu — đây không phải 0 đơn.",
             }
-
-    def update_price(self, product_name, new_price, workspace_id=1):
-        self._require_engine()
-        try:
-            with self.engine.connect() as conn:
-                sql_find = text(f"""
-                    SELECT {P_ID}, {P_PRICE}
-                    FROM {PRODUCTS_TABLE}
-                    WHERE LOWER({P_NAME}) LIKE LOWER(:name) AND {P_WAREHOUSE} = :ws_id
-                    LIMIT 1
-                """)
-                item = conn.execute(
-                    sql_find, {"name": f"%{product_name}%", "ws_id": workspace_id}
-                ).fetchone()
-
-                if not item:
-                    return f"Không tìm thấy sản phẩm '{product_name}'."
-
-                old_price = item[1]
-                sql_update = text(f"UPDATE {PRODUCTS_TABLE} SET {P_PRICE} = :price WHERE {P_ID} = :id")
-                conn.execute(sql_update, {"price": float(new_price), "id": item[0]})
-                conn.commit()
-
-                return f"Đã cập nhật '{product_name}': {old_price} → {new_price} VND"
-        except SQLAlchemyError:
-            logger.error(
-                "Lỗi cập nhật giá product='%s' workspace_id=%s",
-                product_name, workspace_id, exc_info=True,
-            )
-            return f"Lỗi hệ thống khi cập nhật giá '{product_name}'."
