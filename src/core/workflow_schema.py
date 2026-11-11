@@ -30,8 +30,12 @@ Vì repo Body chưa merge vào đây, module hoạt động theo hai chế độ
   * CÓ template  -> quét thư mục, rút node type + typeVersion + ví dụ THẬT đang dùng
   * CHƯA có      -> dùng DEFAULT_NODE_CATALOG bên dưới, và GHI LOG CẢNH BÁO
 
-Trỏ `N8N_TEMPLATES_DIR` tới thư mục `workflow_templates/` của Body là module tự
-cấu hình lại. Không phải sửa code.
+Trỏ `N8N_TEMPLATES_DIR` tới thư mục chứa workflow thật của Body là module tự
+cấu hình lại. Không phải sửa code. Thư mục bên Body tên `frontend/n8n-workflows/`
+(không phải `workflow_templates/` như bản trước ghi). Lấy về lúc triển khai:
+
+    python offline_training/dong_bo_n8n_body.py tai     # -> deploy/n8n-body/
+    python offline_training/dong_bo_n8n_body.py kiem    # lệch thì mã thoát 1
 """
 
 from __future__ import annotations
@@ -52,6 +56,20 @@ logger = logging.getLogger("projecta.workflow_schema")
 # ---------------------------------------------------------------------------
 # Cố tình giữ ngắn. Mỗi node thừa làm giảm độ chính xác chọn node của model và tốn
 # token prompt. Khi Body merge vào, catalog thật sẽ thay thế toàn bộ phần này.
+#
+# ĐỐI CHIẾU VỚI BODY 09/11/2026 (#20) — `frontend/n8n-workflows/` của
+# ANSER-logistics-body, n8n `latest`. Trước đó ba node lệch typeVersion và hai
+# node Body dùng mà ở đây không có:
+#
+#   httpRequest  4.2 -> 4.4   (Body)
+#   if           2   -> 1     tham số mẫu vốn là kiểu v1 (`conditions.number`);
+#                             khai 2 là dạy model ghép tham số v1 với version v2
+#   webhook      2   -> 1
+#   emailSend    + 2.1        Body gửi mail bằng SMTP, KHÔNG có credential Gmail
+#   splitOut     + 1
+#
+# Kiểm lại bằng lệnh, không bằng nhớ:
+#   python offline_training/dong_bo_n8n_body.py kiem
 
 DEFAULT_NODE_CATALOG: dict[str, dict[str, Any]] = {
     "n8n-nodes-base.scheduleTrigger": {
@@ -62,13 +80,13 @@ DEFAULT_NODE_CATALOG: dict[str, dict[str, Any]] = {
     },
     "n8n-nodes-base.webhook": {
         "trigger": True,
-        "typeVersion": 2,
+        "typeVersion": 1,
         "desc": "Nhận HTTP request từ ANSER Body hoặc hệ thống ngoài",
         "example": {"path": "anser-hook", "httpMethod": "POST"},
     },
     "n8n-nodes-base.httpRequest": {
         "trigger": False,
-        "typeVersion": 4.2,
+        "typeVersion": 4.4,
         "desc": "Gọi HTTP. Dùng cho MỌI thao tác ghi dữ liệu (qua API Body), gọi tool ANSER, và gửi Discord",
         "example": {
             "url": "={{$env.ANSER_API}}/api/n8n/internal/low-stock",
@@ -90,10 +108,22 @@ DEFAULT_NODE_CATALOG: dict[str, dict[str, Any]] = {
         "desc": "Đọc/ghi Google Sheets",
         "example": {"operation": "append", "documentId": "SHEET_ID", "sheetName": "Sheet1"},
     },
+    "n8n-nodes-base.emailSend": {
+        "trigger": False,
+        "typeVersion": 2.1,
+        "desc": "Gửi email qua SMTP — cách Body đang gửi mail (ví dụ: gửi báo giá vận tải cho khách)",
+        "example": {
+            "fromEmail": "alerts@anser.local",
+            "toEmail": "={{ $json.email_to }}",
+            "subject": "={{ $json.email_subject }}",
+            "html": "={{ $json.email_html }}",
+            "options": {},
+        },
+    },
     "n8n-nodes-base.gmail": {
         "trigger": False,
         "typeVersion": 2.1,
-        "desc": "Gửi email (ví dụ: gửi báo giá vận tải cho khách)",
+        "desc": "Gửi email qua Gmail — Body CHƯA cấu hình credential Gmail; gửi mail thì dùng emailSend",
         "example": {
             "operation": "send",
             "sendTo": "khach@example.com",
@@ -103,7 +133,7 @@ DEFAULT_NODE_CATALOG: dict[str, dict[str, Any]] = {
     },
     "n8n-nodes-base.if": {
         "trigger": False,
-        "typeVersion": 2,
+        "typeVersion": 1,
         "desc": "Rẽ nhánh theo điều kiện. Nhánh true = output 0, false = output 1",
         "example": {
             "conditions": {
@@ -130,6 +160,12 @@ DEFAULT_NODE_CATALOG: dict[str, dict[str, Any]] = {
         "typeVersion": 3,
         "desc": "Lặp qua từng item của mảng",
         "example": {"batchSize": 1},
+    },
+    "n8n-nodes-base.splitOut": {
+        "trigger": False,
+        "typeVersion": 1,
+        "desc": "Tách một trường mảng thành nhiều item (mỗi phần tử một item)",
+        "example": {"fieldToSplitOut": "warehouses", "options": {}},
     },
     "n8n-nodes-base.noOp": {
         "trigger": False,
@@ -319,7 +355,8 @@ def _active() -> tuple[dict[str, dict[str, Any]], list[dict], bool]:
         logger.warning(
             "Chưa đặt N8N_TEMPLATES_DIR — dùng catalog DỰ PHÒNG. "
             "typeVersion có thể không khớp n8n instance của Body. "
-            "Trỏ biến này tới workflow_templates/ của Body sau khi merge."
+            "Chạy `python offline_training/dong_bo_n8n_body.py tai` rồi trỏ biến "
+            "này vào deploy/n8n-body/ (bên Body: frontend/n8n-workflows/)."
         )
 
     return DEFAULT_NODE_CATALOG, [_default_example()], False
@@ -384,7 +421,7 @@ def _default_example() -> dict:
                 {
                     "name": "Lấy hàng sắp hết",
                     "type": "n8n-nodes-base.httpRequest",
-                    "typeVersion": 4.2,
+                    "typeVersion": 4.4,
                     "position": [220, 0],
                     "parameters": {
                         "url": "={{$env.ANSER_API}}/api/n8n/internal/low-stock",
@@ -394,7 +431,7 @@ def _default_example() -> dict:
                 {
                     "name": "Báo Discord",
                     "type": "n8n-nodes-base.httpRequest",
-                    "typeVersion": 4.2,
+                    "typeVersion": 4.4,
                     "position": [440, 0],
                     "parameters": {
                         "url": "={{$env.DISCORD_WEBHOOK_URL}}",
