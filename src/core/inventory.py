@@ -535,6 +535,16 @@ def audit_inventory(
                                  -(f["money_impact"] or 0)))
 
     summary, warnings = _summarize(lines, period_days)
+    if (period_start or period_end) and period_days == 0 and not (
+        _doc_duoc_ngay(period_start) and _doc_duoc_ngay(period_end)
+    ):
+        # `_period_days` trả 0 khi ngày hỏng, và 0 ngày làm im lặng phép kiểm hàng
+        # chết/bán chậm (cần ít nhất vài ngày). Người đọc thấy "không phát hiện hàng
+        # chết" mà không biết là vì kỳ không đọc được.
+        warnings.append(
+            f"Không đọc được ngày của kỳ (bắt đầu={period_start!r}, kết thúc="
+            f"{period_end!r}; cần YYYY-MM-DD) — bỏ qua phép kiểm hàng chết và bán chậm."
+        )
     high = [f for f in findings if f["severity"] == "cao"]
     if high:
         warnings.append(
@@ -668,6 +678,16 @@ def _summarize(
         "cross_dock_skus": len(cross_dock),
         "cross_dock_value": round(sum(ln.in_value or 0 for ln in cross_dock)),
     }, warnings
+
+
+def _doc_duoc_ngay(s: Optional[str]) -> bool:
+    if not s:
+        return False
+    try:
+        date.fromisoformat(str(s)[:10])
+    except ValueError:
+        return False
+    return True
 
 
 def _period_days(start: Optional[str], end: Optional[str]) -> int:
