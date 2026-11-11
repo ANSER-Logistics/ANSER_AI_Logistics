@@ -13,6 +13,7 @@ CHẠY:  python offline_training/merge_all.py
 import hashlib
 import json
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -82,9 +83,11 @@ def is_truncated(answer: str) -> bool:
     return answer.count("{") != answer.count("}")
 
 
-def main():
-    seen, merged = set(), []
-    report, reasons = {}, Counter()
+def main() -> int:
+    seen: set[str] = set()
+    merged: list[dict] = []
+    report: dict[str, tuple[int, int]] = {}
+    reasons: Counter[str] = Counter()
 
     for fname, tag, check in SOURCES:
         path = DATA / fname
@@ -148,6 +151,16 @@ def main():
         report[tag] = (n_ok, n_in)
         print(f"  ✓ {fname:28s} {n_ok:4d} / {n_in:4d}")
 
+    # Không có mẫu nào (thường vì không thấy file nguồn nào) thì KHÔNG ghi đè.
+    # Bản trước ghi một file rỗng đè lên `train_retail_v2.jsonl` rồi thoát 0: người
+    # chạy thấy "✅ 0 mẫu" và tin là đã xong, còn tập train cũ thì mất. Đo 12/11:
+    # cả 5 file nguồn đều không có ở `src/data/` (ba trong số đó chưa từng tồn tại
+    # trên Drive — xem v2_sources/README.md), nên đây là kết cục mặc định, không
+    # phải trường hợp hiếm.
+    if not merged:
+        print("\n  ✖ Không có mẫu hợp lệ nào — KHÔNG ghi đè", OUT.name, file=sys.stderr)
+        return 1
+
     # ── Lưu (bỏ trường _source khỏi file cuối) ───────────────────────────
     OUT.write_text(
         "\n".join(json.dumps({"messages": m["messages"]}, ensure_ascii=False) for m in merged),
@@ -187,7 +200,8 @@ def main():
     if len(merged) < 1200:
         print("\n  ⚠ Dưới 1.200 mẫu — kiểm tra lại lý do loại bỏ ở trên")
     print(f"{'='*58}\n")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
