@@ -31,6 +31,7 @@ khách. Kết quả trả về tách làm hai phần:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
 
@@ -75,11 +76,43 @@ class PricingRule:
             raise ValueError("min_margin_amount không được âm")
 
 
+def _tuoi_gia_dau(
+    fuel_price_as_of: Optional[str], today: Optional[date]
+) -> tuple[Optional[int], Optional[str]]:
+    """(số ngày tuổi, cảnh báo) của giá dầu. Không có ngày -> (None, None).
+
+    Hàm này CHỈ ĐO tuổi, không quyết giá bao nhiêu ngày là quá cũ: đó là con số
+    nghiệp vụ (hôm nay 25 nghìn, mai 30 nghìn — AGENTS §3.1c) thuộc chủ dự án.
+    Ngày sai định dạng là lỗi của người gọi: ném ValueError (route trả 422) thay
+    vì đoán, vì một ngày bị đoán sai làm tuổi giá dầu nhìn như "mới".
+    """
+    if not fuel_price_as_of:
+        return None, None
+    try:
+        # Đúng 10 ký tự: `date.fromisoformat` từ Python 3.11 còn nhận "20261105",
+        # nhưng hợp đồng là YYYY-MM-DD và giá trị này được GHI LẠI nguyên văn.
+        if len(fuel_price_as_of) != 10:
+            raise ValueError
+        ngay = date.fromisoformat(fuel_price_as_of)
+    except ValueError:
+        raise ValueError("fuel_price_as_of phải có dạng YYYY-MM-DD") from None
+    tuoi = ((today or date.today()) - ngay).days
+    if tuoi < 0:
+        return tuoi, (
+            f"Ngày giá dầu ({fuel_price_as_of}) nằm SAU hôm nay — kiểm tra lại "
+            "nguồn giá dầu hoặc đồng hồ của hệ thống gọi."
+        )
+    return tuoi, None
+
+
 def compute_quote(
     carrier_cost: float,
     rule: PricingRule,
     current_fuel_price: Optional[float] = None,
     extra_surcharges: Optional[list[Surcharge]] = None,
+    *,
+    fuel_price_as_of: Optional[str] = None,
+    today: Optional[date] = None,
 ) -> dict[str, Any]:
     """
     Tính báo giá từ giá nhà xe + quy tắc giá + giá dầu hiện tại.
@@ -87,11 +120,19 @@ def compute_quote(
     Trả dict hai phần `quote` (đưa khách cuối được) và `internal` (có biên —
     nội bộ). LLM diễn giải từ `internal` cho CHỦ doanh nghiệp, nhưng nội dung
     gửi KHÁCH CUỐI chỉ được lấy từ `quote`.
+
+    `internal.inputs` ghi lại ĐÚNG những con số đã dùng (giá nhà xe, giá dầu hiện
+    tại, giá dầu gốc, ngày của giá dầu và tuổi của nó). AGENTS §3.1c đòi điều này
+    — "để khi giá đổi, biết báo giá cũ dựa trên gì" — nhưng bản trước chỉ có
+    `fuel_ratio`, nên một báo giá đã gửi không cho biết nó dùng giá dầu nào.
     """
     if carrier_cost <= 0:
         raise ValueError("carrier_cost phải > 0")
+    tuoi_gia_dau, canh_bao_ngay = _tuoi_gia_dau(fuel_price_as_of, today)
 
     warnings: list[str] = []
+    if canh_bao_ngay:
+        warnings.append(canh_bao_ngay)
 
     # ---- 1. Điều chỉnh nhiên liệu ----------------------------------------
     fuel_adjustment = 0.0
@@ -145,6 +186,19 @@ def compute_quote(
         },
         # Phần NỘI BỘ — có biên, không gửi ra ngoài
         "internal": {
+            "inputs": {
+                "carrier_cost": _round_step(carrier_cost, 1),
+                "current_fuel_price": current_fuel_price,
+                "fuel_baseline_price": rule.fuel_baseline_price,
+                "fuel_price_as_of": fuel_price_as_of,
+                "fuel_price_age_days": tuoi_gia_dau,
+                # Nói thẳng báo giá này CÓ hay KHÔNG được điều chỉnh theo dầu. Thiếu
+                # một trong hai giá dầu thì không điều chỉnh; trước đây trường hợp
+                # thiếu CẢ HAI không để lại dấu vết nào (không cảnh báo, không cờ),
+                # nên một báo giá không theo dầu trông y hệt một báo giá theo dầu
+                # mà giá dầu không đổi.
+                "fuel_adjustment_applied": fuel_ratio is not None,
+            },
             "carrier_cost": _round_step(carrier_cost, 1),
             "fuel_ratio": None if fuel_ratio is None else round(fuel_ratio, 4),
             "fuel_adjustment": _round_step(fuel_adjustment, 1),
