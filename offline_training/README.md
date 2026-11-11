@@ -109,7 +109,10 @@ trong docstring của `train_v3.py` và ARCHITECTURE §5.3. `seed_prompts.jsonl`
 (400 seed retail) vẫn là input hợp lệ nếu cần distill thêm data tư vấn;
 `validate_seeds.py` kiểm file đó trước khi gửi DeepSeek (chỉ đọc, an toàn để
 chạy) — nhưng lệnh "tiếp theo" nó in ra là `training.py`, tức pipeline v2.
-`legal_miner.py` (scrape pháp lý cho RAG) và `vlm_invoice_prompt.py` vẫn dùng.
+`legal_miner.py` (scrape pháp lý cho RAG) vẫn dùng. `vlm_invoice_prompt.py` thì
+**không file nào import nó** (đo 12/11/2026); nó là bản prompt hoá đơn thứ ba, khác
+cả `Prompts.INVOICE_SYSTEM` lẫn prompt inline trong `src/agents/vision.py` — gộp
+cả ba về `prompts.py` là việc của GitHub #39.
 
 ## Công cụ đo và soát, chạy tay
 
