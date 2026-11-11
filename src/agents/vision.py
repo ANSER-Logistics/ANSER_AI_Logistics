@@ -121,4 +121,6 @@ class VisionAgent:
                 return parsed
             return {"error": "VLM không trả JSON object", "raw": raw}
         except Exception as exc:
+            # Chỉ ghi loại lỗi: `raw` là văn bản đọc từ ảnh hoá đơn (dữ liệu khách).
+            logger.warning("Không sửa được đầu ra VLM thành JSON (%s)", type(exc).__name__)
             return {"error": f"parse_failed: {exc}", "raw": raw}
