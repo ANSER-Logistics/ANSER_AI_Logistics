@@ -21,13 +21,38 @@ class Config:
         os.makedirs(self.DOCS_DIR, exist_ok=True)
 
         # --------------------------- Database ----------------------------
-        raw_url = os.getenv("DATABASE_URL", "")
-        if raw_url.startswith("postgres://"):
-            self.DB_URL = raw_url.replace("postgres://", "postgresql+psycopg2://", 1)
-        elif raw_url.startswith("postgresql://"):
-            self.DB_URL = raw_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        # Bản trước chỉ nhận đúng hai tiền tố viết thường, mọi thứ khác lùi IM LẶNG
+        # về SQLite in-memory rỗng: `postgresql+psycopg2://…` (đúng dạng chính hàm này
+        # sinh ra ở hai nhánh dưới), khoảng trắng đầu dòng khi copy-dán, `POSTGRES://`,
+        # `postgresql+asyncpg://`, `sqlite:///file.db`. Đo 12/11/2026: cả sáu dạng đó
+        # → `sqlite:///:memory:`. Brain chạy "khoẻ" trên một DB rỗng, lịch sử và báo
+        # cáo trống, và không một dòng nào nói vì sao.
+        #
+        # CHỈ thiếu hẳn biến (rỗng) mới là chế độ dev CÓ CHỦ Ý. Có đặt mà không nhận
+        # ra được thì đó là lỗi cấu hình: vẫn khởi động được (Config() dựng ở mỗi
+        # request, ném lỗi ở đây là làm hỏng cả service), nhưng `DB_URL_LOI` được
+        # đặt để /health báo — qua `memory.kiem_luoc_do`.
+        raw_url = (os.getenv("DATABASE_URL", "") or "").strip()
+        self.DB_URL_LOI = None
+        thap = raw_url.lower()
+        if thap.startswith("postgres://"):
+            self.DB_URL = "postgresql+psycopg2://" + raw_url[len("postgres://"):]
+        elif thap.startswith("postgresql://"):
+            self.DB_URL = "postgresql+psycopg2://" + raw_url[len("postgresql://"):]
+        elif thap.startswith(("postgresql+", "sqlite:")):
+            self.DB_URL = raw_url           # đã là URL SQLAlchemy đầy đủ — giữ nguyên
         else:
             self.DB_URL = "sqlite:///:memory:"
+            if raw_url:
+                # Chỉ nêu phần TRƯỚC `://`: URL có mật khẩu, và log là nơi nó nằm lại
+                # (R2b). Không có `://` thì không nêu gì — có thể là `user:pass@host`.
+                scheme = raw_url.split("://", 1)[0][:20] if "://" in raw_url else "(không có ://)"
+                self.DB_URL_LOI = (
+                    f"DATABASE_URL được đặt nhưng không nhận ra dạng (scheme {scheme!r}; "
+                    "chấp nhận postgres://, postgresql://, postgresql+<driver>://, sqlite:) — "
+                    "Brain đang chạy trên SQLite in-memory RỖNG, lịch sử chat không lưu."
+                )
+                _bao_loi_db_mot_lan(self.DB_URL_LOI)
 
         # ------------------------ System context -------------------------
         self.SYSTEM_CONTEXT = Prompts.SYSTEM_CONTEXT
@@ -171,3 +196,17 @@ class Config:
         # `offline_training/do_ngan_sach_ctx.py` gọi `danh_gia()` để kết luận
         # đạt/vượt trong phiên đo. Nối ngưỡng vào /health là việc riêng trên
         # bảng kanzo, không phải thứ xoá dòng này làm mất.
+
+
+# Đặt ở cuối file, dùng lúc chạy: `Config()` gọi nó nên định nghĩa sau class vẫn được.
+_DA_BAO_LOI_DB: set[str] = set()
+
+
+def _bao_loi_db_mot_lan(thong_bao: str) -> None:
+    """`Config()` được dựng ở MỖI request; log lỗi cấu hình một lần thôi, không spam."""
+    if thong_bao in _DA_BAO_LOI_DB:
+        return
+    _DA_BAO_LOI_DB.add(thong_bao)
+    import logging
+
+    logging.getLogger("projecta.config").error(thong_bao)

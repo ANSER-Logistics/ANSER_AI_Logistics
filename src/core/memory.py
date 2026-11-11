@@ -99,6 +99,12 @@ class MemoryManager:
             return self._luoc_do_loi
 
         self._luoc_do_da_kiem = True
+        # DATABASE_URL được đặt nhưng không nhận ra: báo thẳng. Đặt TRƯỚC nhánh sqlite
+        # bên dưới, vì lúc đó `DB_URL` đã lùi về sqlite và nhánh đó sẽ trả "khoẻ".
+        loi_cau_hinh = getattr(self.config, "DB_URL_LOI", None)
+        if loi_cau_hinh:
+            self._luoc_do_loi = loi_cau_hinh
+            return self._luoc_do_loi
         if not self.engine:
             self._luoc_do_loi = "Chưa nối được DB (engine=None)"
             return self._luoc_do_loi
