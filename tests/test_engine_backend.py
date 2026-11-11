@@ -284,7 +284,8 @@ def test_env_sai_thi_runtime_bao_loi_o_engine_error_khong_sap(monkeypatch):
 NAM_TRUONG_BODY_DOC = {"status", "degraded", "engine_ready", "vision_ready", "load"}
 
 
-def _health_voi_engine(monkeypatch, eng):
+def _client_health(monkeypatch, eng):
+    """TestClient của app thật, runtime trỏ vào `eng`. Dựng TRƯỚC khi bấm giờ."""
     from fastapi.testclient import TestClient
 
     import src.api.main as main_mod
@@ -293,7 +294,11 @@ def _health_voi_engine(monkeypatch, eng):
     monkeypatch.setattr(main_mod.runtime, "engine_error", None)
     monkeypatch.setattr(main_mod.runtime, "kb_error", None)
     monkeypatch.setattr(main_mod.runtime, "vision_error", None)
-    return TestClient(main_mod.app).get("/health").json()
+    return TestClient(main_mod.app)
+
+
+def _health_voi_engine(monkeypatch, eng):
+    return _client_health(monkeypatch, eng).get("/health").json()
 
 
 def test_health_khai_backend_va_vllm_song(monkeypatch, engine_server, vllm_gia):
@@ -386,7 +391,16 @@ def test_health_lien_tiep_qua_nhieu_testclient_van_ok(monkeypatch, engine_server
 
 
 def test_vllm_cham_khong_keo_health_cua_brain_qua_5s(monkeypatch):
-    """Healthcheck của chính Brain (Dockerfile, compose) hết giờ ở 5s."""
+    """
+    Healthcheck của chính Brain (Dockerfile, compose) hết giờ ở 5s.
+
+    #7 (09/11/2026): chỉ bấm giờ ĐÚNG lời gọi `GET /health`. Bản trước đặt `t0`
+    trước cả `ModelEngine()`, lần `import src.api.main` đầu tiên trong tiến
+    trình, và việc dựng TestClient — với ngưỡng 3s mà riêng lời gọi đã chờ
+    `HEALTH_TIMEOUT_S` = 2s, phần dư cho mọi thứ khác chỉ còn ~1s. Máy có tải
+    hoặc import lạnh là vượt: test đo tải máy rồi gọi đó là "Brain chậm".
+    Ngưỡng GIỮ NGUYÊN 3s (chặt hơn trước, vì không còn phần dư cho việc dựng).
+    """
     import time
 
     gia = _VllmGia()
@@ -401,8 +415,9 @@ def test_vllm_cham_khong_keo_health_cua_brain_qua_5s(monkeypatch):
         monkeypatch.setattr(ModelEngine, "_instance", None)
         monkeypatch.setenv("ENV", "LOCAL")
         monkeypatch.setenv("VLLM_BASE_URL", gia.url)
+        client = _client_health(monkeypatch, ModelEngine())   # dựng NGOÀI khoảng đo
         t0 = time.perf_counter()
-        body = _health_voi_engine(monkeypatch, ModelEngine())
+        body = client.get("/health").json()
         assert time.perf_counter() - t0 < 3.0
         assert body["vllm_server"]["ok"] is False and body["degraded"] is True
     finally:
