@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
 
@@ -77,6 +77,19 @@ class PricingRule:
             raise ValueError("min_margin_amount không được âm")
 
 
+_GIO_VN = timezone(timedelta(hours=7))   # UTC+7, Việt Nam không có giờ mùa hè
+
+
+def hom_nay_vn(bay_gio: Optional[datetime] = None) -> date:
+    """Ngày hôm nay theo GIỜ VIỆT NAM, không theo múi giờ máy chủ.
+
+    `date.today()` lấy múi giờ của máy: container thường chạy UTC, nên từ 00:00 đến 07:00
+    sáng ở Việt Nam nó còn là hôm qua và tuổi giá dầu lệch một ngày. Luồng n8n đã chốt
+    UTC+7 (brain#217); phía Brain phải cùng một định nghĩa "hôm nay" (R4).
+    """
+    return (bay_gio or datetime.now(timezone.utc)).astimezone(_GIO_VN).date()
+
+
 def _tuoi_gia_dau(
     fuel_price_as_of: Optional[str], today: Optional[date]
 ) -> tuple[Optional[int], Optional[str]]:
@@ -98,7 +111,7 @@ def _tuoi_gia_dau(
         ngay = date.fromisoformat(fuel_price_as_of)
     except ValueError:
         raise ValueError("fuel_price_as_of phải có dạng YYYY-MM-DD") from None
-    tuoi = ((today or date.today()) - ngay).days
+    tuoi = ((today or hom_nay_vn()) - ngay).days
     if tuoi < 0:
         return tuoi, (
             f"Ngày giá dầu ({fuel_price_as_of}) nằm SAU hôm nay — kiểm tra lại "
