@@ -30,6 +30,7 @@ khách. Kết quả trả về tách làm hai phần:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -89,9 +90,10 @@ def _tuoi_gia_dau(
     if not fuel_price_as_of:
         return None, None
     try:
-        # Đúng 10 ký tự: `date.fromisoformat` từ Python 3.11 còn nhận "20261105",
-        # nhưng hợp đồng là YYYY-MM-DD và giá trị này được GHI LẠI nguyên văn.
-        if len(fuel_price_as_of) != 10:
+        # Đúng dạng YYYY-MM-DD bằng regex: `date.fromisoformat` từ Python 3.11 còn nhận
+        # "20261105" VÀ "2026-W45-1" (tuần ISO, cũng dài đúng 10 ký tự nên bản kiểm
+        # `len == 10` cho qua). Giá trị này được GHI LẠI nguyên văn nên phải đồng nhất.
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fuel_price_as_of):
             raise ValueError
         ngay = date.fromisoformat(fuel_price_as_of)
     except ValueError:
