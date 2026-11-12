@@ -8,7 +8,7 @@ Hồ sơ này bàn giao Brain cho người tiếp quản. Nó gồm bốn thứ:
 
 > **Đọc theo thứ tự.** Người tiếp quản chưa biết gì về dự án thì bắt đầu ở [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md), chạy được hệ thống trên máy mình, rồi quay lại đây. Người đã quen repo thì đọc thẳng mục 2 và 3.
 
-Bản in để gửi đi: [`docs/ban-in/GIAO_VIEC_BRAIN.pdf`](docs/ban-in/GIAO_VIEC_BRAIN.pdf), 12 trang. Sửa file `.md` này rồi chạy `powershell -File docs/dung-ban-in.ps1` để dựng lại trong cùng PR.
+Bản in để gửi đi: [`docs/ban-in/GIAO_VIEC_BRAIN.pdf`](../ban-in/GIAO_VIEC_BRAIN.pdf), 12 trang. Sửa file `.md` này rồi chạy `powershell -File docs/dung-ban-in.ps1` để dựng lại trong cùng PR.
 
 ---
 
@@ -92,7 +92,7 @@ Người tiếp quản đọc §13b.3 rồi đi vá lại là mất vài ngày c
 | 3 | §1 và §2.2 trỏ vào bốn module không tồn tại: `core/tools.py`, `agents/researcher.py`, `integrations.py`, `external_data.py` | [ARCHITECTURE.md:34](../../ARCHITECTURE.md), [:86](../../ARCHITECTURE.md), [:96](../../ARCHITECTURE.md) | `core/tools.py` được nêu làm ví dụ minh hoạ R1, ràng buộc số một, và file đó đã bị xoá |
 | 4 | Mô tả "Project A", entrypoint `src/server.py`, cổng chất lượng chạy trên `core/tools.py` | [`src/README.md`](../../src/README.md) | Người mới làm theo README sẽ gãy ở bước chạy server và bước lint |
 | 5 | Docstring "tối ưu cho Google Colab Pro, GPU L4"; log `"Booting COLAB engine — target GPU L4 22.5GB"` | [`config.py:7`](../../src/core/config.py#L7), [`engine.py:188`](../../src/core/engine.py#L188) | Trái §4.4 vốn đã loại Colab khỏi lộ trình production |
-| 6 | Cảnh báo "config.py đang để 4096" | [`deploy/.env.example`](deploy/.env.example) | Mặc định nay là 8192. Một cảnh báo sai lệch còn tệ hơn không có cảnh báo, vì lần sau không ai tin nó |
+| 6 | Cảnh báo "config.py đang để 4096" | [`deploy/.env.example`](../../deploy/.env.example) | Mặc định nay là 8192. Một cảnh báo sai lệch còn tệ hơn không có cảnh báo, vì lần sau không ai tin nó |
 | 7 | §13b.3 liệt kê bốn lỗ hổng RAG như thể chưa vá | [ARCHITECTURE.md §13b.3](../../ARCHITECTURE.md) | Xem 1.3. Người tiếp quản đi vá lại thứ đã xong |
 
 **Cập nhật 26/10/2026:** mục 1 đã xong ở BR-03. `TEXT_MODEL_ID` không còn mặc định, chọn rỗng thay vì `Qwen/Qwen3-8B` để thiếu biến là báo lỗi rõ chứ không lặng lẽ tải 16GB từ Hub; `grep -rn "content/drive" src/` nay rỗng. Mục 5 xong một nửa: log "Booting COLAB engine" đã gỡ, docstring `config.py` vẫn còn.
