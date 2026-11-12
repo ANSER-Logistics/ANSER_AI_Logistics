@@ -119,3 +119,53 @@ def test_kiem_luoc_do_bao_loi_cau_hinh_thay_vi_bao_khoe(monkeypatch):
 
 def test_kiem_luoc_do_van_khong_bao_oan_khi_chua_dat_bien():
     assert MemoryManager().kiem_luoc_do() is None
+
+
+# ---------------------------------------------------------------------------
+# Review độc lập 12/11/2026: hai lỗi của chính PR #45
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("url", [
+    f"nguoi:{MAT_KHAU}@host/db?r=http://x",         # `://` đứng muộn, userinfo đứng trước
+    f"{MAT_KHAU}@host://zz",
+    f"user:{MAT_KHAU}@host:5432/db?sslmode=require&x=://",
+])
+def test_mat_khau_khong_lot_vao_loi_du_co_dau_hai_cham_slash_o_cho_khac(monkeypatch, caplog, url):
+    """Bản đầu lấy mọi thứ TRƯỚC `://` đầu tiên làm "scheme" -> mật khẩu vào log VÀ thân /health."""
+    caplog.set_level(logging.ERROR, logger="projecta.config")
+    c = _cau_hinh(monkeypatch, url)
+    chu = (c.DB_URL_LOI or "") + " " + " ".join(r.getMessage() for r in caplog.records)
+    assert c.DB_URL_LOI, "URL sai mà không báo lỗi"
+    assert MAT_KHAU not in chu and "nguoi" not in chu and "host" not in chu
+
+
+def test_mat_khau_khong_lot_vao_than_health_qua_kiem_luoc_do(monkeypatch):
+    """Nơi `DB_URL_LOI` thật sự đi ra ngoài: `memory_schema_error` trong /health."""
+    monkeypatch.setenv("DATABASE_URL", f"nguoi:{MAT_KHAU}@host/db?r=http://x")
+    loi = MemoryManager().kiem_luoc_do() or ""
+    assert loi and MAT_KHAU not in loi
+
+
+@pytest.mark.parametrize("url, mong_doi_bat_dau", [
+    ("POSTGRESQL+PSYCOPG2://u:p@h/db", "postgresql+psycopg2://"),
+    ("PostgreSQL+AsyncPG://u:p@h/db", "postgresql+asyncpg://"),
+    ("SQLITE:///dev.db", "sqlite:///dev.db"),
+    ("Sqlite:///:memory:", "sqlite:///:memory:"),
+])
+def test_scheme_viet_hoa_duoc_ha_thuong_vi_sqlalchemy_phan_biet_hoa_thuong(monkeypatch, url, mong_doi_bat_dau):
+    c = _cau_hinh(monkeypatch, url)
+    assert c.DB_URL.startswith(mong_doi_bat_dau), c.DB_URL
+    assert c.DB_URL_LOI is None
+
+
+def test_phan_sau_scheme_giu_nguyen_ke_ca_chu_hoa_trong_mat_khau(monkeypatch):
+    """Chỉ hạ chữ thường phần scheme; đường dẫn/mật khẩu có chữ hoa phải giữ nguyên."""
+    c = _cau_hinh(monkeypatch, "POSTGRESQL+PSYCOPG2://User:PaSs@Host/Db")
+    assert c.DB_URL == "postgresql+psycopg2://User:PaSs@Host/Db"
+
+
+def test_url_scheme_viet_hoa_thi_create_engine_khong_no(monkeypatch):
+    """Điều thật sự quan trọng: engine dựng được (bản cũ ném NoSuchModuleError lúc nạp DB)."""
+    from sqlalchemy import create_engine
+
+    create_engine(_cau_hinh(monkeypatch, "SQLITE:///:memory:").DB_URL)

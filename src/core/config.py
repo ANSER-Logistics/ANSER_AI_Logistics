@@ -32,6 +32,8 @@ class Config:
         # ra được thì đó là lỗi cấu hình: vẫn khởi động được (Config() dựng ở mỗi
         # request, ném lỗi ở đây là làm hỏng cả service), nhưng `DB_URL_LOI` được
         # đặt để /health báo — qua `memory.kiem_luoc_do`.
+        import re
+
         raw_url = (os.getenv("DATABASE_URL", "") or "").strip()
         self.DB_URL_LOI = None
         thap = raw_url.lower()
@@ -40,13 +42,24 @@ class Config:
         elif thap.startswith("postgresql://"):
             self.DB_URL = "postgresql+psycopg2://" + raw_url[len("postgresql://"):]
         elif thap.startswith(("postgresql+", "sqlite:")):
-            self.DB_URL = raw_url           # đã là URL SQLAlchemy đầy đủ — giữ nguyên
+            # Đã là URL SQLAlchemy đầy đủ. Chỉ HẠ CHỮ THƯỜNG phần scheme: SQLAlchemy tra
+            # dialect theo tên phân biệt hoa/thường, `SQLITE:///x` và `POSTGRESQL+PSYCOPG2://`
+            # ném NoSuchModuleError lúc create_engine (Brain sập khi nạp DB thay vì báo
+            # cấu hình sai). Phần sau dấu `:` (đường dẫn, mật khẩu) giữ nguyên.
+            scheme, sep, phan_con_lai = raw_url.partition(":")
+            self.DB_URL = scheme.lower() + sep + phan_con_lai
         else:
             self.DB_URL = "sqlite:///:memory:"
             if raw_url:
                 # Chỉ nêu phần TRƯỚC `://`: URL có mật khẩu, và log là nơi nó nằm lại
                 # (R2b). Không có `://` thì không nêu gì — có thể là `user:pass@host`.
-                scheme = raw_url.split("://", 1)[0][:20] if "://" in raw_url else "(không có ://)"
+                # CHỈ nêu scheme khi nó thật sự có hình dạng của một scheme. Bản đầu lấy
+                # mọi thứ TRƯỚC `://` đầu tiên: URL `nguoi:MATKHAU@host/db?r=http://x` cho ra
+                # "scheme 'nguoi:MATKHAU@host'" — mật khẩu vào log ERROR VÀ vào thân /health
+                # (review độc lập 12/11/2026, tái hiện được). Một scheme hợp lệ chỉ gồm chữ,
+                # số, `+`, `.`, `-` và không chứa `:`/`@`/`/`.
+                truoc = raw_url.split("://", 1)[0] if "://" in raw_url else ""
+                scheme = truoc if re.fullmatch(r"[A-Za-z][A-Za-z0-9+.\-]{0,19}", truoc) else "(không nhận ra)"
                 self.DB_URL_LOI = (
                     f"DATABASE_URL được đặt nhưng không nhận ra dạng (scheme {scheme!r}; "
                     "chấp nhận postgres://, postgresql://, postgresql+<driver>://, sqlite:) — "
