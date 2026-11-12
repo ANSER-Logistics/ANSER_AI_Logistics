@@ -138,3 +138,37 @@ def test_web_search_fallback_khong_goi_ra_ngoai_khi_loc_khong_sach(monkeypatch):
 
     assert deps.web_search_fallback("doanh thu ba tỷ rưỡi thì thuế bao nhiêu") == ""
     assert da_goi == [], "truy vấn còn số tiền mà vẫn gọi ra DuckDuckGo"
+
+
+# ---------------------------------------------------------------------------
+# Review độc lập 12/11/2026: hai họ dạng số tiền vẫn lọt qua cả regex lẫn doc_so_tien
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "công nợ 5 trăm nghìn quá hạn",       # 500.000 — chữ số + "trăm"
+        "cong no 5 tram nghin qua han",
+        "khách nợ 5 trăm",
+        "no hai ty ruoi gia dau hom nay",     # "ty" không dấu: bộ đọc chữ chỉ nhận "tỷ"
+        "cong no ba ty",
+        "no mot trieu ruoi",
+        "doanh thu sau tram nam muoi nghin",
+    ],
+)
+def test_so_tien_khong_dau_va_so_kem_tram_khong_duoc_toi_web(cau):
+    assert loc_truy_van_web(cau) == "", f"còn lọt: {loc_truy_van_web(cau)!r}"
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "giá dầu diesel hôm nay bao nhiêu",
+        "thuế suất VAT mặt hàng xăng dầu là bao nhiêu",
+        "hợp đồng vận chuyển cần những gì",
+        "năm 2026 có quy định mới về hoá đơn điện tử không",   # "năm" là năm lịch, không phải số
+        "nam dinh co bao nhieu tuyen xe",                      # "nam" trong tên riêng, không kèm đơn vị
+    ],
+)
+def test_chot_chan_moi_khong_chan_oan_cau_hoi_cong_khai(cau):
+    assert loc_truy_van_web(cau) != "", f"chặn oan: {cau!r}"

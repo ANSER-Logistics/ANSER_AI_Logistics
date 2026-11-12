@@ -179,7 +179,7 @@ def doi_chieu_hai_lan_xuat(truoc: ParseResult, sau: ParseResult) -> dict[str, An
              "giá_trị_cuối_bản_trước": d.closing_value},
             "Mã bị xoá, bị gộp sang mã khác, hoặc mọi chứng từ của nó đã bị huỷ. "
             "Đối chiếu sổ chi tiết của riêng mã này.",
-            money_impact=abs(d.closing_value) if d.closing_value else None,
+            money_impact=abs(d.closing_value) if d.closing_value is not None else None,
         ))
 
     # --- 2. Mã mới mà đã có tồn đầu kỳ -----------------------------------
@@ -193,7 +193,7 @@ def doi_chieu_hai_lan_xuat(truoc: ParseResult, sau: ParseResult) -> dict[str, An
             {"tồn_đầu_kỳ": d.opening_qty, "giá_trị_đầu_kỳ": d.opening_value},
             "Cùng ngày bắt đầu kỳ mà lần xuất trước không có mã này. Số dư đầu kỳ "
             "được thêm vào sau. Kiểm tra chứng từ ghi số dư đầu kỳ.",
-            money_impact=abs(d.opening_value) if d.opening_value else None,
+            money_impact=abs(d.opening_value) if d.opening_value is not None else None,
         ))
 
     # --- 3. Tồn đầu kỳ đổi -----------------------------------------------

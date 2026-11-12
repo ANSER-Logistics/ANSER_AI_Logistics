@@ -202,3 +202,37 @@ def test_bo_quet_that_su_nhin_thay_handler(tmp_path):
     xau = [n for n in ast.walk(cay) if isinstance(n, ast.ExceptHandler) and _rong(n) and not _co_log_hoac_raise(n)]
     assert len(xau) == 1 and _ham_bao_ngoai(cay, xau[0]) == "h"
     assert len(_quet()) >= 2, "không thấy handler nào ở src/ — bộ quét hỏng"
+
+
+# ---------------------------------------------------------------------------
+# Review độc lập 12/11/2026: kỳ đảo ngược / một phía / 0 ngày cũng làm câm phép kiểm
+# ---------------------------------------------------------------------------
+
+def _canh_bao_ky(bat_dau, ket_thuc):
+    out = audit_inventory([_LINE], period_start=bat_dau, period_end=ket_thuc)
+    return out["period"]["days"], [w for w in out["warnings"] if "bỏ qua phép kiểm hàng chết" in w]
+
+
+def test_ky_dao_nguoc_thi_noi_ro_chu_khong_im_lang():
+    """Kết thúc trước bắt đầu -> `_period_days` kẹp về 0 và bản cũ không nói gì."""
+    ngay, cb = _canh_bao_ky("2026-10-31", "2026-10-01")
+    assert ngay == 0
+    assert len(cb) == 1 and "TRƯỚC" in cb[0]
+
+
+@pytest.mark.parametrize("bat_dau, ket_thuc", [("2026-10-01", None), (None, "2026-10-31"), ("2026-10-01", "")])
+def test_ky_chi_co_mot_dau_thi_noi_ro(bat_dau, ket_thuc):
+    ngay, cb = _canh_bao_ky(bat_dau, ket_thuc)
+    assert ngay == 0
+    assert len(cb) == 1 and "Không đọc được ngày của kỳ" in cb[0]
+
+
+def test_ky_0_ngay_thi_noi_ro_vi_phep_kiem_hang_chet_bi_bo_qua():
+    ngay, cb = _canh_bao_ky("2026-10-01", "2026-10-01")
+    assert ngay == 0
+    assert len(cb) == 1 and "0 ngày" in cb[0]
+
+
+def test_ky_binh_thuong_va_khong_khai_ky_khong_sinh_canh_bao_nay():
+    assert _canh_bao_ky("2026-10-01", "2026-10-31")[1] == []
+    assert _canh_bao_ky(None, None)[1] == []
