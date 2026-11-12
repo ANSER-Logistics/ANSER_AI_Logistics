@@ -91,6 +91,17 @@ def test_gia_tinh_ra_khong_doi_khi_them_ngay_gia_dau():
 
 
 _CLIENT = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _khong_phu_thuoc_token_moi_truong(monkeypatch):
+    """Test HTTP ở đây không bàn về cổng token; một API_AUTH_TOKEN còn sót trong môi trường
+    của người chạy sẽ biến chúng thành 401 vô cớ (review độc lập 12/11/2026)."""
+    import src.api.dependencies as deps
+    import src.api.main as main_mod
+
+    monkeypatch.setattr(deps, "API_AUTH_TOKEN", "")
+    monkeypatch.setattr(main_mod, "API_AUTH_TOKEN", "")
 _BODY = {
     "carrier_cost": 1_000_000,
     "pricing_rule": {"base_margin_pct": 10, "fuel_baseline_price": 25_000},
@@ -297,3 +308,86 @@ def test_gui_toi_brain_van_duoc_chap_nhan():
     r2 = _CLIENT.post("/tools/quote", json=pick["quotePayload"])
     assert r2.status_code == 200, r2.text
     assert r2.json()["internal"]["inputs"]["fuel_price_as_of"] == "2026-11-05"
+
+
+# ---------------------------------------------------------------------------
+# 3. Review độc lập 12/11/2026: n8n chạy MỖI DÒNG ĐẦU VÀO, và ngày từ Sheet
+# ---------------------------------------------------------------------------
+
+def test_moi_node_doc_sheet_chi_chay_mot_lan_du_webhook_co_nhieu_dong():
+    """Node n8n chạy một lần cho MỖI item đến. Webhook gửi N dòng thì đọc Sheet N lần và
+    `.all()` nhân bản dữ liệu: cùng một giá chào lọt vào `offers` N lần."""
+    # Chỉ node ĐỌC (không có `operation`, mặc định là đọc): node ghi như "Lưu nháp vào Sheet"
+    # (append) phải chạy theo từng item, đặt executeOnce cho nó là làm mất dòng.
+    doc = [n for n in _workflow()["nodes"]
+           if n["type"] == "n8n-nodes-base.googleSheets" and not n["parameters"].get("operation")]
+    assert len(doc) == 5, f"mong 5 node đọc Sheet, thấy {[n['name'] for n in doc]}"
+    thieu = [n["name"] for n in doc if n.get("executeOnce") is not True]
+    assert not thieu, f"node đọc Sheet thiếu executeOnce: {thieu}"
+
+
+@_can_node
+@pytest.mark.parametrize("ngay", ["31/12/2000", "15/07/2999", "hôm qua", "2026-02-30"])
+def test_valid_to_khong_doc_duoc_thi_bo_gia_chu_khong_coi_la_con_han(ngay):
+    """Bản cũ so CHUỖI THÔ: "31/12/2000" >= "2026-11-12" (vì '3' > '2') nên giá ĐÃ HẾT HẠN
+    được dùng — im lặng, và gửi tới khách."""
+    out = _ghep(_REQ, [_quote("C001", "R003", 2_000_000, vto=ngay), _quote("C002", "R003", 3_000_000)])["ok"]
+    assert [o["carrier_id"] for o in out["payloadSelection"]["offers"]] == ["C002"]
+    assert any("C001" in w and "valid_to" in w for w in out["canh_bao_du_lieu"]), out["canh_bao_du_lieu"]
+
+
+@_can_node
+def test_valid_from_khong_doc_duoc_thi_bo_gia():
+    out = _ghep(_REQ, [_quote("C001", "R003", 2_000_000, vf="01/01/2000")])["ok"]
+    assert out["payloadSelection"]["offers"] == []
+    assert any("valid_from" in w for w in out["canh_bao_du_lieu"])
+
+
+@_can_node
+def test_dong_fuelindex_ngay_la_khong_duoc_chen_len_dong_hop_le():
+    """"31/12/2000" xếp SAU "2026-11-05" khi so chuỗi -> bản cũ coi nó là giá MỚI NHẤT."""
+    fuels = [{"date": "2026-11-05", "fuel_type": "diesel", "price": "27500"},
+             {"date": "31/12/2000", "fuel_type": "diesel", "price": "9999"}]
+    out = _ghep(_REQ, [_quote("C001", "R003", 2_000_000)], fuels=fuels)["ok"]
+    assert out["current_fuel_price"] == 27500 and out["fuel_price_as_of"] == "2026-11-05"
+    assert any("FuelIndex" in w for w in out["canh_bao_du_lieu"])
+
+
+@_can_node
+def test_khong_co_dong_fuelindex_doc_duoc_thi_khong_dieu_chinh_gia_dau():
+    out = _ghep(_REQ, [_quote("C001", "R003", 2_000_000)],
+                fuels=[{"date": "05/11/2026", "fuel_type": "diesel", "price": "27500"}])["ok"]
+    assert out["current_fuel_price"] is None and out["fuel_price_as_of"] is None
+
+
+@_can_node
+def test_ngay_hop_le_khong_sinh_canh_bao():
+    out = _ghep(_REQ, [_quote("C001", "R003", 2_000_000)])["ok"]
+    assert out["canh_bao_du_lieu"] == []
+
+
+# Brain: ngày đầu vào được GHI LẠI nguyên văn nên chỉ nhận đúng YYYY-MM-DD.
+@pytest.mark.parametrize("sai", ["2026-W45-1", "2026-W45", "2026-305"])
+def test_ngay_gia_dau_dang_tuan_iso_cung_bi_tu_choi(sai):
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        compute_quote(1_000_000, _RULE, 27_500, fuel_price_as_of=sai)
+
+
+def test_model_khong_duoc_tu_dien_ngay_gia_dau_vao_tool_quote():
+    from src.core.doc_dau_vao import chot_dau_vao
+
+    args, _, _ = chot_dau_vao(
+        "quote",
+        {"carrier_cost": 12_500_000, "pricing_rule": {"base_margin_pct": 8},
+         "fuel_price_as_of": "2026-11-12"},
+        "Báo giá giúp tôi, giá nhà xe 12.500.000đ",
+    )
+    assert "fuel_price_as_of" not in args
+
+
+def test_gỡ_ngày_giá_dầu_cả_khi_câu_rỗng_và_không_đụng_tool_khác():
+    from src.core.doc_dau_vao import chot_dau_vao
+
+    assert "fuel_price_as_of" not in chot_dau_vao("quote", {"fuel_price_as_of": "2026-11-12"}, "")[0]
+    giu, _, _ = chot_dau_vao("vat", {"fuel_price_as_of": "x"}, "")
+    assert giu == {"fuel_price_as_of": "x"}      # chỉ `quote` có khái niệm này

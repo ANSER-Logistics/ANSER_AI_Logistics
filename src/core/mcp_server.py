@@ -60,7 +60,7 @@ class MCPServer:
         """
         Tính lại tổng hóa đơn từ danh sách item rồi đối chiếu với tổng ghi trên hóa đơn.
 
-        items: [{"name": str, "price": float (đơn giá trước thuế), "qty": int,
+        items: [{"name": str, "price": float (đơn giá trước thuế), "qty": float (số lẻ và 0 đều hợp lệ),
                  "is_reduced_vat": bool | None (tùy chọn)}]
 
         Diện thuế mỗi dòng: nếu item KHÔNG nói rõ (None/khuyết) -> dùng default_is_reduced

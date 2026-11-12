@@ -27,6 +27,17 @@ from src.core.mcp_server import MCPServer
 from src.core.schemas import InvoiceItem, InvoicePayload
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _khong_phu_thuoc_token_moi_truong(monkeypatch):
+    """Test HTTP ở đây không bàn về cổng token; một API_AUTH_TOKEN còn sót trong môi trường
+    của người chạy sẽ biến chúng thành 401 vô cớ (review độc lập 12/11/2026)."""
+    import src.api.dependencies as deps
+    import src.api.main as main_mod
+
+    monkeypatch.setattr(deps, "API_AUTH_TOKEN", "")
+    monkeypatch.setattr(main_mod, "API_AUTH_TOKEN", "")
 PNG = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, "hoa_don.png", "image/png")
 
 
