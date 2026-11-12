@@ -156,3 +156,55 @@ async def test_hoi_lai_van_duoc_khi_con_ke_hoach():
 
     assert out["data_missing"] is True
     assert out["answer"].startswith("Tổng ghi")
+
+
+# --------------------------------------------------------------------------
+# Review độc lập 12/11/2026: lời nhắc không được làm mất câu hỏi gốc
+# --------------------------------------------------------------------------
+
+class _GhiLoiGoi:
+    """Ghi lại (user, history) của từng lần gọi model, và trả kịch bản có sẵn."""
+
+    def __init__(self, decisions):
+        self.decisions = list(decisions)
+        self.calls: list[tuple[str, list]] = []
+
+    async def generate_chat(self, system, user, **kwargs):
+        self.calls.append((user, list(kwargs.get("history") or [])))
+        d = self.decisions.pop(0) if len(self.decisions) > 1 else self.decisions[0]
+        return json.dumps(d, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_tu_choi_ket_luan_som_van_giu_cau_hoi_goc_cua_khach():
+    """Bản đầu gán đè `user_turn`: lần gọi sau chỉ thấy câu nhắc, không còn câu hỏi."""
+    manager = _GhiLoiGoi([
+        {"thought": "tự tính", "answer": "Giá là 123"},                         # bị từ chối
+        {"thought": "gọi tool", "tool": "vat", "arguments": {"items": [], "stated_total": 1}},
+        {"thought": "xong", "answer": "Lệch 1đ."},
+    ])
+    await AgenticLoop(manager, _TOOLS, lambda n, a: {"is_valid": False},
+                      planner=lambda q, n: ["vat"], max_steps=4).run("Báo giá HN-HCM 10 tấn")
+
+    user2, _ = manager.calls[1]
+    assert "Báo giá HN-HCM 10 tấn" in user2, f"lần gọi sau mất câu hỏi gốc: {user2!r}"
+    assert "Phải gọi tool 'vat'" in user2
+
+
+@pytest.mark.asyncio
+async def test_tu_choi_o_buoc_sau_van_giu_ket_qua_tool_truoc_do():
+    """Bị từ chối ở bước 2 thì `user_turn` là KẾT QUẢ TOOL của bước 1 — cũng không được mất."""
+    manager = _GhiLoiGoi([
+        {"thought": "gọi 1", "tool": "vat", "arguments": {"items": [], "stated_total": 1}},
+        {"thought": "tự kết luận", "answer": "Xong"},                          # còn 'report' -> từ chối
+        {"thought": "gọi 2", "tool": "report", "arguments": {"sales": []}},
+        {"thought": "xong", "answer": "Hết"},
+    ])
+    await AgenticLoop(manager, [*_TOOLS, {"name": "report", "description": "r",
+                                          "input_schema": {"properties": {"sales": {}}, "required": ["sales"]}}],
+                      lambda n, a: {"ket_qua": n}, planner=lambda q, n: ["vat", "report"],
+                      max_steps=6).run("hỏi hai việc")
+
+    user3, hist3 = manager.calls[2]
+    assert "KẾT QUẢ TOOL vat" in user3, f"mất kết quả tool trước đó: {user3!r}"
+    assert "Phải gọi tool 'report'" in user3
