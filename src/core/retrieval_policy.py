@@ -128,6 +128,20 @@ _SO_TIEN = re.compile(
 )
 
 
+# Dạng số tiền mà `doc_so_tien` chưa đọc, chỉ dùng làm chốt chặn fail-closed ở
+# `loc_truy_van_web`:
+#   - chữ số + "trăm" ("5 trăm nghìn" = 500.000; `_SO_TIEN` đòi đơn vị dính liền chữ số);
+#   - từ chỉ số viết KHÔNG DẤU + đơn vị lớn ("hai ty ruoi", "ba ty", "mot trieu ruoi") —
+#     bộ đọc chữ chỉ nhận "tỷ" có dấu dù "trieu"/"nghin" không dấu thì nhận.
+_NUM_WORD = (r"(?:một|mot|hai|ba|bốn|bon|tư|năm|nam|sáu|sau|bảy|bay|tám|tam|chín|chin|"
+             r"mười|muoi|mươi|chục|chuc)")
+_SO_CHU_CON_SOT = re.compile(
+    r"\d[\d.,]*\s*(?:trăm|tram)(?![^\W\d_])"
+    rf"|(?<![^\W\d_]){_NUM_WORD}\s+(?:tỷ|tỉ|ty|ti|triệu|trieu|trăm|tram|nghìn|nghin|ngàn|ngan)(?![^\W\d_])",
+    re.IGNORECASE,
+)
+
+
 # Từ đánh dấu một ĐỐI TÁC CỤ THỂ. Chuỗi từ viết hoa ngay sau chúng gần như
 # chắc chắn là tên riêng — tên khách, tên nhà xe, tên người.
 #
@@ -260,7 +274,11 @@ def loc_truy_van_web(query: str) -> str:
     from src.core.doc_dau_vao import doc_so_tien  # nạp muộn: tránh vòng import
 
     con_lai = doc_so_tien(ra)
-    if con_lai:
+    # `doc_so_tien` KHÔNG biết hai họ dạng sau, nên chốt chặn phải tự biết thêm (đo 12/11/2026:
+    # cả hai đều đi nguyên văn tới DuckDuckGo). Gộp chúng vào bộ đọc chung là việc của #222 —
+    # nó đổi cách cổng ĐẦU VÀO hỏi lại khách nên cần đo trên câu thật; ở đây chỉ làm bộ lọc
+    # CHẶT hơn, mà chặt hơn nghĩa là bỏ một lần tra web, không bao giờ là sai số liệu.
+    if con_lai or _SO_CHU_CON_SOT.search(ra):
         logger.warning(
             "Truy vấn web còn số tiền sau khi lọc — không gửi (R2)",
             extra={"so_khoan": len(con_lai)},
