@@ -89,7 +89,7 @@ Năm PR vào nhánh tính năng, mỗi PR có test **đỏ trên mã cũ**.
 ### BR-10. Nối ngưỡng p95 vào `/health`
 **Ưu tiên** P1 · **Người làm** Thành · **Làm sau** BR-08, BR-09 · **Issue** [#9](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/9)
 
-**Vì sao.** Hệ thống ghi số token và tính được p95 nhưng không kết luận gì; chu kỳ 01 ghi p95 là "ngưỡng chốt" mà chưa nối vào đâu.
+**Vì sao.** Hệ thống ghi số token và tính được p95 nhưng không kết luận gì; chu kỳ 01 đã chốt hai ngưỡng p95 (28/10, [BAO_CAO_BR04](../chu-ky-01/BAO_CAO_BR04.md) mục 6) mà chưa nối vào đâu.
 
 **Yêu cầu.** (đã chốt 12/11/2026)
 1. PHẢI: chỉ `ms/token` được hạ `degraded`.
@@ -237,7 +237,7 @@ Sơn:    BR-13 (#17) ──► BR-14 (#30)                         BR-16 (#36), 
                   └──► BR-21 (#18)        BR-18 (#38) sau BR-09
 ```
 
-**Cặp xung đột đã đo** (git merge-tree, 12/11): `PR #25` ↔ `#14` cùng sửa `src/api/main.py`, `tests/test_deploy_config.py`, `deploy/README.md`, `ROADMAP.md`; `#17` ↔ `#30` cùng sửa `requirements.txt` và `tests/test_phu_thuoc.py`; `#9` ↔ cả hai việc đầu. Các việc agent làm trong ngày 12/11 **không chạm** file nào của ba PR đang mở.
+**Cặp xung đột đã đo** (git merge-tree, 12/11): `PR #25` ↔ `#14` cùng sửa `src/api/main.py`, `tests/test_deploy_config.py`, `deploy/README.md`, `ROADMAP.md`; `#17` ↔ `#30` cùng sửa `requirements.txt` và `tests/test_phu_thuoc.py`; `#9` ↔ cả hai việc đầu. Các việc agent làm trong ngày 12/11 **có chạm chung file** với nhánh #14 (`src/core/config.py` — #45/#49; `src/api/dependencies.py` — #33); `git merge-tree` 12/11 cho thấy hai file đó tự gộp được, còn xung đột thật nằm ở `src/core/engine.py` (#14), `.github/workflows/ci.yml` (#25) và `requirements.txt` (#17) — do #23 (`engine.py`) và #26 (`requirements.txt`) đã gộp vào nhánh tính năng sau khi các nhánh kia tách ra; các nhánh chưa rebase.
 
 **File đang cấm sửa** cho tới khi BR-08, BR-09, BR-13 gộp: `ROADMAP.md`, `SO_TAY_NGUOI_MOI.md`, `.github/workflows/ci.yml`, `requirements.txt`, `src/api/main.py`, `src/core/engine.py`, `deploy/*`.
 
