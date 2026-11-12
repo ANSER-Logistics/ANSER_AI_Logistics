@@ -6,7 +6,14 @@ from pydantic import BaseModel, Field, field_validator
 class InvoiceItem(BaseModel):
     name: str = Field(default="Unknown Product", description="Product name")
     price: float = Field(..., description="Unit price before tax")
-    qty: int = Field(1, description="Quantity")
+    # `float`, KHÔNG phải `int ≥ 1`. `MCPServer.validate_invoice_total` cố ý nhận số lượng
+    # lẻ và bằng 0 (xem chú thích ở đó: `int(2.5) = 2` cắt cụt dầu nhờn bán theo lít, tính
+    # THIẾU tiền mà không bên nào kêu; qty = 0 là dòng huỷ). Bản `int ≥ 1` này chặn từ
+    # cổng vào: một hoá đơn có "2,5 lít" ra `schema_invalid` và cả /ocr hỏng. Đo 12/11/2026.
+    # Thiếu số lượng vẫn mặc định 1 — đúng như MCPServer ("không ghi" khác "ghi 0").
+    # Chưa nhận số ÂM: VLM đọc ra âm gần như chắc là đọc nhầm dấu/gạch; để rơi vào
+    # `schema_invalid` -> người xem lại, thay vì lặng lẽ trừ tiền.
+    qty: float = Field(1.0, allow_inf_nan=False, ge=0, le=1e9, description="Quantity (cho phép số lẻ: lít, kg)")
     is_reduced_vat: Optional[bool] = Field(
         None,
         description="None = chưa rõ diện thuế -> validator áp mặc định 10%; True nếu thuộc diện giảm 8%",
@@ -17,13 +24,6 @@ class InvoiceItem(BaseModel):
     def price_non_negative(cls, v: float) -> float:
         if v < 0:
             raise ValueError("price must be >= 0")
-        return v
-
-    @field_validator("qty")
-    @classmethod
-    def qty_at_least_one(cls, v: int) -> int:
-        if v < 1:
-            raise ValueError("qty must be >= 1")
         return v
 
 
