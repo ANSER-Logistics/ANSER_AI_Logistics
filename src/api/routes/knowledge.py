@@ -28,6 +28,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from src.api.chay_ngoai_loop import chay_ngoai_loop
 from src.api.dependencies import MAX_UPLOAD_BYTES, require_api_token, runtime
 from src.core import doc_extract
 
@@ -87,7 +88,7 @@ async def upload_document(
         raise HTTPException(status_code=413, detail="File quá lớn")
 
     try:
-        boc = doc_extract.extract(data, file.filename or "")
+        boc = await chay_ngoai_loop(doc_extract.extract, data, file.filename or "")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:  # thiếu thư viện — lỗi cài đặt, không phải lỗi file

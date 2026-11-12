@@ -35,6 +35,7 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, Request, Uploa
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api import dependencies as _deps
+from src.api.chay_ngoai_loop import chay_ngoai_loop
 from src.api.dependencies import MAX_UPLOAD_BYTES, require_api_token
 from src.core import carrier_selection as cs
 from src.core import forecasting as fc
@@ -547,7 +548,7 @@ async def tool_inventory_import(
     data = await _doc_file(request, file)
 
     try:
-        res = inv_import.load_xlsx_bytes(data, sheet=sheet)
+        res = await chay_ngoai_loop(inv_import.load_xlsx_bytes, data, sheet=sheet)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:  # thiếu openpyxl — lỗi cài đặt, không phải lỗi file
@@ -710,7 +711,7 @@ async def tool_partner_import(
     require_api_token(x_api_token)
     data = await _doc_file(request, file)
     try:
-        res = pi.load_partners_xlsx_bytes(data, sheet=sheet, role=role.strip())
+        res = await chay_ngoai_loop(pi.load_partners_xlsx_bytes, data, sheet=sheet, role=role.strip())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
@@ -750,7 +751,7 @@ async def tool_product_import(
     require_api_token(x_api_token)
     data = await _doc_file(request, file)
     try:
-        res = vc.load_products_xlsx_bytes(data, sheet=sheet)
+        res = await chay_ngoai_loop(vc.load_products_xlsx_bytes, data, sheet=sheet)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
