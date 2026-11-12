@@ -292,6 +292,14 @@ def doi_chieu_hai_lan_xuat(truoc: ParseResult, sau: ParseResult) -> dict[str, An
             f["kind"] in ("history_decreased", "opening_changed", "line_disappeared")
             for f in fs
         ),
-        "tổng_tiền_ảnh_hưởng": round(sum(f["money_impact"] or 0 for f in fs)),
+        # `money_impact=None` nghĩa là CHƯA QUY RA TIỀN ĐƯỢC (xem `findings.py`), khác 0.
+        # Cộng chúng như 0 thì "tổng tiền ảnh hưởng" — con số đầu bảng chủ doanh nghiệp
+        # đọc — thấp hơn thực tế mà không nói. Chỉ cộng phần ĐÃ quy ra tiền, và đếm
+        # riêng phần chưa. KHÔNG dùng `warnings` để báo: với Body, `warnings` không rỗng
+        # nghĩa là Brain TỪ CHỐI so hai bản (xem `BrainPeriodDiff.warnings` trong brain.ts).
+        "tổng_tiền_ảnh_hưởng": round(
+            sum(f["money_impact"] for f in fs if f["money_impact"] is not None)
+        ),
+        "số_phát_hiện_chưa_quy_ra_tiền": sum(1 for f in fs if f["money_impact"] is None),
     })
     return {"findings": fs, "warnings": [], "summary": tom_tat}
