@@ -461,9 +461,15 @@ class AgenticLoop:
                     "step": step_no,
                     "error": f"kết luận khi còn tool chưa chạy: {plan[0]}",
                 })
+                # NỐI lời nhắc vào `user_turn`, KHÔNG gán đè. `user_turn` mới chỉ vào
+                # `transcript` ở cuối một bước gọi tool; gán đè ở đây làm câu hỏi gốc
+                # của khách (hoặc kết quả tool của bước trước) biến khỏi ngữ cảnh, và
+                # model phải tự điền tham số tool mà không biết khách hỏi gì. Phát hiện
+                # bởi review độc lập 12/11/2026 (PR #32 bản đầu gán đè).
                 user_turn = (
-                    f"Chưa được trả lời. Phải gọi tool '{plan[0]}' trước, rồi mới "
-                    f"kết luận từ KẾT QUẢ TOOL."
+                    f"{user_turn}\n\n"
+                    f"[Nhắc] Chưa được trả lời. Phải gọi tool '{plan[0]}' trước, rồi "
+                    f"mới kết luận từ KẾT QUẢ TOOL."
                 )
                 continue
 
