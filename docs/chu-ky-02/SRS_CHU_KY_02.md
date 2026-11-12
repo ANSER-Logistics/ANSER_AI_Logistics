@@ -120,7 +120,7 @@ Năm PR vào nhánh tính năng, mỗi PR có test **đỏ trên mã cũ**.
 ### BR-11. Compose nhất quán với phần còn lại của repo
 **Ưu tiên** P1 · **Người làm** Thành · **Làm sau** BR-09 · **Issue** [#35](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/35)
 
-**Vì sao.** `docker-compose.yml` ghim `vllm/vllm-openai:v0.8.5` trong khi `requirements.txt` đòi `vllm>=0.10.2,<0.12` và mọi phép đo (BR-04, BR-05) làm trên 0.10.2–0.11.2; hành vi grammar trên 0.8.5 chưa ai đo. Nó còn ép `--quantization=awq` trái với `config.py` (benchmark và serving sẽ chạy hai kernel khác nhau).
+**Vì sao.** `docker-compose.yml` ghim `vllm/vllm-openai:v0.8.5` trong khi `requirements-gpu.txt` đòi `vllm>=0.10.2,<0.12` và mọi phép đo (BR-04, BR-05) làm trên 0.10.2–0.11.2; hành vi grammar trên 0.8.5 chưa ai đo. Nó còn ép `--quantization=awq` trái với `config.py` (benchmark và serving sẽ chạy hai kernel khác nhau).
 
 **Yêu cầu.** PHẢI đưa image về bản trong khoảng cho phép và ghi bản nào đã được đo; PHẢI bỏ `--quantization` cứng, đọc `TEXT_QUANTIZATION`; PHẢI thêm test ghim hai điều đó vào `tests/test_deploy_config.py` để đổi một bên mà quên bên kia thì CI đỏ.
 
