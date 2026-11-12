@@ -476,6 +476,13 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
       "thue"           vat: câu không nói giá đã gồm VAT hay chưa
     """
     args = dict(args or {})
+    if ten == "quote" and "fuel_price_as_of" in args:
+        # `fuel_price_as_of` là NGUỒN GỐC của giá dầu (báo giá ghi lại "dựa trên giá ngày
+        # nào"): phải đến từ nơi lấy giá, không bao giờ từ model. Lược đồ tool phơi trường
+        # này cho model; một ngày model bịa vào đây được lưu như bằng chứng thật (review
+        # độc lập 12/11/2026). Gỡ TRƯỚC mọi lối thoát sớm, kể cả khi câu rỗng.
+        args.pop("fuel_price_as_of")
+        logger.info("quote: gỡ fuel_price_as_of do model tự điền")
     if not cau or ten not in TOOL_DOC_TU_CAU:
         return args, None, ""
 
