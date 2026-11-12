@@ -535,16 +535,20 @@ def audit_inventory(
                                  -(f["money_impact"] or 0)))
 
     summary, warnings = _summarize(lines, period_days)
-    if (period_start or period_end) and period_days == 0 and not (
-        _doc_duoc_ngay(period_start) and _doc_duoc_ngay(period_end)
-    ):
-        # `_period_days` trả 0 khi ngày hỏng, và 0 ngày làm im lặng phép kiểm hàng
-        # chết/bán chậm (cần ít nhất vài ngày). Người đọc thấy "không phát hiện hàng
-        # chết" mà không biết là vì kỳ không đọc được.
-        warnings.append(
-            f"Không đọc được ngày của kỳ (bắt đầu={period_start!r}, kết thúc="
-            f"{period_end!r}; cần YYYY-MM-DD) — bỏ qua phép kiểm hàng chết và bán chậm."
-        )
+    if (period_start or period_end) and period_days == 0:
+        # `_period_days` trả 0 cho MỌI trường hợp kỳ không dùng được, và 0 ngày làm im lặng
+        # phép kiểm hàng chết/bán chậm. Người đọc thấy "không phát hiện hàng chết" mà không
+        # biết vì sao. Nói đúng NGUYÊN NHÂN, vì cách sửa mỗi loại khác nhau.
+        d0, d1 = _doc_duoc_ngay(period_start), _doc_duoc_ngay(period_end)
+        if not (d0 and d1):
+            ly_do = (f"Không đọc được ngày của kỳ (bắt đầu={period_start!r}, "
+                     f"kết thúc={period_end!r}; cần cả hai, dạng YYYY-MM-DD)")
+        elif str(period_end)[:10] < str(period_start)[:10]:
+            ly_do = (f"Kỳ kiểm kê dùng không được: ngày kết thúc ({period_end}) đứng TRƯỚC ngày bắt đầu "
+                     f"({period_start}) — có thể đã nhập ngược")
+        else:
+            ly_do = f"Kỳ kiểm kê dùng không được: kỳ dài 0 ngày (bắt đầu và kết thúc cùng là {period_start})"
+        warnings.append(f"{ly_do} — bỏ qua phép kiểm hàng chết và bán chậm.")
     high = [f for f in findings if f["severity"] == "cao"]
     if high:
         warnings.append(

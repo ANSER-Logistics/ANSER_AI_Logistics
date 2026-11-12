@@ -63,3 +63,25 @@ def test_khong_co_phat_hien_nao_thi_ca_hai_deu_la_0():
     _, sau = _truoc_sau(bien_mat_biet_gia_tri=False)
     s = doi_chieu_hai_lan_xuat(sau, sau)["summary"]
     assert s["tổng_tiền_ảnh_hưởng"] == 0 and s["số_phát_hiện_chưa_quy_ra_tiền"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Review độc lập 12/11/2026: giá trị cuối kỳ = 0 là ĐÃ BIẾT, không phải chưa biết
+# ---------------------------------------------------------------------------
+
+def test_gia_tri_cuoi_ky_bang_0_la_biet_chu_khong_phai_chua_quy_ra_tien():
+    """`abs(x) if x else None` coi 0.0 giống None: một mã biến mất với giá trị đúng bằng 0
+    bị đếm vào "chưa quy ra tiền", làm người đọc tưởng còn dữ liệu thiếu."""
+    a = _dong("A", closing_qty=10, closing_value=0.0)
+    con_lai = _dong("C", closing_qty=1, closing_value=100)
+    kq = doi_chieu_hai_lan_xuat(_ky([a, con_lai], "2026-02-28"), _ky([con_lai], "2026-03-31"))
+    s = kq["summary"]
+    assert s["số_phát_hiện_chưa_quy_ra_tiền"] == 0
+    assert s["tổng_tiền_ảnh_hưởng"] == 0
+
+
+def test_ma_moi_co_ton_dau_ky_gia_tri_0_cung_la_biet():
+    moi = _dong("N", opening_qty=5, opening_value=0.0, closing_qty=5, closing_value=0.0)
+    c = _dong("C", closing_qty=1, closing_value=100)
+    kq = doi_chieu_hai_lan_xuat(_ky([c], "2026-02-28"), _ky([c, moi], "2026-03-31"))
+    assert kq["summary"]["số_phát_hiện_chưa_quy_ra_tiền"] == 0
