@@ -24,6 +24,10 @@ Loại xe và khả năng chạy tuyến là RÀNG BUỘC CỨNG — hãng khôn
 không phải trừ điểm. Gợi ý một hãng không có xe phù hợp là gợi ý sai, dù điểm tổng
 có cao đến đâu.
 
+Một hãng có NHIỀU HƠN MỘT giá chào trong cùng lời gọi cũng bị LOẠI (issue #37):
+đó là dữ liệu nguồn bị trùng, và chọn một trong số đó là quy tắc nghiệp vụ chưa
+ai chốt. Lý do loại liệt kê đủ các giá để người dùng biết sửa dòng nào.
+
 DỮ LIỆU THIẾU
 -------------
 SME hiếm khi có đủ mọi trường. Tiêu chí thiếu dữ liệu bị LOẠI KHỎI phép tính và
@@ -161,13 +165,47 @@ def _normalize_absolute(value: float, ceiling: float, lower_better: bool = False
 # Lọc cứng
 # ---------------------------------------------------------------------------
 
+def _vnd(so: float) -> str:
+    """3500000 -> '3.500.000đ'. Chỉ để người đọc lý do loại nhận ra dòng nào."""
+    return f"{so:,.0f}".replace(",", ".") + "đ"
+
+
+def _gom_gia_chao(
+    offers: Iterable[QuoteOffer],
+) -> tuple[dict[Any, QuoteOffer], dict[Any, list[QuoteOffer]]]:
+    """
+    Tách giá chào thành (nhà xe có ĐÚNG MỘT giá, nhà xe có NHIỀU giá).
+
+    Bản trước dựng `{o.carrier_id: o for o in offers}`: nhà xe có hai giá thì giá
+    đứng sau đè giá đứng trước, im lặng — kết quả xếp hạng phụ thuộc thứ tự dòng
+    trong dữ liệu nguồn (issue #37). Từ PR #41 n8n đã lọc theo đúng tuyến, nên
+    nhiều giá cho một nhà xe trong một lời gọi là dữ liệu nguồn bị trùng.
+
+    Cố ý KHÔNG chọn giá thấp nhất hay mới nhất: giá cao hơn có thể là bản mới
+    và mới đúng. Chọn là quy tắc nghiệp vụ, thuộc quyền chủ dự án — ở đây chỉ
+    tách ra để `_hard_filter` loại và nói rõ lý do.
+    """
+    nhom: dict[Any, list[QuoteOffer]] = {}
+    for o in offers:
+        nhom.setdefault(o.carrier_id, []).append(o)
+    mot_gia = {cid: ds[0] for cid, ds in nhom.items() if len(ds) == 1}
+    nhieu_gia = {cid: ds for cid, ds in nhom.items() if len(ds) > 1}
+    return mot_gia, nhieu_gia
+
+
 def _hard_filter(
     carriers: Iterable[Carrier],
     offers_by_carrier: dict[Any, QuoteOffer],
     request: RouteRequest,
+    duplicate_offers: Optional[dict[Any, list[QuoteOffer]]] = None,
 ) -> tuple[list[Carrier], list[dict]]:
-    """Trả (ứng viên hợp lệ, danh sách bị loại kèm lý do)."""
+    """Trả (ứng viên hợp lệ, danh sách bị loại kèm lý do).
+
+    Mỗi nhà xe bị loại đúng MỘT lần, theo lý do đầu tiên gặp: không có xe phù
+    hợp đứng trước, vì khi đó giá chào trùng hay không cũng không liên quan.
+    """
     eligible, rejected = [], []
+    duplicate_offers = duplicate_offers or {}
 
     for carrier in carriers:
         if carrier.vehicle_types and request.vehicle_type not in carrier.vehicle_types:
@@ -175,6 +213,20 @@ def _hard_filter(
                 "carrier_id": carrier.id,
                 "name": carrier.name,
                 "reason": f"không có xe {request.vehicle_type}",
+            })
+            continue
+
+        if carrier.id in duplicate_offers:
+            # Sắp xếp để câu lý do không phụ thuộc thứ tự dòng — đúng thứ #37 bỏ.
+            gia = ", ".join(_vnd(p) for p in sorted(o.price for o in duplicate_offers[carrier.id]))
+            rejected.append({
+                "carrier_id": carrier.id,
+                "name": carrier.name,
+                "reason": (
+                    f"có {len(duplicate_offers[carrier.id])} giá chào cho cùng tuyến "
+                    f"{request.origin} → {request.destination} ({gia}) — không tự "
+                    f"chọn giá nào, cần kiểm dữ liệu nguồn"
+                ),
             })
             continue
 
@@ -290,9 +342,11 @@ def select_carrier(
       }
     """
     weights = dict(weights or DEFAULT_WEIGHTS)
-    offers_by_carrier = {o.carrier_id: o for o in offers}
+    offers_by_carrier, duplicate_offers = _gom_gia_chao(offers)
 
-    eligible, rejected = _hard_filter(carriers, offers_by_carrier, request)
+    eligible, rejected = _hard_filter(
+        carriers, offers_by_carrier, request, duplicate_offers
+    )
     if not eligible:
         return {
             "ranked": [],
