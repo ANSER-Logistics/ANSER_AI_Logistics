@@ -685,9 +685,9 @@ Toàn bộ là file `.xlsx` xuất từ MISA. Khách gửi PDF trước, và PDF
 | Doanh thu theo mã hàng | Lãi gộp thật. Hiện chỉ có giá vốn | chưa xin |
 | 10 đến 30 tài liệu nội bộ | Kho tri thức có nội dung thật để tra | chưa xin |
 
-Danh sách đầy đủ, kèm cách xin và tên cột cần có: [HOANG_PHAT_DU_LIEU_CAN_XIN.md](docs/khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md). Bản gửi khách: [HOANG_PHAT_GUI_KHACH.md](docs/khach-hang/HOANG_PHAT_GUI_KHACH.md).
+Danh sách đầy đủ, kèm cách xin và tên cột cần có: HOANG_PHAT_DU_LIEU_CAN_XIN.md. Bản gửi khách: HOANG_PHAT_GUI_KHACH.md.
 
-Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc [BAN_GIAO_VAN_TAI.md](docs/khach-hang/BAN_GIAO_VAN_TAI.md).
+Phần vận tải cần thêm 15 đến 20 báo giá đã chốt, 30 đến 50 ca chọn nhà xe, và 30 đến 50 ảnh hoá đơn nhà xe. Những thứ đó thuộc BAN_GIAO_VAN_TAI.md.
 
 ### 6.3. Dữ liệu nào không bao giờ vào repo
 
@@ -753,7 +753,7 @@ Ba chỗ đang tự khẳng định, chưa ai ngoài dự án xác nhận:
 | Định nghĩa "sửa hồi tố" | Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường |
 | Ngưỡng tập trung 20% và 50% | Con số do dự án đặt, chưa ai xác nhận là mức đáng lo |
 
-Một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md) và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.
+Một kế toán có nghề đọc HOANG_PHAT_SOAT_SO_1108.md và nói từng phát hiện đúng hay sai sẽ gỡ cả ba. Một buổi là đủ, và đó là việc rẻ nhất đang chặn nhiều thứ nhất.
 
 ---
 
@@ -860,9 +860,9 @@ Mỗi dòng kèm lý do. Phần lớn lý do là một sự cố đã xảy ra.
 | **Việc của chu kỳ này, có người và hạn** | [SRS_CHU_KY_01.md](docs/chu-ky-01/SRS_CHU_KY_01.md) |
 | Bảy việc dài hạn, đã xếp thứ tự | [GIAO_VIEC_BRAIN.md](docs/chu-ky-01/GIAO_VIEC_BRAIN.md) |
 | Chạy thử nội bộ, kịch bản từng bước | [CHAY_THU_NOI_BO.md](docs/ky-thuat/CHAY_THU_NOI_BO.md) |
-| Mảng vận tải, và ba mảng nghiên cứu sâu | [BAN_GIAO_VAN_TAI.md](docs/khach-hang/BAN_GIAO_VAN_TAI.md) |
+| Mảng vận tải, và ba mảng nghiên cứu sâu | BAN_GIAO_VAN_TAI.md |
 | Kế hoạch RAG và VLM | [RAG_VLM_KE_HOACH.md](docs/ky-thuat/RAG_VLM_KE_HOACH.md) |
-| Kết quả soát sổ gửi khách | [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md) |
+| Kết quả soát sổ gửi khách | HOANG_PHAT_SOAT_SO_1108.md |
 | Hợp đồng API với Body | `tests/test_body_contract.py` |
 | Pipeline fine-tune | [offline_training/README.md](offline_training/README.md) |
 

@@ -346,7 +346,7 @@ Bốn lỗ hổng chức năng mà [ARCHITECTURE.md §13b.3](../../ARCHITECTURE.
 **Yêu cầu.**
 1. PHẢI báo cáo ít nhất một chỉ số tầng truy hồi và một chỉ số tầng sinh. Ngưỡng khởi điểm: **Recall@20 ≥ 0,8**, MRR càng gần 1 càng tốt.
 2. Bộ câu hỏi sinh từ tài liệu PHẢI có người rà lại **20% mẫu**. Câu hỏi sinh máy mà tự trả lời được không cần truy hồi thì phải loại.
-3. **PHẢI KHÔNG gửi tài liệu của khách tới DeepSeek.** [BAN_GIAO_VAN_TAI.md §E.3](../khach-hang/BAN_GIAO_VAN_TAI.md) đề nghị dùng DeepSeek sinh câu hỏi từ "hợp đồng, bảng giá cước, chính sách công nợ", và đó là **dữ liệu khách**, vi phạm R2. DeepSeek chỉ dùng cho corpus công khai là nghị định và văn bản pháp luật. Tài liệu khách thì gõ tay hoặc sinh bằng model local.
+3. **PHẢI KHÔNG gửi tài liệu của khách tới DeepSeek.** BAN_GIAO_VAN_TAI.md §E.3 đề nghị dùng DeepSeek sinh câu hỏi từ "hợp đồng, bảng giá cước, chính sách công nợ", và đó là **dữ liệu khách**, vi phạm R2. DeepSeek chỉ dùng cho corpus công khai là nghị định và văn bản pháp luật. Tài liệu khách thì gõ tay hoặc sinh bằng model local.
 4. `grounding.py` đã là một dạng faithfulness thu hẹp về **con số**. Yêu cầu là **mở rộng nó thành chỉ số báo cáo được**, không thay bằng thứ khác.
 5. NÊN thử ba cải tiến theo thứ tự của E.3: chỉnh cách chia đoạn trước (bge-m3 nhận tới 8192 token, chia theo 128 token của model cũ là phí), rồi bật tắt ViRanker để so, rồi tìm lai từ khoá cộng vector.
 
@@ -543,7 +543,7 @@ Nêu ra để không ai làm, và để biết chúng chưa chết.
 | Quyết định kiến trúc, ngân sách VRAM, sổ lỗi | [ARCHITECTURE.md](../../ARCHITECTURE.md) |
 | Chạy phiên đo Colab từng ô | [PHIEN_DO_COLAB.md](../ky-thuat/PHIEN_DO_COLAB.md) |
 | Cổng ra từng giai đoạn | [ROADMAP.md](../../ROADMAP.md) |
-| Ba mảng nghiên cứu sâu, gồm phương án bộ đo RAG | [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) §E |
+| Ba mảng nghiên cứu sâu, gồm phương án bộ đo RAG | BAN_GIAO_VAN_TAI.md §E |
 
 ---
 

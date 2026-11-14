@@ -4,7 +4,7 @@
 
 Hồ sơ này bàn giao Brain cho người tiếp quản. Nó gồm bốn thứ: trạng thái đã kiểm lại bằng máy, bảy việc kèm cổng nghiệm thu, những gì người tiếp quản cần được cấp, và chín quyết định chủ dự án đã chốt ngày 22/10.
 
-**Mảng vận tải ở lại repo này.** Chủ dự án chốt ngày 22/10/2026: không tách repo riêng. Nên lớp nền dùng chung giữ nguyên một bản, và [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) §B.5 về việc mang gì theo khi tách **không còn áp dụng**. Danh sách việc của mảng đó tóm ở V7.
+**Mảng vận tải ở lại repo này.** Chủ dự án chốt ngày 22/10/2026: không tách repo riêng. Nên lớp nền dùng chung giữ nguyên một bản, và BAN_GIAO_VAN_TAI.md §B.5 về việc mang gì theo khi tách **không còn áp dụng**. Danh sách việc của mảng đó tóm ở V7.
 
 > **Đọc theo thứ tự.** Người tiếp quản chưa biết gì về dự án thì bắt đầu ở [SO_TAY_NGUOI_MOI.md](../../SO_TAY_NGUOI_MOI.md), chạy được hệ thống trên máy mình, rồi quay lại đây. Người đã quen repo thì đọc thẳng mục 2 và 3.
 
@@ -247,7 +247,7 @@ Nghĩa là hai thứ Brain đang nói "chưa nối được" **nay nối đượ
 
 `src/core/knowledge.py` có 571 dòng và 70 test đơn vị, và không một chỉ số recall, MRR hay faithfulness nào. Bốn lỗ hổng chức năng đã vá hết, xem 1.3, nên việc còn lại thuần là đo.
 
-Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md §E.3](../khach-hang/BAN_GIAO_VAN_TAI.md), theo đúng nó trừ một chỗ:
+Phương án chi tiết ở BAN_GIAO_VAN_TAI.md §E.3, theo đúng nó trừ một chỗ:
 
 > **E.3 bước 2 vi phạm R2 nếu áp nguyên văn.** Nó đề nghị "với mỗi đoạn, sinh 2 đến 3 câu hỏi, dùng DeepSeek", và danh sách tài liệu nguồn ngay phía trên là "hợp đồng, bảng giá cước, chính sách công nợ". Đó là dữ liệu khách hàng, và bảng giá cước là một trong hai thứ nhạy cảm nhất hệ thống.
 >
@@ -288,8 +288,8 @@ Hai thứ cần nhìn sau phiên này:
 
 | Việc | Ai gỡ | Vì sao không hoãn được |
 |---|---|---|
-| **Một kế toán có nghề rà [HOANG_PHAT_SOAT_SO_1108.md](../khach-hang/HOANG_PHAT_SOAT_SO_1108.md) một vòng** | chủ dự án tìm người | Bộ đo trả lời được "mã có làm đúng thứ ta định không", và không trả lời được "cách hiểu nghiệp vụ của ta có đúng không". Ba chỗ đang tự khẳng định: bảng tra thuế 8% và 10%, định nghĩa "sửa hồi tố", ngưỡng tập trung 20% và 50%. Sai bảng thuế thì khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt |
-| **Xin nốt dữ liệu còn thiếu** theo [HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md) | chủ dự án và khách | Sổ chi tiết công nợ mở khoá tuổi nợ 30/60/90, thứ khách cần nhất trong bức tranh phải thu 3,96 tỷ. Không có ngày hoá đơn thì số dư hiện có không nói được ai quá hạn |
+| **Một kế toán có nghề rà HOANG_PHAT_SOAT_SO_1108.md một vòng** | chủ dự án tìm người | Bộ đo trả lời được "mã có làm đúng thứ ta định không", và không trả lời được "cách hiểu nghiệp vụ của ta có đúng không". Ba chỗ đang tự khẳng định: bảng tra thuế 8% và 10%, định nghĩa "sửa hồi tố", ngưỡng tập trung 20% và 50%. Sai bảng thuế thì khách xuất hoá đơn sai thuế suất, dẫn tới truy thu và phạt |
+| **Xin nốt dữ liệu còn thiếu** theo HOANG_PHAT_DU_LIEU_CAN_XIN.md | chủ dự án và khách | Sổ chi tiết công nợ mở khoá tuổi nợ 30/60/90, thứ khách cần nhất trong bức tranh phải thu 3,96 tỷ. Không có ngày hoá đơn thì số dư hiện có không nói được ai quá hạn |
 
 Việc đầu mất một buổi và rẻ hơn mọi việc còn lại trong hồ sơ này.
 
@@ -303,7 +303,7 @@ Chủ dự án chốt ngày 22/10: **không tách repo.** Hai hệ quả tức t
 
 **Hệ quả phải nhớ:** mảng vận tải có **82 test** và **chưa một con số nào được xác nhận bằng dữ liệu thật**. Mã đã lắp xong, máy chưa nổ. Đừng để con số test làm mình tin nhầm.
 
-Bàn giao chi tiết ở [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md), đọc Phần C và D. Tóm tắt thứ tự:
+Bàn giao chi tiết ở BAN_GIAO_VAN_TAI.md, đọc Phần C và D. Tóm tắt thứ tự:
 
 | # | Việc | Vì sao xếp ở đó |
 |---|---|---|

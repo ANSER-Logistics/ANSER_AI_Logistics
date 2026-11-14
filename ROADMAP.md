@@ -151,7 +151,7 @@ Cụ thể ba chỗ đang tự khẳng định:
 | "Sửa hồi tố" | Cáo buộc sổ bị sửa mà thực ra là nghiệp vụ bình thường |
 | Ngưỡng tập trung 20%/50% | Con số do ta đặt, chưa ai xác nhận là mức đáng lo |
 
-**Việc cần:** một kế toán có nghề đọc [HOANG_PHAT_SOAT_SO_1108.md](docs/khach-hang/HOANG_PHAT_SOAT_SO_1108.md)
+**Việc cần:** một kế toán có nghề đọc HOANG_PHAT_SOAT_SO_1108.md
 và nói từng phát hiện là đúng hay sai. Một buổi là đủ.
 
 ---
@@ -217,7 +217,7 @@ một thất bại vô hình thành một dòng in ở phút thứ nhất.
 | Thuế suất thực tế trên hoá đơn | cần 3–5 hoá đơn bán ra sau 01/7/2025 |
 | Khách thứ hai | cần GĐ B + GĐ C xong |
 
-Danh sách đầy đủ ở [HOANG_PHAT_DU_LIEU_CAN_XIN.md](docs/khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md).
+Danh sách đầy đủ ở HOANG_PHAT_DU_LIEU_CAN_XIN.md.
 
 ---
 

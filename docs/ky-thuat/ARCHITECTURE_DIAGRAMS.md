@@ -13,7 +13,7 @@ và sửa cùng commit với code.
 > sơ đồ sinh tự động cho biết code *đang* thế nào, bản vẽ tay nói *vì sao* thế.
 
 Đọc kèm: [RAG_VLM_KE_HOACH.md](RAG_VLM_KE_HOACH.md) ·
-[HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md)
+HOANG_PHAT_DU_LIEU_CAN_XIN.md
 
 ---
 
@@ -432,4 +432,4 @@ graph LR
 ```
 
 **Cả bốn việc còn lại đều chặn ở DỮ LIỆU, không chặn ở code.** Xem
-[HOANG_PHAT_DU_LIEU_CAN_XIN.md](../khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md).
+HOANG_PHAT_DU_LIEU_CAN_XIN.md.

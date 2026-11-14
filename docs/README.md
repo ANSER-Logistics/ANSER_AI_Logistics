@@ -39,16 +39,21 @@ chồng nội dung nhau, và không có cách nào nhìn ra file nào còn hiệ
 > sửa một biên bản đã ký là viết lại cái đã xảy ra. Chỗ nào chỉ dẫn đã bị đảo
 > thì có ghi chú tại chỗ, không sửa lặng lẽ.
 
-### [`khach-hang/`](khach-hang/) — làm việc với Hoàng Phát
+### Tài liệu khách hàng — đã chuyển sang repo private `anser-docs`
+
+Từ 15/11/2026 các file dưới đây **không còn trong repo này** (repo công khai): chúng nằm ở
+`ANSER-Logistics/anser-docs` (private, chỉ thành viên org đọc được) cùng lịch sử commit.
+Đừng thêm lại tài liệu mang tên khách, mã số thuế hay số liệu sổ sách của khách vào repo
+công khai (AGENTS.md R2). Các tên file giữ lại ở đây chỉ để biết tìm ở đâu.
 
 | File | Nội dung |
 |---|---|
-| [`GD0_LAM_VIEC_VOI_KHACH.md`](khach-hang/GD0_LAM_VIEC_VOI_KHACH.md) | Quy trình giai đoạn 0 |
-| [`BAN_GIAO_VAN_TAI.md`](khach-hang/BAN_GIAO_VAN_TAI.md) | Bàn giao nghiệp vụ vận tải |
-| [`HOANG_PHAT_DU_LIEU_CAN_XIN.md`](khach-hang/HOANG_PHAT_DU_LIEU_CAN_XIN.md) | Dữ liệu cần xin từ khách |
-| [`HOANG_PHAT_SOAT_SO_1108.md`](khach-hang/HOANG_PHAT_SOAT_SO_1108.md) | Kết quả soát sổ |
-| [`HOANG_PHAT_DANH_GIA_SAN_PHAM.md`](khach-hang/HOANG_PHAT_DANH_GIA_SAN_PHAM.md) | Đánh giá sản phẩm |
-| [`HOANG_PHAT_GUI_KHACH.md`](khach-hang/HOANG_PHAT_GUI_KHACH.md) | Bản soạn gửi khách |
+| `GD0_LAM_VIEC_VOI_KHACH.md` | Quy trình giai đoạn 0 |
+| `BAN_GIAO_VAN_TAI.md` | Bàn giao nghiệp vụ vận tải |
+| `HOANG_PHAT_DU_LIEU_CAN_XIN.md` | Dữ liệu cần xin từ khách |
+| `HOANG_PHAT_SOAT_SO_1108.md` | Kết quả soát sổ |
+| `HOANG_PHAT_DANH_GIA_SAN_PHAM.md` | Đánh giá sản phẩm |
+| `HOANG_PHAT_GUI_KHACH.md` | Bản soạn gửi khách |
 
 ### Ở ngay `docs/`
 

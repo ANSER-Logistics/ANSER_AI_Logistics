@@ -375,7 +375,7 @@ Nếu khách **đã nhập tay** hoá đơn vào sổ kế toán, thì mỗi ả
 bản ghi đúng tương ứng. Ghép ảnh với dòng sổ theo số hoá đơn là ra **tập huấn luyện
 có nhãn, không tốn một đồng gán nhãn nào**.
 
-Đây là câu hỏi số 6 trong [GD0_LAM_VIEC_VOI_KHACH.md](../khach-hang/GD0_LAM_VIEC_VOI_KHACH.md) —
+Đây là câu hỏi số 6 trong GD0_LAM_VIEC_VOI_KHACH.md —
 hỏi ngay buổi đầu, vì câu trả lời quyết định GĐ 3b tốn một tuần hay một ngày.
 
 ---
