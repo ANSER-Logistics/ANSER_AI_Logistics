@@ -23,14 +23,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src.core.pricing import PricingRule, compute_quote
+from src.core.pricing import PricingRule, compute_quote, hom_nay_vn
 
 WORKFLOW = Path(__file__).resolve().parent.parent / "workflows" / "logistics" / "logistics_quote_request.json"
 
@@ -40,17 +40,22 @@ WORKFLOW = Path(__file__).resolve().parent.parent / "workflows" / "logistics" / 
 
 _RULE = PricingRule(base_margin_pct=10, fuel_baseline_price=25_000)
 
+# Ngày giá dầu cho các test đi qua ĐỒNG HỒ THẬT (HTTP): ngày cố định sẽ "già" dần tới ngưỡng
+# từ chối và test tự hỏng theo lịch. Test thuần hàm thì cố định `today`, không cần cái này.
+_HOM_NAY = hom_nay_vn().isoformat()
+
 
 def test_inputs_ghi_lai_dung_nhung_so_da_dung():
     out = compute_quote(
-        1_000_000, _RULE, 27_500, fuel_price_as_of="2026-11-05", today=date(2026, 11, 12)
+        1_000_000, _RULE, 27_500, fuel_price_as_of="2026-11-11", today=date(2026, 11, 12)
     )
     assert out["internal"]["inputs"] == {
         "carrier_cost": 1_000_000,
         "current_fuel_price": 27_500,
         "fuel_baseline_price": 25_000,
-        "fuel_price_as_of": "2026-11-05",
-        "fuel_price_age_days": 7,
+        "fuel_price_as_of": "2026-11-11",
+        "fuel_price_age_days": 1,
+        "fuel_price_status": "ok",
         "fuel_adjustment_applied": True,
     }
     assert out["warnings"] == []
@@ -82,12 +87,15 @@ def test_ngay_sai_dinh_dang_bi_tu_choi_chu_khong_doan(sai):
         compute_quote(1_000_000, _RULE, 27_500, fuel_price_as_of=sai)
 
 
-def test_gia_tinh_ra_khong_doi_khi_them_ngay_gia_dau():
-    """Chỉ GHI THÊM — con số báo giá không được đổi vì có thêm thông tin."""
+@pytest.mark.parametrize("tuoi", [0, 1, 2, 6])
+def test_gia_tinh_ra_khong_doi_khi_them_ngay_gia_dau(tuoi):
+    """Chỉ GHI THÊM — con số báo giá không được đổi vì có thêm thông tin, kể cả khi cảnh báo."""
     a = compute_quote(1_000_000, _RULE, 27_500)
-    b = compute_quote(1_000_000, _RULE, 27_500, fuel_price_as_of="2026-11-05", today=date(2026, 11, 12))
+    ngay = date(2026, 11, 12) - timedelta(days=tuoi)
+    b = compute_quote(1_000_000, _RULE, 27_500, fuel_price_as_of=ngay.isoformat(), today=date(2026, 11, 12))
     assert a["quote"] == b["quote"]
     assert a["internal"]["margin"] == b["internal"]["margin"]
+    assert a["internal"]["fuel_adjustment"] == b["internal"]["fuel_adjustment"]
 
 
 _CLIENT = TestClient(app)
@@ -102,6 +110,8 @@ def _khong_phu_thuoc_token_moi_truong(monkeypatch):
 
     monkeypatch.setattr(deps, "API_AUTH_TOKEN", "")
     monkeypatch.setattr(main_mod, "API_AUTH_TOKEN", "")
+
+
 _BODY = {
     "carrier_cost": 1_000_000,
     "pricing_rule": {"base_margin_pct": 10, "fuel_baseline_price": 25_000},
@@ -110,12 +120,12 @@ _BODY = {
 
 
 def test_endpoint_ghi_thoi_diem_tinh_chi_o_phan_noi_bo():
-    r = _CLIENT.post("/tools/quote", json=_BODY | {"fuel_price_as_of": "2026-11-05"})
+    r = _CLIENT.post("/tools/quote", json=_BODY | {"fuel_price_as_of": _HOM_NAY})
     assert r.status_code == 200
     out = r.json()
     computed_at = out["internal"]["computed_at"]
     assert computed_at.endswith("+00:00") and len(computed_at) == len("2026-11-12T00:00:00+00:00")
-    assert out["internal"]["inputs"]["fuel_price_as_of"] == "2026-11-05"
+    assert out["internal"]["inputs"]["fuel_price_as_of"] == _HOM_NAY
     # Phần ĐƯA RA KHÁCH CUỐI không được lộ gì thêm (P2: biên và đầu vào là nội bộ).
     assert set(out["quote"]) == {"quoted_price", "surcharges", "currency"}
 
@@ -210,7 +220,7 @@ def _ctx(req, quotes, routes=None, fuels=None):
         "Đọc Carriers": [{"id": "C001", "name": "Hùng Phát", "vehicle_types": "3T|5T"}],
         "Đọc CarrierQuotes": quotes,
         "Đọc PricingRules": [{"name": "Mặc định", "base_margin_pct": "12", "fuel_baseline_price": "25000"}],
-        "Đọc FuelIndex": fuels if fuels is not None else [{"date": "2026-11-05", "fuel_type": "diesel", "price": "27500"}],
+        "Đọc FuelIndex": fuels if fuels is not None else [{"date": _HOM_NAY, "fuel_type": "diesel", "price": "27500"}],
         "Đọc Routes": routes if routes is not None else _ROUTES,
     }
 
@@ -293,7 +303,7 @@ def test_ngay_gia_dau_di_het_chuoi_toi_tools_quote():
     ghep = _ghep(_REQ, [_quote("C001", "R003", 2_000_000)])["ok"]
     sel = {"ranked": [{"carrier_id": "C001", "name": "Hùng Phát", "offer_price": 2_000_000}], "rejected": []}
     pick = _chay(_code_of("Lấy hãng đầu bảng"), {"Ghép dữ liệu": ghep}, [sel])
-    assert pick["ok"]["quotePayload"]["fuel_price_as_of"] == "2026-11-05"
+    assert pick["ok"]["quotePayload"]["fuel_price_as_of"] == _HOM_NAY
     assert pick["ok"]["quotePayload"]["current_fuel_price"] == 27500
 
 
@@ -307,7 +317,7 @@ def test_gui_toi_brain_van_duoc_chap_nhan():
     pick = _chay(_code_of("Lấy hãng đầu bảng"), {"Ghép dữ liệu": ghep}, [sel])["ok"]
     r2 = _CLIENT.post("/tools/quote", json=pick["quotePayload"])
     assert r2.status_code == 200, r2.text
-    assert r2.json()["internal"]["inputs"]["fuel_price_as_of"] == "2026-11-05"
+    assert r2.json()["internal"]["inputs"]["fuel_price_as_of"] == _HOM_NAY
 
 
 # ---------------------------------------------------------------------------

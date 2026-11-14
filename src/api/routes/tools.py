@@ -46,7 +46,12 @@ from src.core import receivables as rcv
 from src.core import reporting as rp
 from src.core import vat_catalog as vc
 from src.core.mcp_server import MCPServer
-from src.core.pricing import PricingRule, Surcharge, compute_quote
+from src.core.pricing import (
+    PricingRule,
+    Surcharge,
+    compute_quote,
+    doc_nguong_tuoi_gia_dau,
+)
 
 logger = logging.getLogger("projecta.api.tools")
 router = APIRouter(prefix="/tools")
@@ -138,7 +143,9 @@ class QuoteRequest(_ToolIn):
         None,
         description=(
             "Ngày của `current_fuel_price`, YYYY-MM-DD. Tuỳ chọn; có thì kết quả ghi "
-            "lại ngày và tuổi của giá dầu để biết báo giá dựa trên giá ngày nào."
+            "lại ngày và tuổi của giá dầu để biết báo giá dựa trên giá ngày nào. Khi giá dầu "
+            "được dùng để điều chỉnh: tuổi >= 2 ngày thì cảnh báo, >= 7 ngày thì 422 "
+            "(đổi bằng FUEL_PRICE_WARN_DAYS / FUEL_PRICE_MAX_DAYS)."
         ),
     )
 
@@ -379,6 +386,11 @@ class PeriodDiffRequest(_ToolIn):
 # Endpoints
 # ===========================================================================
 
+# Đọc MỘT lần lúc nạp module: biến hỏng thì dịch vụ không khởi động (RuntimeError nêu tên
+# biến) thay vì lặng lẽ dùng mặc định rồi báo giá theo ngưỡng người vận hành không định đặt.
+_NGUONG_GIA_DAU = doc_nguong_tuoi_gia_dau()
+
+
 @router.post("/quote")
 async def tool_quote(req: QuoteRequest, x_api_token: Optional[str] = Header(None)):
     require_api_token(x_api_token)
@@ -396,6 +408,8 @@ async def tool_quote(req: QuoteRequest, x_api_token: Optional[str] = Header(None
             current_fuel_price=req.current_fuel_price,
             extra_surcharges=[Surcharge(**s.model_dump()) for s in req.extra_surcharges],
             fuel_price_as_of=req.fuel_price_as_of,
+            canh_bao_ngay=_NGUONG_GIA_DAU[0],
+            tu_choi_ngay=_NGUONG_GIA_DAU[1],
         )
         # Thời điểm tính nằm ở ĐÂY chứ không trong `compute_quote`: hàm đó là phép
         # tính thuần, cùng đầu vào phải ra cùng kết quả. Chỉ vào `internal` — phần

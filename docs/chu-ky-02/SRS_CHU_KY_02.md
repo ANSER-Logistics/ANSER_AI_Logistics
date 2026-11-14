@@ -265,7 +265,6 @@ Danh sách đầy đủ ở [#11](https://github.com/ANSER-Logistics/ANSER_AI_Lo
 | Gộp [PR #5](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/pull/5) (CODEOWNERS, sửa CI của `main`) | Luật "team `brain` duyệt PR" chưa tự chạy |
 | Cấp `DEEPSEEK_API_KEY` | Cổng đo chất lượng mới đo được 1/4 tập; BR-06 không phụ thuộc vì dùng corpus công khai |
 | Chọn model chạy production (fine-tune hay model gốc) | BR-11 không được chọn thay chủ dự án; compose đang nạp fine-tune |
-| Ngưỡng tuổi giá dầu | Báo giá đã *ghi* tuổi giá dầu (PR #41) nhưng chưa từ chối gì |
 | Body trả lời [Body#28](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/28) | S7 (lịch sử chat) và BR-20 phần còn lại |
 | Thuê GPU, chỗ đặt cho khách, ai host n8n | Cổng ra "chạy được trên máy khách truy cập được" |
 
