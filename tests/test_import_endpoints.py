@@ -16,18 +16,13 @@ sai (grep theo tên không thấy vì ca được sinh tự động):
 
     pytest tests/test_auth_bao_phu.py --collect-only -q | grep import
 
-PHÁT HIỆN (13/11/2026)
----------------------
-File hỏng, file rỗng và tên sheet không tồn tại đều làm cả hai endpoint trả
-**500**. Endpoint chỉ bắt ValueError (-> 422) và RuntimeError (-> 503), còn
-`_rows_from_workbook` / `_rows` gọi thẳng `openpyxl.load_workbook`, nên
-BadZipFile, KeyError... rơi ra ngoài. /tools/inventory-import KHÔNG bị: lớp đọc
-của nó gom mọi lỗi openpyxl về ValueError (src/core/inventory_import.py, khối
-chú thích "openpyxl ném đủ loại ngoại lệ...").
-
-Theo issue #36, PR này KHÔNG sửa src/. Các ca đó để `xfail(strict=True)`: hôm
-nay chúng hỏng như dự kiến; ngày ai sửa xong, chúng thành XPASS và strict làm
-bộ test đỏ — buộc người sửa gỡ dấu xfail, thay vì để nó nằm đó mãi.
+ĐÃ SỬA (15/11/2026)
+-------------------
+Bản đầu của file này (PR #60) ghi lại một lỗi bằng `xfail(strict=True)`: file hỏng, file rỗng
+và tên sheet không tồn tại làm cả hai endpoint trả **500**, vì `partner_import` và
+`vat_catalog` gọi thẳng `openpyxl.load_workbook` còn tầng HTTP chỉ bắt ValueError/RuntimeError.
+Nay cả ba loader dùng chung `doc_xlsx.doc_dong_xlsx` (một chỗ, R4), gom lỗi về ValueError ->
+422 như `/tools/inventory-import` vẫn làm. Dấu xfail đã gỡ đúng như strict buộc phải làm.
 """
 
 from __future__ import annotations
@@ -48,12 +43,6 @@ client = TestClient(app, raise_server_exceptions=False)
 URL_DOI_TAC = "/tools/partner-import"
 URL_HANG_HOA = "/tools/product-import"
 MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-BUG_500 = (
-    "Phát hiện #36: lớp đọc .xlsx của endpoint này không gom lỗi openpyxl về "
-    "ValueError như inventory_import, nên file hỏng ra 500 thay vì 422."
-)
-
 
 # ---------------------------------------------------------------------------
 # Dựng file .xlsx đúng hình dạng MISA xuất ra
@@ -181,7 +170,6 @@ FILE_HONG = [
 ]
 
 
-@pytest.mark.xfail(strict=True, reason=BUG_500)
 @pytest.mark.parametrize("url", [URL_DOI_TAC, URL_HANG_HOA])
 @pytest.mark.parametrize("content,form", FILE_HONG)
 def test_file_hong_tra_loi_co_cau_truc_khong_phai_500(url, content, form):
@@ -190,7 +178,6 @@ def test_file_hong_tra_loi_co_cau_truc_khong_phai_500(url, content, form):
     assert resp.json()["detail"]
 
 
-@pytest.mark.xfail(strict=True, reason=BUG_500)
 @pytest.mark.parametrize("url,file_dung", [
     pytest.param(URL_DOI_TAC,
                  lambda: _bang_doi_tac([1, "KH01", "A", "HN", 1, "0101234567", ""]),
@@ -205,13 +192,36 @@ def test_ten_sheet_khong_ton_tai_tra_422(url, file_dung):
     assert resp.json()["detail"]
 
 
-def test_chot_chong_xanh_suong_cac_ca_xfail_dang_hong_THAT_vi_500():
-    """xfail chỉ nói "có hỏng", không nói hỏng VÌ SAO. Nếu các ca trên hỏng vì
-    một lý do khác (sai URL -> 404, đổi tên trường -> 422 khác) thì xfail vẫn
-    "đạt" mà không kiểm gì. Ca này khẳng định thẳng: hôm nay là 500.
-
-    Ngày bug được sửa, ca này đỏ cùng lúc với các ca xfail thành XPASS — xoá cả
-    ca này lẫn dấu xfail trong cùng PR sửa.
-    """
+def test_loi_file_noi_ro_nguyen_nhan_cho_nguoi_dung():
+    """422 phải kèm lời khuyên dùng được, không phải stack trace hay chuỗi rỗng."""
     for url in (URL_DOI_TAC, URL_HANG_HOA):
-        assert _post(url, b"day khong phai file excel").status_code == 500
+        r = _post(url, b"day khong phai file excel")
+        assert r.status_code == 422
+        assert "Không mở được file Excel" in r.json()["detail"]
+    r = _post(URL_DOI_TAC, _bang_doi_tac([1, "KH01", "A", "HN", 1, "0101234567", ""]), sheet="khong_co")
+    assert "Không có sheet" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Một bộ đọc dùng chung (R4): ba loader cùng hành vi khi file hỏng
+# ---------------------------------------------------------------------------
+
+def test_ba_loader_cung_nem_valueerror_khi_file_hong():
+    from src.core import inventory_import, partner_import, vat_catalog
+
+    for ham in (inventory_import.load_xlsx_bytes, partner_import.load_partners_xlsx_bytes,
+                vat_catalog.load_products_xlsx_bytes):
+        with pytest.raises(ValueError):          # không phải BadZipFile/KeyError... rơi ra ngoài
+            ham(b"khong phai excel")
+
+
+def test_tran_dong_la_loi_khong_phai_cat_bot():
+    from io import BytesIO
+
+    from src.core.doc_xlsx import doc_dong_xlsx
+
+    data = _xlsx([[i] for i in range(10)])
+    assert len(doc_dong_xlsx(BytesIO(data), None)) == 10                 # không trần: đọc hết
+    assert len(doc_dong_xlsx(BytesIO(data), None, max_rows=10)) == 10    # đúng trần: được
+    with pytest.raises(ValueError, match="quá 9 dòng"):
+        doc_dong_xlsx(BytesIO(data), None, max_rows=9)

@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any, Optional
 
+from src.core.doc_xlsx import doc_dong_xlsx
 from src.core.inventory import InventoryLine
 from src.core.utils import bo_dau
 
@@ -382,60 +383,8 @@ def _verify(
 
 
 def _rows_from_workbook(source: Any, sheet: Optional[str]) -> list[list[Any]]:
-    """
-    openpyxl -> list[list]. Nhận cả đường dẫn lẫn đối tượng file (BytesIO).
-
-    openpyxl là phụ thuộc tuỳ chọn — chỉ cần khi đọc Excel, nên import trong
-    thân hàm để phần còn lại của module chạy được ở môi trường tối giản.
-    """
-    try:
-        from openpyxl import load_workbook
-    except ImportError as exc:  # pragma: no cover - phụ thuộc tuỳ chọn
-        raise RuntimeError(
-            "Cần openpyxl để đọc .xlsx:  pip install openpyxl"
-        ) from exc
-
-    # openpyxl ném đủ loại ngoại lệ cho một file hỏng (BadZipFile, KeyError,
-    # xml.etree.ParseError...). Gom hết về ValueError để tầng HTTP trả 422 kèm
-    # lời khuyên dùng được, thay vì 500 kèm stack trace — upload đứt giữa chừng
-    # là chuyện thường ngày, không phải lỗi lập trình.
-    try:
-        wb = load_workbook(source, data_only=True, read_only=True)
-    except Exception as exc:
-        raise ValueError(
-            f"Không mở được file Excel ({type(exc).__name__}). File có thể hỏng "
-            "hoặc tải lên dở chừng — thử tải lại, hoặc mở bằng Excel rồi lưu lại."
-        ) from exc
-
-    try:
-        if sheet is not None and sheet not in wb.sheetnames:
-            raise ValueError(
-                f"Không có sheet {sheet!r}. Sheet trong file: {', '.join(wb.sheetnames)}"
-            )
-        ws = wb[sheet] if sheet else wb.worksheets[0]
-        rows: list[list[Any]] = []
-        try:
-            for row in ws.iter_rows(values_only=True):
-                rows.append(list(row))
-                if len(rows) > _MAX_ROWS:
-                    # CỐ Ý ném thay vì cắt bớt. Một bảng tồn kho bị cắt cụt vẫn
-                    # đọc trót lọt và vẫn ra kết quả kiểm — nhưng thiếu mặt hàng,
-                    # nên "không phát hiện lỗi" lại có nghĩa là "chưa nhìn hết".
-                    raise ValueError(
-                        f"File quá {_MAX_ROWS:,} dòng — vượt sức một bảng tổng hợp "
-                        "tồn kho. Nhiều khả năng đây là bảng KÊ CHI TIẾT từng phiếu, "
-                        "không phải bảng tổng hợp nhập-xuất-tồn."
-                    )
-        except ValueError:
-            raise
-        except Exception as exc:
-            raise ValueError(
-                f"File Excel hỏng ở giữa chừng ({type(exc).__name__}), đọc được "
-                f"{len(rows)} dòng thì dừng. Mở bằng Excel rồi lưu lại."
-            ) from exc
-        return rows
-    finally:
-        wb.close()
+    """openpyxl -> list[list], có trần `_MAX_ROWS`. Logic ở `doc_xlsx` (một chỗ, R4)."""
+    return doc_dong_xlsx(source, sheet, max_rows=_MAX_ROWS)
 
 
 def load_xlsx(path: str, sheet: Optional[str] = None) -> ParseResult:
