@@ -3,7 +3,7 @@
 **Cập nhật 25/08/2026**, bổ sung 26–29/10/2026 (chu kỳ 01: P1 đính chính, việc treo #2, #3 và #5; tổng kết ở [BIEN_BAN_CHU_KY_01.md](../chu-ky-01/BIEN_BAN_CHU_KY_01.md)). File này trả lời bốn câu cho người tiếp quản:
 *đang ở đâu, cái gì đã chắc, cái gì đang dở, và đụng vào đâu thì gãy.*
 
-Khác với [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) — bản đó chỉ nói phần **vận
+Khác với BAN_GIAO_VAN_TAI.md — bản đó chỉ nói phần **vận
 tải**. Bản này nói **toàn cảnh Brain**, vì phần vận tải nằm trên cùng một lớp
 nền với phần kế toán: không biết lớp nền có gì thì sửa một chỗ vỡ ba chỗ.
 
@@ -177,7 +177,7 @@ Ba thứ này **không chặn phần kế toán** — phần đó không cần m
 ### 🟡 Việc treo #4 — RAG chưa có thước đo
 
 571 dòng mã, 70 test đơn vị, **không một chỉ số recall/MRR/faithfulness nào**.
-Phương án chi tiết ở [BAN_GIAO_VAN_TAI.md](../khach-hang/BAN_GIAO_VAN_TAI.md) mục E.3.
+Phương án chi tiết ở BAN_GIAO_VAN_TAI.md mục E.3.
 
 ### ✅ Việc treo #5 — model chép thiếu đầu vào cho tool — ĐÓNG 28/10/2026
 
