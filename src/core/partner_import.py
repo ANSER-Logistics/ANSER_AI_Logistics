@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any, Optional
 
+from src.core.doc_xlsx import doc_dong_xlsx
 from src.core.inventory_import import parse_vn_number
 from src.core.tax_id import chuan_hoa
 from src.core.utils import bo_dau
@@ -231,14 +232,8 @@ def _dem(it: Any) -> list[tuple[str, int]]:
 
 
 def _rows_from_workbook(source: Any, sheet: Optional[str]) -> list[list[Any]]:
-    import openpyxl
-
-    wb = openpyxl.load_workbook(source, data_only=True, read_only=True)
-    try:
-        ws = wb[sheet] if sheet else wb.worksheets[0]
-        return [list(r) for r in ws.iter_rows(values_only=True)]
-    finally:
-        wb.close()
+    """Logic mở file ở `doc_xlsx` (một chỗ, R4). Trần dòng do `parse_partner_table` xử."""
+    return doc_dong_xlsx(source, sheet)
 
 
 def load_partners_xlsx(
