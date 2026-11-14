@@ -36,6 +36,21 @@ Chủ DN nhắn Brain (đang lái xe): "báo giá xe 5 tấn Hữu Nghị đi H�
 Credential Gmail (OAuth **của khách**) cấu hình trực tiếp trong node
 "Gửi email khách cuối" — làm một lần khi onboard.
 
+## Khi báo giá bị từ chối vì giá dầu cũ
+
+`/tools/quote` trả **422** khi giá dầu được dùng để điều chỉnh mà đã cũ từ 7 ngày trở lên
+(cảnh báo từ 2 ngày; đổi bằng `FUEL_PRICE_WARN_DAYS` / `FUEL_PRICE_MAX_DAYS` phía Brain).
+Nghĩa là **đồng bộ giá dầu đã chết nhiều ngày** — mở `logistics_fuel_price_sync`, xem lần
+chạy gần nhất (thường là regex bóc giá không còn khớp trang PVOIL). Không sửa bằng cách
+nâng ngưỡng.
+
+## Định dạng ngày trong Sheet
+
+Mọi cột ngày (`valid_from`, `valid_to`, `FuelIndex.date`) phải là **YYYY-MM-DD** (đặt cột
+kiểu "Văn bản thuần" để Google Sheets không tự đổi sang `DD/MM/YYYY` theo locale). Ô ngày có
+chữ mà không đọc được thì giá/dòng đó **bị bỏ** và ghi vào `canh_bao_du_lieu`; ô để trống
+nghĩa là không giới hạn. "Hôm nay" luôn là ngày **giờ Việt Nam (UTC+7)**.
+
 ## Ranh giới bảo mật (AGENTS.md R2)
 
 - `internal_json` (biên, giá gốc nhà xe, điều chỉnh dầu) **chỉ** xuất hiện trong

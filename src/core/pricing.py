@@ -77,6 +77,42 @@ class PricingRule:
             raise ValueError("min_margin_amount không được âm")
 
 
+# Ngưỡng TUỔI GIÁ DẦU (số ngày). Chủ dự án uỷ quyền agent chọn (12/11/2026); đổi bằng env,
+# không cần sửa mã. "Hôm nay 25 nghìn, ngày mai 30 nghìn" (AGENTS §3.1c): báo giá dựa trên
+# giá dầu cũ là con số sai mà trông đúng, nên CHỈ cảnh báo thì chưa đủ.
+#   tuổi >= CANH_BAO  -> cảnh báo (vẫn tính, chủ doanh nghiệp thấy trên bản nháp)
+#   tuổi >= TU_CHOI   -> từ chối (ValueError -> 422): đồng bộ giá dầu đã chết từ lâu
+MAC_DINH_CANH_BAO_NGAY = 2
+MAC_DINH_TU_CHOI_NGAY = 7
+
+
+def doc_nguong_tuoi_gia_dau() -> tuple[int, int]:
+    """(ngày cảnh báo, ngày từ chối) từ `FUEL_PRICE_WARN_DAYS` / `FUEL_PRICE_MAX_DAYS`.
+
+    Trống thì dùng mặc định. Giá trị hỏng là lỗi CẤU HÌNH, không phải lỗi người gọi, nên ném
+    RuntimeError (không phải ValueError: route sẽ đọc ValueError thành 422 và đổ lỗi cho khách).
+    Hai biến không phải bí mật.
+    """
+    import os
+
+    def _doc(ten: str, mac_dinh: int) -> int:
+        tho = os.getenv(ten, "").strip()
+        if not tho:
+            return mac_dinh
+        try:
+            return int(tho)
+        except ValueError:
+            raise RuntimeError(f"{ten}={tho!r} không phải số nguyên") from None
+
+    warn = _doc("FUEL_PRICE_WARN_DAYS", MAC_DINH_CANH_BAO_NGAY)
+    toi_da = _doc("FUEL_PRICE_MAX_DAYS", MAC_DINH_TU_CHOI_NGAY)
+    if not 1 <= warn <= toi_da:
+        raise RuntimeError(
+            f"FUEL_PRICE_WARN_DAYS={warn} và FUEL_PRICE_MAX_DAYS={toi_da} phải thoả 1 <= WARN <= MAX"
+        )
+    return warn, toi_da
+
+
 _GIO_VN = timezone(timedelta(hours=7))   # UTC+7, Việt Nam không có giờ mùa hè
 
 
@@ -128,6 +164,8 @@ def compute_quote(
     *,
     fuel_price_as_of: Optional[str] = None,
     today: Optional[date] = None,
+    canh_bao_ngay: int = MAC_DINH_CANH_BAO_NGAY,
+    tu_choi_ngay: int = MAC_DINH_TU_CHOI_NGAY,
 ) -> dict[str, Any]:
     """
     Tính báo giá từ giá nhà xe + quy tắc giá + giá dầu hiện tại.
@@ -143,11 +181,13 @@ def compute_quote(
     """
     if carrier_cost <= 0:
         raise ValueError("carrier_cost phải > 0")
-    tuoi_gia_dau, canh_bao_ngay = _tuoi_gia_dau(fuel_price_as_of, today)
+    if not 1 <= canh_bao_ngay <= tu_choi_ngay:
+        raise ValueError("ngưỡng tuổi giá dầu phải thoả 1 <= canh_bao_ngay <= tu_choi_ngay")
+    tuoi_gia_dau, canh_bao_ngay_dau_vao = _tuoi_gia_dau(fuel_price_as_of, today)
 
     warnings: list[str] = []
-    if canh_bao_ngay:
-        warnings.append(canh_bao_ngay)
+    if canh_bao_ngay_dau_vao:
+        warnings.append(canh_bao_ngay_dau_vao)
 
     # ---- 1. Điều chỉnh nhiên liệu ----------------------------------------
     fuel_adjustment = 0.0
@@ -167,6 +207,29 @@ def compute_quote(
             "Chưa lấy được giá dầu hiện tại — báo giá KHÔNG có điều chỉnh "
             "nhiên liệu, có thể lệch nếu giá dầu đã biến động."
         )
+
+    # ---- 1b. Tuổi giá dầu: chỉ có nghĩa khi giá dầu THỰC SỰ được dùng -------
+    # Giá dầu không dùng để điều chỉnh (thiếu giá gốc/giá hiện tại) thì tuổi của nó không
+    # làm sai báo giá — từ chối ở đó là chặn oan.
+    if tuoi_gia_dau is None:
+        fuel_price_status = "unknown"           # chưa biết ngày: KHÔNG phải "mới"
+    elif tuoi_gia_dau < 0:
+        fuel_price_status = "future"            # cảnh báo riêng ở `_tuoi_gia_dau`
+    elif fuel_ratio is None:
+        fuel_price_status = "not_applied"
+    elif tuoi_gia_dau >= tu_choi_ngay:
+        raise ValueError(
+            f"Giá dầu lấy ngày {fuel_price_as_of}, cách {tuoi_gia_dau} ngày (tối đa "
+            f"{tu_choi_ngay - 1}). Kiểm tra workflow đồng bộ giá dầu trước khi báo giá."
+        )
+    elif tuoi_gia_dau >= canh_bao_ngay:
+        fuel_price_status = "stale_warn"
+        warnings.append(
+            f"Giá dầu lấy ngày {fuel_price_as_of}, cách {tuoi_gia_dau} ngày — điều chỉnh "
+            "nhiên liệu có thể lệch nếu giá dầu đã đổi; kiểm tra đồng bộ giá dầu trước khi duyệt."
+        )
+    else:
+        fuel_price_status = "ok"
 
     adjusted_cost = carrier_cost + fuel_adjustment
 
@@ -207,6 +270,7 @@ def compute_quote(
                 "fuel_baseline_price": rule.fuel_baseline_price,
                 "fuel_price_as_of": fuel_price_as_of,
                 "fuel_price_age_days": tuoi_gia_dau,
+                "fuel_price_status": fuel_price_status,
                 # Nói thẳng báo giá này CÓ hay KHÔNG được điều chỉnh theo dầu. Thiếu
                 # một trong hai giá dầu thì không điều chỉnh; trước đây trường hợp
                 # thiếu CẢ HAI không để lại dấu vết nào (không cảnh báo, không cờ),
