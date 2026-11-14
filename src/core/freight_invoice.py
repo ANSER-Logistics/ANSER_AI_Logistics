@@ -89,6 +89,29 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
     đối chiếu thì `ok` là False kèm lý do — "không kiểm được" khác hẳn "đã kiểm
     và đúng", và gộp hai thứ đó lại là cách nhanh nhất để một tờ hoá đơn sai đi
     lọt.
+
+    VAT CHƯA ĐỌC ĐƯỢC ≠ VAT BẰNG 0
+    ------------------------------
+    Thuế suất và tiền thuế đều là `None` thì không có cơ sở nào để nói thuế là
+    bao nhiêu. Bản cũ lấy 0 thay vào, tính tổng = cộng tiền hàng, và khi số in
+    trên tờ cũng trùng thì báo `ok` — đúng thứ `FreightInvoice` tự cấm ("Optional
+    là CHƯA ĐỌC ĐƯỢC, không phải bằng 0"). Một tờ hoá đơn VAT 8% bị mờ dòng thuế,
+    đồng thời tổng bị đọc nhầm thành cộng tiền hàng, sẽ lọt vào sổ như tờ sạch.
+
+    Nên khi cả hai đều trống: không chạy phép kiểm tổng cộng (không ghi nó vào
+    `checks_performed`), thêm một `issues` nói đúng nguyên nhân, và để
+    `computed.vat_amount` / `computed.total` là `None`. Hai khoá VẪN CÓ MẶT
+    vì Body đọc cả ba khoá của `computed` (`BrainFreightInvoice` trong
+    `frontend/src/server/brain.ts`) và hàm hiển thị `vnd()` ở
+    `frontend/src/app/dashboard/documents/page.tsx` đã đổi `null` thành "—" —
+    giữ khoá kèm `null` thì màn hình nói đúng "chưa biết". (Đo 15/11/2026: Body
+    khai `vat_amount: number | null` nhưng `total: number`; kiểu khai báo chưa
+    theo kịp thứ giao diện thật sự chịu được. Đó là việc của Body, đã nêu trong
+    PR chứ không sửa ở đây.) (Khác `MCPServer.validate_invoice_total`, nơi không
+    ai đòi khoá nên bỏ hẳn là cách đúng — xem AGENTS.md §R1.)
+
+    Hoá đơn thật sự không có VAT vẫn qua được, miễn VLM đọc ra `vat_rate = 0`
+    hoặc `vat_amount = 0` — "ghi rõ 0" là một giá trị đã đọc.
     """
     issues: list[str] = []
     checks: list[str] = []
@@ -109,9 +132,10 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
 
     goc = invoice.subtotal if invoice.subtotal is not None else tinh_subtotal
 
-    # 2) Tiền thuế
+    # 2) Tiền thuế. Có thuế suất là tính được, kể cả khi gốc bằng 0 (0 × x% = 0
+    # là phép tính thật; "không có khoản nào" đã có `issues` riêng ở trên).
     tinh_vat: Optional[float] = None
-    if invoice.vat_rate is not None and goc:
+    if invoice.vat_rate is not None:
         tinh_vat = goc * invoice.vat_rate / 100.0
         if invoice.vat_amount is not None:
             checks.append("tiền_thuế")
@@ -121,18 +145,27 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
                     f"{tinh_vat:,.0f} nhưng hoá đơn ghi {invoice.vat_amount:,.0f}"
                 )
 
-    # 3) Tổng cộng — trường quan trọng nhất
-    vat_dung = invoice.vat_amount if invoice.vat_amount is not None else (tinh_vat or 0.0)
-    tinh_total = goc + vat_dung
-    if invoice.total is not None:
+    # 3) Tổng cộng — trường quan trọng nhất.
+    # VAT dùng để cộng: số in trên tờ nếu có, không thì số tính từ thuế suất.
+    # Cả hai đều trống thì `vat_dung` là None, KHÔNG phải 0 (xem docstring).
+    vat_dung = invoice.vat_amount if invoice.vat_amount is not None else tinh_vat
+    tinh_total: Optional[float] = None if vat_dung is None else goc + vat_dung
+
+    if invoice.total is None:
+        issues.append("Không đọc được TỔNG CỘNG — trường bắt buộc.")
+    if tinh_total is None:
+        issues.append(
+            "Không đọc được VAT (cả thuế suất lẫn tiền thuế) nên không tính lại được "
+            "tổng cộng. Hoá đơn có thể có VAT bị mờ, hoặc thật sự không có VAT — "
+            "cần người xác nhận."
+        )
+    elif invoice.total is not None:
         checks.append("tổng_cộng")
         if not _close(tinh_total, invoice.total):
             issues.append(
                 f"Tổng cộng lệch: tính lại {tinh_total:,.0f} nhưng hoá đơn ghi "
                 f"{invoice.total:,.0f} (chênh {abs(tinh_total - invoice.total):,.0f})"
             )
-    else:
-        issues.append("Không đọc được TỔNG CỘNG — trường bắt buộc.")
 
     return {
         # `ok` đòi CẢ HAI: không có vấn đề nào, VÀ đã thật sự kiểm được ít nhất
@@ -143,7 +176,8 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
         "computed": {
             "subtotal": round(tinh_subtotal),
             "vat_amount": None if tinh_vat is None else round(tinh_vat),
-            "total": round(tinh_total),
+            # None = không tính được (VAT chưa đọc), không phải 0. Khoá vẫn có mặt.
+            "total": None if tinh_total is None else round(tinh_total),
         },
         "stated": {
             "subtotal": invoice.subtotal,
