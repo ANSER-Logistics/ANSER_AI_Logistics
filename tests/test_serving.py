@@ -681,9 +681,11 @@ async def test_ghim_vllm_duoi_0_12_vi_0_12_go_guided_decoding():
     import re
     from pathlib import Path
 
-    req = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text(encoding="utf-8")
+    # vllm nằm ở requirements-gpu.txt từ 10/11/2026 (issue #17): phần CPU mà
+    # deploy/Dockerfile cài không còn chứa nó.
+    req = (Path(__file__).resolve().parents[1] / "requirements-gpu.txt").read_text(encoding="utf-8")
     ghim = re.search(r"^vllm\s*([^\n#]*)", req, re.MULTILINE)
-    assert ghim, "requirements.txt không còn ghim vllm"
+    assert ghim, "requirements-gpu.txt không còn ghim vllm"
     assert "<0.12" in ghim.group(1).replace(" ", ""), (
         f"vllm đang ghim '{ghim.group(1).strip()}'. Nâng trần thì đổi engine.py "
         "(GuidedDecodingParams) và ChatRequest/CompletionRequest (guided_json -> "

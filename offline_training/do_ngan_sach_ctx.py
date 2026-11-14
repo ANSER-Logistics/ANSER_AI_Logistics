@@ -439,7 +439,8 @@ def _bang(ket_qua: list[dict]) -> str:
 
 
 def _vllm_trong_khoang_ghim() -> tuple[bool, str]:
-    """SRS BR-02 yêu cầu 5: server PHẢI nằm trong khoảng ghim của requirements.txt.
+    """SRS BR-02 yêu cầu 5: server PHẢI nằm trong khoảng ghim của requirements-gpu.txt
+    (trước 10/11/2026 là requirements.txt — tách đôi ở #17).
     Lệch ra ngoài thì `guided_json` có thể bị bỏ qua im lặng (SRS §8.1)."""
     from importlib.metadata import PackageNotFoundError, version
 
