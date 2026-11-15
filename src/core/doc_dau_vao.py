@@ -46,7 +46,7 @@ import re
 import unicodedata
 from typing import Any, TypeGuard
 
-from src.core.vat_catalog import KHONG_GIAM, phan_loai_thue_suat
+from src.core.vat_catalog import DUOC_GIAM, KHONG_GIAM, phan_loai_thue_suat
 
 logger = logging.getLogger(__name__)
 
@@ -398,20 +398,39 @@ def co_so_thue(cau: str) -> str | None:
 
 def noi_tra_loi_hoi_thue(cau: str, history: list[dict] | None) -> str | None:
     """
-    Lượt trước Brain hỏi `CAU_HOI_THUE`, lượt này người dùng trả lời "chưa gồm
-    VAT" -> ghép tin nhắn hoá đơn của lượt trước với câu trả lời, để `vat` chạy
-    lại trên ĐỦ dữ liệu. None khi không phải câu trả lời cho câu hỏi đó.
+    Lượt trước Brain hỏi `CAU_HOI_THUE` (giá đã gồm VAT chưa) hoặc câu hỏi thuế suất (8% hay 10%), lượt
+    này người dùng trả lời -> ghép với tin nhắn hoá đơn của lượt trước (và mọi câu trả lời trước đó
+    trong cùng chuỗi hỏi), để `vat` chạy lại trên ĐỦ dữ liệu. None khi không phải câu trả lời cho
+    câu hỏi đó: trả lời "8%" cho câu hỏi "đã gồm VAT chưa" không phải là trả lời.
     """
-    if co_so_thue(cau) is None or not history:
+    if not history:
         return None
-    for i in range(len(history) - 1, -1, -1):
-        if history[i].get("role") != "assistant":
+    ds = [m for m in history if isinstance(m, dict)]
+    for i in range(len(ds) - 1, -1, -1):
+        if ds[i].get("role") != "assistant":
             continue
-        if MOC_HOI_THUE not in str(history[i].get("content") or ""):
+        noi = str(ds[i].get("content") or "")
+        if MOC_HOI_THUE in noi:
+            tra_loi_dung = co_so_thue(cau) is not None
+        elif MOC_HOI_THUE_SUAT in noi:
+            tra_loi_dung = noi_thue_suat(cau) is not None
+        else:
             return None
-        for j in range(i - 1, -1, -1):
-            if history[j].get("role") == "user":
-                return f"{history[j].get('content')}\n{cau}"
+        if not tra_loi_dung:
+            return None
+        # Đi ngược qua các cặp (người dùng, câu hỏi lại) liền nhau để tới tin nhắn hoá đơn gốc.
+        phan: list[str] = [cau]
+        j = i - 1
+        while j >= 0:
+            if ds[j].get("role") == "user":
+                phan.append(str(ds[j].get("content") or ""))
+                truoc = ds[j - 1] if j >= 1 else None
+                noi_truoc = str(truoc.get("content") or "") if truoc and truoc.get("role") == "assistant" else ""
+                if MOC_HOI_THUE in noi_truoc or MOC_HOI_THUE_SUAT in noi_truoc:
+                    j -= 2
+                    continue
+                return "\n".join(reversed(phan))
+            j -= 1
         return None
     return None
 
@@ -472,42 +491,117 @@ def bien_khong_co_trong_cau(cau: str, args: dict) -> float | None:
 # đọc sai "10 -> 100" hoặc chọn 8% cho một mặt hàng loại trừ thì `vat` vẫn tính ĐÚNG trên đầu
 # vào sai, và kết quả trông có nguồn. Số lượng model bịa thì nhân vào mọi dòng.
 #
-# THUẾ SUẤT, ba luật theo thứ tự:
-#   1. Mặt hàng bảng tra `vat_catalog.phan_loai_thue_suat` kết luận KHÔNG được giảm (kim loại,
-#      rượu bia, viễn thông, tài chính...) -> mã ép `is_reduced_vat = False` (10%), kể cả khi
-#      câu hay model nói 8%. Có căn cứ pháp lý đi kèm, và là chiều AN TOÀN.
-#   2. Câu KHÔNG nói tới thuế suất -> GỠ giá trị model điền (và `default_is_reduced`), tool dùng
-#      mặc định của nó: 10%, mức chuẩn. Model tự chọn 8% mà không ai bảo là chiều NGUY HIỂM:
-#      nhầm sang 10% chỉ khiến hoá đơn đắt hơn và phải điều chỉnh, nhầm sang 8% thì bị truy thu
-#      cộng tiền chậm nộp, hai sai lầm không cùng giá (xem `phan_loai_thue_suat`).
-#   3. Câu CÓ nói thuế suất ("giảm 8%", "VAT 10%") -> giữ giá trị model: nó đọc từ câu.
-#   Kết quả của `vat` ghi `tax_rate` từng dòng nên mức đã dùng luôn hiện ra.
-#
-# CỐ Ý CHƯA LÀM, cần chủ dự án (hoặc kế toán) quyết: mã tự đặt 8% khi bảng tra nói "được giảm"
-# (dầu nhớt, cước vận tải...). Làm vậy đổi mặc định 10% -> 8% cho cả loại hàng khách pilot bán,
-# tức đổi MỌI con số `vat` trả ra, dựa trên một bảng do team tự viết và chưa có kế toán thật soát.
-# Thiếu bước đó thì mặc định 10% vẫn đúng chiều an toàn nhưng có thể dư 2% so với hoá đơn thật.
+# THUẾ SUẤT: người dùng chọn, mã không tự quyết (chủ dự án chỉ đạo 15/11/2026)
+#   Khi bảng tra `vat_catalog` nói một mặt hàng "được giảm" còn 8% (dầu nhớt, cước vận tải...), mã
+#   KHÔNG tự đặt 8% và model cũng không được chọn: bảng tra do team tự viết, chưa có kế toán thật
+#   soát, và đổi mặc định 10% -> 8% là đổi MỌI con số `vat` trả ra. Nên để người dùng chọn.
+#   Bốn luật, theo thứ tự cho từng dòng hàng:
+#     1. Bảng tra kết luận KHÔNG được giảm (kim loại, rượu bia, viễn thông, tài chính...) -> mã ép
+#        `is_reduced_vat = False` (10%), kể cả khi người dùng nói 8%. Có căn cứ pháp lý, chiều an toàn.
+#     2. Người dùng NÓI thuế suất ("giảm 8%", "VAT 10%", hoặc trả lời "8%" / "10%" cho câu hỏi dưới)
+#        -> MÃ đặt cờ theo lời đó cho mọi dòng chưa bị luật 1 ép. Không để model đọc: model đọc sai
+#        "10" thành "100" hay quên đặt cờ thì `vat` vẫn tính đúng trên đầu vào sai.
+#     3. Người dùng KHÔNG nói, và có dòng bảng tra nói "được giảm" -> HỎI LẠI ("áp 8% hay 10%?"),
+#        không chạy `vat`. Câu hỏi nói rõ căn cứ và cái giá của hai chiều sai.
+#     4. Người dùng không nói, bảng tra không có dòng nào "được giảm" (kể cả "chưa xác định") ->
+#        gỡ giá trị model điền, tool dùng mặc định 10%. Mức đã dùng luôn hiện ở `tax_rate` từng dòng.
+#   Trả lời câu hỏi ở luật 3 ở lượt sau được ghép với hoá đơn (`noi_tra_loi_hoi_thue`), như câu hỏi
+#   "đã gồm VAT chưa". CHƯA làm, cần Body: mặc định theo từng cửa hàng ("cửa hàng này luôn 8%"), vì
+#   Brain không lưu thiết lập; Body gửi kèm một trường là đủ, xem đề xuất ở docs/de-xuat-body/.
 #
 # SỐ LƯỢNG: `qty` khác 1 mà không có số nào đó trong câu (số hoặc chữ) -> hỏi lại, không chạy.
 # `qty` bắt buộc ở lược đồ nên không gỡ được như `is_reduced_vat`.
-_NOI_THUE_SUAT = re.compile(
-    r"(?:\b(?:8|10)\s*%|giảm\s+(?:thuế|vat|gtgt)|giam\s+(?:thue|vat)|thuế\s+suất|thue\s+suat)",
+_TU_THUE = r"(?:thuế|thue|vat|gtgt)"
+_THUE_8 = re.compile(
+    rf"(?:{_TU_THUE}[^.\n]{{0,20}}\b8\s*%|\b8\s*%[^.\n]{{0,20}}{_TU_THUE}"
+    rf"|giảm\s+(?:thuế|vat|gtgt)|giam\s+(?:thue|vat)|thuế\s+suất\s+(?:giảm|8\b))",
     re.IGNORECASE,
 )
+_THUE_10 = re.compile(
+    rf"(?:{_TU_THUE}[^.\n]{{0,20}}\b10\s*%|\b10\s*%[^.\n]{{0,20}}{_TU_THUE}|thuế\s+suất\s+10\b)",
+    re.IGNORECASE,
+)
+# Cả một dòng chỉ là câu trả lời ngắn: "8%", "giảm 8%", "tính 10%", "thuế suất 8".
+_TRA_LOI_NGAN = re.compile(
+    r"\s*(?:(?:thuế\s*suất|thue\s*suat|vat|tính|tinh|áp|ap|theo|giảm|giam|là|la)\s*)*(8|10)\s*(?:%|phần\s*trăm)?\s*[.!]?\s*",
+    re.IGNORECASE,
+)
+
+# Câu hỏi lại về thuế suất — cũng là MỐC để nhận ra câu trả lời ở lượt sau.
+MOC_HOI_THUE_SUAT = "áp thuế GTGT 8% hay 10%"
+
+
+def noi_thue_suat(cau: str) -> str | None:
+    """
+    "8" | "10" | None. None = câu không nói thuế suất, hoặc nói cả hai (mâu thuẫn): tầng trên hỏi lại.
+
+    Chỉ nhận "8%"/"10%" khi đứng cạnh chữ thuế/VAT/GTGT, hoặc khi CẢ MỘT DÒNG là câu trả lời ngắn:
+    "chiết khấu 10%" trong một hoá đơn không phải thuế suất.
+    """
+    q = unicodedata.normalize("NFC", cau or "")
+    co8 = bool(_THUE_8.search(q))
+    co10 = bool(_THUE_10.search(q))
+    for dong in re.split(r"[\n;]", q):
+        m = _TRA_LOI_NGAN.fullmatch(dong)
+        if m:
+            co8 = co8 or m.group(1) == "8"
+            co10 = co10 or m.group(1) == "10"
+    if co8 == co10:
+        return None
+    return "8" if co8 else "10"
+
+
+def hang_duoc_giam(args: dict) -> list[tuple[str, str]]:
+    """[(tên hàng, căn cứ)] các dòng của `vat` mà bảng tra kết luận "được giảm" (không tự đặt 8%)."""
+    ra: list[tuple[str, str]] = []
+    for it in args.get("items") or []:
+        if isinstance(it, dict):
+            kl = phan_loai_thue_suat(str(it.get("name") or ""))
+            if kl.ket_luan == DUOC_GIAM:
+                ra.append((str(it.get("name") or "")[:50], kl.can_cu))
+    return ra
+
+
+def cau_hoi_thue_suat(duoc_giam: list[tuple[str, str]]) -> str:
+    ten = ", ".join(f"\"{t}\"" for t, _ in duoc_giam[:3]) + ("…" if len(duoc_giam) > 3 else "")
+    return (
+        f"Hàng {ten} thuộc diện được giảm thuế GTGT còn 8% theo bảng tra của hệ thống "
+        f"({duoc_giam[0][1]}), nên tôi chưa dám chọn thay bạn: bạn muốn {MOC_HOI_THUE_SUAT}? "
+        "Bạn trả lời \"8%\" hoặc \"10%\" là tôi tính tiếp ngay. Bảng tra này do đội dự án soạn, chưa "
+        "có kế toán soát: tính 8% sai thì bị truy thu cộng tiền chậm nộp, tính 10% thừa thì chỉ "
+        "phải điều chỉnh hoá đơn."
+    )
 _SO_DEM_CHU = {"một": 1, "hai": 2, "ba": 3, "bốn": 4, "năm": 5, "sáu": 6, "bảy": 7, "tám": 8,
                "chín": 9, "mười": 10, "mốt": 1}
 _SO_TRONG_CAU = re.compile(r"\d+(?:[.,]\d+)*")
 
 
-def ap_thue_suat_tu_bang_tra(cau: str, args: dict) -> tuple[dict, list[str]]:
+def thue_suat_nguoi_dung_da_noi(history: list[dict] | None) -> str | None:
     """
-    Áp ba luật thuế suất ở khối chú thích trên cho từng dòng của `vat`.
-    Trả (args mới, mô tả các thay đổi).
+    Thuế suất người dùng đã nói ở một lượt TRƯỚC trong cùng cuộc hội thoại (lần gần nhất, trong 12 tin).
+
+    Hỏi "8% hay 10%?" ở mọi hoá đơn là làm phiền: đã chọn một lần thì giữ trong hội thoại. Lượt hiện
+    tại nói khác thì lời ở lượt hiện tại thắng (`noi_thue_suat(cau) or ...`). Chỉ đọc tin của NGƯỜI DÙNG.
+    """
+    for m in reversed([m for m in (history or []) if isinstance(m, dict)][-12:]):
+        if m.get("role") == "user":
+            muc = noi_thue_suat(str(m.get("content") or ""))
+            if muc is not None:
+                return muc
+    return None
+
+
+def ap_thue_suat_tu_bang_tra(
+    cau: str, args: dict, muc_da_chon: str | None = None
+) -> tuple[dict, list[str]]:
+    """
+    Áp luật 1, 2 và 4 ở khối chú thích trên cho từng dòng của `vat` (luật 3, hỏi lại, nằm ở
+    `chot_dau_vao` vì nó trả câu hỏi). Trả (args mới, mô tả các thay đổi).
     """
     items = args.get("items")
     if not isinstance(items, list):
         return args, []
-    cau_noi_thue = bool(_NOI_THUE_SUAT.search(cau or ""))
+    muc = noi_thue_suat(cau) or muc_da_chon
     doi: list[str] = []
     moi: list[Any] = []
     for it in items:
@@ -518,13 +612,15 @@ def ap_thue_suat_tu_bang_tra(cau: str, args: dict) -> tuple[dict, list[str]]:
         truoc = it.get("is_reduced_vat")
         if phan_loai_thue_suat(str(it.get("name") or "")).ket_luan == KHONG_GIAM:
             it["is_reduced_vat"] = False                       # luật 1
-        elif not cau_noi_thue:
-            it.pop("is_reduced_vat", None)                     # luật 2
+        elif muc is not None:
+            it["is_reduced_vat"] = muc == "8"                  # luật 2
+        else:
+            it.pop("is_reduced_vat", None)                     # luật 3/4: gỡ lời model
         if it.get("is_reduced_vat") != truoc:
             doi.append(f"{it.get('name')!s:.40}: {truoc!r} -> {it.get('is_reduced_vat')!r}")
         moi.append(it)
     ra = {**args, "items": moi}
-    if "default_is_reduced" in ra and not cau_noi_thue:
+    if "default_is_reduced" in ra:
         ra.pop("default_is_reduced")
         doi.append("default_is_reduced: gỡ")
     return ra, doi
@@ -573,7 +669,9 @@ def so_luong_khong_co_trong_cau(cau: str, args: dict, bo_qua: tuple[str, ...] = 
     return ra
 
 
-def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]:
+def chot_dau_vao(
+    ten: str, args: dict, cau: str, history: list[dict] | None = None
+) -> tuple[dict, str | None, str]:
     """
     MỘT chỗ duy nhất quyết định đầu vào tool lấy từ câu người dùng — `chat.py`
     gọi lúc phục vụ, `benchmark_v3.py` gọi lúc đo (R4: đo đúng thứ chạy thật).
@@ -585,6 +683,7 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
       "bo_sot"         có số tiền trong câu mà tham số thiếu
       "bia"            tham số có số tiền không có trong câu
       "so_luong"       vat: `qty` model điền không có trong câu
+      "thue_suat"      vat: bảng tra nói "được giảm" mà câu không nói 8% hay 10% -> hỏi người dùng
       "thue"           vat: câu không nói giá đã gồm VAT hay chưa
     """
     args = dict(args or {})
@@ -607,7 +706,8 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
         dong = tach_hoa_don(cau)
         if dong:
             args, ma_dien = {**args, "items": dong}, ("items",)
-        args, doi_thue = ap_thue_suat_tu_bang_tra(cau, args)
+        muc_da_chon = thue_suat_nguoi_dung_da_noi(history)
+        args, doi_thue = ap_thue_suat_tu_bang_tra(cau, args, muc_da_chon)
         if doi_thue:
             logger.info("vat: thuế suất chỉnh theo luật bảng tra/câu, không theo model: %s", "; ".join(doi_thue))
         sai_sl = so_luong_khong_co_trong_cau(cau, args, bo_qua=ma_dien)
@@ -658,6 +758,9 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
         if co_so is None:
             return args, CAU_HOI_THUE, "thue"
         args = {**args, "prices_include_vat": co_so == "da_gom"}
+        duoc_giam = hang_duoc_giam(args)
+        if duoc_giam and (noi_thue_suat(cau) or muc_da_chon) is None:
+            return args, cau_hoi_thue_suat(duoc_giam), "thue_suat"
     return args, None, "ok"
 
 
@@ -832,6 +935,7 @@ def tham_so_chon_nha_xe(cau: str) -> dict | None:
 __all__ = [
     "CAU_HOI_THUE",
     "MOC_HOI_THUE",
+    "MOC_HOI_THUE_SUAT",
     "TOOL_DOC_TU_CAU",
     "bien_khong_co_trong_cau",
     "bo_chinh_sach_khong_noi_toi",
@@ -839,6 +943,10 @@ __all__ = [
     "co_so_thue",
     "dinh_dang_vnd",
     "doc_so_tien",
+    "cau_hoi_thue_suat",
+    "hang_duoc_giam",
+    "noi_thue_suat",
+    "thue_suat_nguoi_dung_da_noi",
     "noi_tra_loi_hoi_thue",
     "so_tien_bi_bo_sot",
     "so_tien_khong_co_trong_cau",

@@ -244,7 +244,7 @@ def test_vat_B_ghi_de_items_model_chep_thieu():
     args, thieu = _cung_cap("vat", {
         "items": [{"name": "Cước", "price": 5_000_000, "qty": 1}],
         "stated_total": 6_500_000,
-    }, HOA_DON_BR04 + " Giá chưa gồm VAT.")
+    }, HOA_DON_BR04 + " Giá chưa gồm VAT, thuế suất 10%.")
     assert thieu is None
     assert len(args["items"]) == 2, "B phải ghi đè bằng hai dòng bóc từ hoá đơn"
     assert args["prices_include_vat"] is False
@@ -264,7 +264,7 @@ def test_vat_da_gom_vat_ma_ghi_de_co_cua_model():
     args, thieu = _cung_cap("vat", {
         "items": [{"name": "Cước", "price": 5_000_000, "qty": 1}],
         "stated_total": 6_500_000, "prices_include_vat": False,
-    }, HOA_DON_BR04 + " Giá đã gồm VAT.")
+    }, HOA_DON_BR04 + " Giá đã gồm VAT, thuế suất 10%.")
     assert thieu is None
     assert args["prices_include_vat"] is True
 
