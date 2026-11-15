@@ -179,14 +179,14 @@ def test_partner_audit_nhan_dung_hinh_dang_body_gui():
     """Payload đúng như `auditPartners()` trong brain.ts dựng ra."""
     resp = client.post("/tools/partner-audit", json={
         "customers": [
-            {"code": "KH00001", "name": "CÔNG TY CỔ PHẦN 479 HOÀ BÌNH",
-             "balance": 1_129_540_864, "tax_id": "2900325124"},
-            {"code": "KH00021", "name": "CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ PHƯƠNG",
-             "balance": -28_962_041, "tax_id": "0106172584"},
+            {"code": "KH00001", "name": "CÔNG TY CỔ PHẦN MẪU MỘT",
+             "balance": 1_129_540_864, "tax_id": "9902000029"},
+            {"code": "KH00021", "name": "CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ MẪU HAI",
+             "balance": -28_962_041, "tax_id": "9906000069"},
         ],
         "suppliers": [
-            {"code": "KH00021", "name": "CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ PHƯƠNG",
-             "balance": 0, "tax_id": "0106172584"},
+            {"code": "KH00021", "name": "CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ MẪU HAI",
+             "balance": 0, "tax_id": "9906000069"},
         ],
         "cogs_per_day": 35_128_650,
     })
@@ -203,7 +203,7 @@ def test_partner_audit_nhan_dung_hinh_dang_body_gui():
 def test_partner_so_du_null_KHONG_bi_coi_la_0():
     """Cùng nguyên tắc với giá vốn: chưa biết khác không."""
     resp = client.post("/tools/partner-audit", json={
-        "customers": [{"code": "KH1", "name": "CÔNG TY A", "tax_id": "0109527605"}],
+        "customers": [{"code": "KH1", "name": "CÔNG TY A", "tax_id": "0991234566"}],
     })
     assert resp.status_code == 200, resp.text
     assert resp.json()["summary"]["tổng_phải_thu"] == 0
@@ -281,7 +281,7 @@ def test_moi_phat_hien_deu_cung_hinh_dang_du_den_tu_tool_nao():
                      "opening_value": 0.0, "in_value": 0.0, "out_value": 100.0}]}),
         ("/tools/partner-audit",
          {"customers": [{"code": "K", "name": "CÔNG TY A", "balance": -5_000,
-                         "tax_id": "0109527604"}]}),
+                         "tax_id": "0991234562"}]}),
         ("/tools/vat-catalog-audit",
          {"products": [{"code": "P", "name": "Dầu nhớt động cơ",
                         "vat_flag": "Chưa xác định"}]}),

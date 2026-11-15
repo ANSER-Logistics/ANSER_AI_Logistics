@@ -1,7 +1,7 @@
 """
 Kiểm thử src/core/period_diff.py — phát hiện sửa hồi tố.
 
-Các con số trong file này lấy nguyên từ hai bản xuất thật của Hoàng Phát
+Các con số trong file này lấy nguyên từ hai bản xuất thật của khách pilot
 (01/01/2026→24/07/2026 và 01/01/2026→11/08/2026). Chúng đối chiếu được bằng
 tay với ô gốc trong hai file .xlsx.
 

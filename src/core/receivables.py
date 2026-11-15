@@ -14,7 +14,7 @@ không ai đọc báo cáo rồi tưởng đã có phân tích tuổi nợ.
 
 VÌ SAO TẬP TRUNG KHÁCH HÀNG LÀ RỦI RO CAO NHẤT VỚI DOANH NGHIỆP NHỎ
 -------------------------------------------------------------------
-Số liệu thật của Hoàng Phát: phải thu 3,88 tỷ trong khi tồn kho 2,87 tỷ — tiền
+Số liệu thật của khách pilot: phải thu 3,88 tỷ trong khi tồn kho 2,87 tỷ — tiền
 nằm ở khách nhiều hơn nằm ở kho. Hai khách lớn nhất chiếm 56% phải thu. Một
 khách chậm trả là cả doanh nghiệp đứng hình, và đó không phải chuyện kho vận.
 Phần mềm kế toán trình bày công nợ theo danh sách; danh sách không làm ai giật

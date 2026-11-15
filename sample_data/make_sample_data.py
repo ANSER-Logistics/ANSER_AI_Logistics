@@ -3,7 +3,7 @@ sample_data/make_sample_data.py — dựng bảng tồn kho MẪU để chạy t
 
 VÌ SAO CÓ FILE NÀY
 ------------------
-Dữ liệu thật của Hoàng Phát còn vài ngày nữa mới về, nhưng buổi chạy thử nội bộ
+Dữ liệu thật của khách pilot còn vài ngày nữa mới về, nhưng buổi chạy thử nội bộ
 không đợi được. Vấn đề của mọi dữ liệu giả là nó dễ dãi: dựng đại một bảng đẹp
 thì bộ soi lỗi không tìm ra gì, và ta kết luận nhầm rằng "chạy tốt".
 
@@ -164,8 +164,8 @@ def _so(value: float, kieu_chuoi: bool) -> object:
 def bang() -> list[list[object]]:
     """Ma trận ô, đúng bố cục MISA kiểu A."""
     rows: list[list[object]] = [
-        ["CÔNG TY TNHH THƯƠNG MẠI VÀ VẬN TẢI HOÀNG PHÁT"],
-        ["MST: 0109527605"],
+        ["CÔNG TY TNHH THƯƠNG MẠI VÀ VẬN TẢI MẪU"],
+        ["MST: 0991234566"],
         [],
         ["BẢNG TỔNG HỢP NHẬP - XUẤT - TỒN"],
         [f"Từ ngày {KY_TU} đến ngày {KY_DEN}"],

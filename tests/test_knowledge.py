@@ -114,11 +114,11 @@ BANG_GIA_2025 = (
 # ---------------------------------------------------------------------------
 
 def test_khach_nay_khong_thay_tai_lieu_cua_khach_kia(kb):
-    kb.add_document("hoang-phat", BANG_GIA_2026, source="bang_gia.txt")
+    kb.add_document("khach-mau", BANG_GIA_2026, source="bang_gia.txt")
     kb.add_document("khach-khac", "BẢNG GIÁ MẬT\nHà Nội\tĐà Nẵng\t999.000.000\n",
                     source="bang_gia.txt")
 
-    kq = kb.search("hoang-phat", "giá cước Hà Nội Đà Nẵng", top_k=5)
+    kq = kb.search("khach-mau", "giá cước Hà Nội Đà Nẵng", top_k=5)
     assert kq, "phải tìm được tài liệu của chính khách này"
     assert all("999.000.000" not in p.text for p in kq), "RÒ dữ liệu sang khách khác"
 
