@@ -72,3 +72,6 @@ sample_data/*.xlsx
 # Hai file không mã nào đọc, còn sót từ thời v2.
 /src/data/chart_data.jsonl
 /src/data/learning_queue.jsonl
+
+# Bộ đo model thị giác (ảnh hoá đơn hư cấu): nhị phân, sinh lại được bằng make_vlm_invoice_eval.py.
+offline_training/generated/vlm_hoadon/
