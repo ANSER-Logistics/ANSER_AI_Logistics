@@ -53,7 +53,20 @@ async def lifespan(app: FastAPI):
 # App Assembly
 # ---------------------------------------------------------------------------
 
-app = FastAPI(lifespan=lifespan)
+# `/openapi.json`, `/docs` và `/redoc` do FastAPI tự sinh, KHÔNG đi qua `auth_guard`: có
+# `API_AUTH_TOKEN` rồi mà ba route này vẫn trả 200 (đo 15/11/2026, BR-34), và `/openapi.json` lộ toàn
+# bộ lược đồ đầu vào của mọi route cho người không có token. Chỉ `ENV=LOCAL` (máy dev, không ra
+# Internet) mới giữ chúng; mọi giá trị khác, kể cả giá trị gõ sai, là "triển khai" và tắt: lỗi gõ
+# thì mất trang tài liệu chứ không lộ lược đồ (fail-closed). Không có biến bật lại: thêm một công tắc
+# bảo mật là việc phải hỏi chủ dự án trước (AGENTS.md R2b mục 3).
+_TAI_LIEU_TU_SINH = os.getenv("ENV", "").strip().upper() == "LOCAL"
+
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs" if _TAI_LIEU_TU_SINH else None,
+    redoc_url="/redoc" if _TAI_LIEU_TU_SINH else None,
+    openapi_url="/openapi.json" if _TAI_LIEU_TU_SINH else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
