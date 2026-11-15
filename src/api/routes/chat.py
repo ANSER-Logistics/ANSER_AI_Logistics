@@ -258,7 +258,7 @@ _CHUA_CO_NGUON = {
 
 
 async def _provide_tool_data(
-    name: str, args: dict, store_id, request_id: str, user_msg: str = ""
+    name: str, args: dict, store_id, request_id: str, user_msg: str = "", history=None
 ):
     """
     Bơm dữ liệu hệ thống vào `arguments` TRƯỚC khi tool chạy.
@@ -289,7 +289,7 @@ async def _provide_tool_data(
 
     # vat / quote / carrier_selection: đầu vào lấy từ câu người dùng. Logic nằm
     # ở `doc_dau_vao.chot_dau_vao` — benchmark gọi đúng hàm này.
-    args, hoi_lai, ly_do = ddv.chot_dau_vao(name, args, user_msg)
+    args, hoi_lai, ly_do = ddv.chot_dau_vao(name, args, user_msg, history=history)
     if ly_do == "boc_loi_chao":
         logger.info(
             "carrier_selection: bóc %d lời chào từ câu người dùng",
@@ -322,7 +322,7 @@ async def _run_agentic(user_msg, plan, store_id, history, request_id, metric, de
     from src.api.routes.tools import get_tool_defs, run_tool
 
     async def provider(ten: str, args: dict):
-        return await _provide_tool_data(ten, args, store_id, request_id, user_msg)
+        return await _provide_tool_data(ten, args, store_id, request_id, user_msg, history)
 
     out = await AgenticLoop(
         runtime.manager,

@@ -486,7 +486,7 @@ def score_he_thong(rows: list[dict], outputs: list[str]) -> dict:
         truoc = dict(o)
         args, hoi_lai, ly_do = chot_dau_vao(ten, decision.get("arguments") or {},
                                             row.get("question", ""))
-        if ly_do == "thue":
+        if ly_do in ("thue", "thue_suat"):
             o["hoi_thue"] += 1
         elif row.get("ask_back"):
             if hoi_lai:

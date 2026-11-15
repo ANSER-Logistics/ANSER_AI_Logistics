@@ -369,7 +369,7 @@ def test_nhanh_logistics_khong_bi_vong_agentic_giành_mat(moi_truong, monkeypatc
 # "đơn giá chưa gồm VAT": từ 28/10/2026 câu không nói rõ thì `vat` hỏi lại
 # trước khi tính — test này về ĐỊNH TUYẾN nên câu phải đủ để tool chạy.
 _HOA_DON_VAN_TAI = (
-    "Kiểm tra giúp tôi hoá đơn này có đúng không, đơn giá chưa gồm VAT: "
+    "Kiểm tra giúp tôi hoá đơn này có đúng không, đơn giá chưa gồm VAT, thuế suất 10%: "
     '{"items": [{"name": "Cước vận chuyển HN-HP", "quantity": 2, '
     '"unit_price": 1500000}], "total_amount": 3300000}'
 )
@@ -569,7 +569,7 @@ def test_tra_loi_cau_hoi_vat_o_luot_sau_thi_tinh_tren_hoa_don_luot_truoc(
 
     monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
     hoa_don = ('Kiểm tra hoá đơn này giúp tôi: {"Cước vận chuyển HN-HP": 5000000, '
-               '"Phụ phí xăng dầu": 500000}, tổng ghi 6.500.000đ có đúng không?')
+               '"Phụ phí xăng dầu": 500000}, thuế suất 10%, tổng ghi 6.500.000đ có đúng không?')
     monkeypatch.setattr(chat_mod, "_load_history", lambda uid: [
         {"role": "user", "content": hoa_don},
         {"role": "assistant", "content": CAU_HOI_THUE},
