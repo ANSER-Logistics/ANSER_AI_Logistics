@@ -468,6 +468,9 @@ def test_env_server_vision_tat_theo_thiet_ke_khong_lam_degraded(monkeypatch, vll
     monkeypatch.setattr(ModelEngine, "_instance", None)
     monkeypatch.setenv("ENV", "SERVER")
     monkeypatch.setenv("VLLM_BASE_URL", vllm_gia.url)
+    # Cấu hình compose có token (`API_AUTH_TOKEN: ${API_TOKEN:?}`). Thiếu token ở ENV khác LOCAL nay tự kéo
+    # `degraded` lên (cảnh báo thiếu token), nên test này, vốn hỏi riêng về vision-tắt-theo-thiết-kế, phải đặt nó.
+    monkeypatch.setattr("src.api.dependencies.API_AUTH_TOKEN", "token-compose")
     rs = RuntimeState()
     asyncio.run(rs.ensure_text_runtime())
     asyncio.run(rs.ensure_vision_runtime())

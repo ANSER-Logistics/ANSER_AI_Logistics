@@ -20,6 +20,7 @@ from src.api.dependencies import (
     RUNTIME_PROFILE,
     auth_guard,
     runtime,
+    thieu_token_o_trien_khai,
 )
 from src.core.serving import Overloaded
 
@@ -42,7 +43,15 @@ ALLOWED_ORIGINS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup — nothing to do (lazy init)
+    # Startup — khởi tạo model là lười; chỉ kiểm cấu hình xác thực.
+    if thieu_token_o_trien_khai():
+        # Cùng sự cố 13/08/2026: compose đặt sai TÊN biến token, Brain chạy mở mà không ai thấy. Nó không
+        # làm gì lỗi nên chỉ log và `/health` mới lộ ra. CRITICAL để dòng này không chìm giữa log thường.
+        logger.critical(
+            "API_AUTH_TOKEN TRỐNG khi ENV=%r (khác LOCAL): MỌI route nghiệp vụ đang MỞ cho bất kỳ ai tới "
+            "được Brain. Đặt API_AUTH_TOKEN, hoặc ENV=LOCAL nếu chỉ chạy trên máy dev.",
+            os.getenv("ENV", ""),
+        )
     yield
     # Shutdown — close the shared HTTP client pool
     from src.core.utils import HttpClientPool
@@ -154,6 +163,8 @@ async def health():
         memory_schema_error = mem.kiem_luoc_do()
         memory_db = mem.trang_thai_db
 
+    auth_thieu = thieu_token_o_trien_khai()
+
     server_down = False
     server = getattr(engine, "server", None)
     if server is not None:
@@ -177,6 +188,7 @@ async def health():
             "degraded": bool(
                 runtime.engine_error or runtime.kb_error or server_down
                 or memory_schema_error
+                or auth_thieu
                 or (runtime.vision_error and backend["vision_backend"] != "none")
             ),
             **backend,
@@ -198,6 +210,9 @@ async def health():
             # xảy ra với compose ngày 13/08/2026. Một dòng ở /health biến lỗi
             # câm thành lỗi nhìn ra ngay.
             "auth_enabled": bool(API_AUTH_TOKEN),
+            # Chạy như bản triển khai (ENV khác LOCAL) mà không có token: kéo `degraded` lên và có dòng CRITICAL
+            # lúc khởi động. Chỉ THÊM khoá; xem `thieu_token_o_trien_khai`.
+            "auth_missing_in_deployment": auth_thieu,
             "load": load,
         }
     )
