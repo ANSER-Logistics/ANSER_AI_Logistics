@@ -894,7 +894,8 @@ async def chat_endpoint(
                 ))
 
         # ------------------------------------------------------------------
-        # GENERAL — hội thoại, tính toán, giải thích
+        # GENERAL — hội thoại, giải thích (KHÔNG tính toán: câu có phép tính tiền/thuế
+        # mà có luật tool thì đã đi vòng agentic ở trên; còn lại model từ chối tự tính)
         # ------------------------------------------------------------------
         else:
             resp = dem.cong(await runtime.manager.answer_general(user_msg, history=history))

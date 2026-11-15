@@ -16,6 +16,40 @@ THAY ĐỔI SO VỚI BẢN CŨ:
 """
 from textwrap import dedent
 
+# ---------------------------------------------------------------------------
+# Luật "KHÔNG TỰ TÍNH" cho hai nhánh trả lời tự do (GENERAL, RETRIEVAL)
+# ---------------------------------------------------------------------------
+# AGENTS.md R1: LLM không bao giờ tính toán. Bản trước của hai prompt này viết
+# NGƯỢC lại ("Có phép tính thì tính ra kết quả cụ thể") — chỗ duy nhất trong repo
+# bảo model làm điều R1 cấm, và là đường mà câu hỏi tiền/thuế rơi vào mỗi khi
+# không luật nào của `tool_planner` khớp: câu số học thuần ("3 cái giá 120.000
+# đồng, chiết khấu 5% thì tổng bao nhiêu"), câu tính thuế thiếu số tiền. Nhánh
+# GENERAL còn không có chốt neo số liệu (`grounding_ctx` rỗng) nên con số model
+# tự tính đi thẳng ra màn hình chủ doanh nghiệp.
+#
+# ĐỪNG HỨA THỨ HỆ THỐNG KHÔNG LÀM. Hai nhánh này KHÔNG có công cụ nào chạy:
+# `chat.py` tính `plan_tools(...)` TRƯỚC bảng rẽ nhánh, câu nào có kế hoạch tool
+# thì đi vòng agentic và không bao giờ tới `answer_general`/`answer_retrieval`.
+# Nên luật này nói thật "lượt này bạn không có công cụ", và chỉ hứa duy nhất điều
+# có thật: câu tính THUẾ GTGT gửi lại kèm đủ số liệu thì luật chọn tool bắt được
+# và chạy `vat` (khoá bằng tests/test_prompt_khong_tu_tinh.py).
+#
+# MỘT định nghĩa (R4): hai prompt cùng nhúng hằng này, không chép tay hai bản.
+# KHÔNG được có dấu ngoặc nhọn trong đây — RETRIEVAL_SYSTEM đi qua str.format.
+_KHONG_TU_TINH = dedent("""\
+    QUY TẮC SỐ TIỀN — KHÔNG TỰ TÍNH:
+    - KHÔNG TỰ TÍNH bất kỳ phép tính tiền, thuế, chiết khấu, tổng hay phần trăm
+      nào, kể cả phép cộng trừ nhân chia đơn giản. Không đưa ra con số kết quả,
+      không ước chừng, không thay số vào công thức.
+    - Lượt này bạn không có công cụ nào chạy. Phép tính tiền và thuế phải do
+      công cụ tính của hệ thống làm, không phải do bạn.
+    - Gặp câu cần phép tính: nói thẳng là bạn không tự tính, rồi HỎI LẠI những
+      dữ kiện còn thiếu (số tiền, thuế suất, giá đã gồm VAT hay chưa). Với thuế
+      GTGT, mời người dùng gửi lại kèm đủ các dữ kiện đó để hệ thống tính.
+    - Được giải thích quy định hoặc công thức bằng lời, và nhắc lại số người
+      dùng đã nêu. Không được nêu kết quả của phép tính.
+""")
+
 
 class Prompts:
     SYSTEM_CONTEXT = (
@@ -68,34 +102,45 @@ class Prompts:
     # Hỏng ồn ào còn hơn hỏng êm — xem R1.
 
     # ------------------------------------------------------------------
-    # Nhánh GENERAL — hội thoại tự do, tính toán, giải thích
+    # Nhánh GENERAL — hội thoại tự do, giải thích. KHÔNG tính toán (R1): xem
+    # `_KHONG_TU_TINH` ở đầu file.
     # ------------------------------------------------------------------
-    GENERAL_SYSTEM = dedent("""\
-        Bạn là ANSER Brain — trợ lý cho chủ cửa hàng bán lẻ Việt Nam.
+    GENERAL_SYSTEM = (
+        dedent("""\
+            Bạn là ANSER Brain — trợ lý cho chủ cửa hàng bán lẻ Việt Nam.
 
-        Trả lời trực tiếp bằng tiếng Việt, văn xuôi, tối đa 5 câu.
-        Có phép tính thì tính ra kết quả cụ thể và ghi rõ cách tính.
-        Không xuất JSON. Không viết code. Không mô tả quy trình suy nghĩ của bạn.
-        Nếu không biết thì nói thẳng là không biết.
-    """)
+            Trả lời trực tiếp bằng tiếng Việt, văn xuôi, tối đa 5 câu.
+        """)
+        + _KHONG_TU_TINH
+        + dedent("""\
+            Không xuất JSON. Không viết code. Không mô tả quy trình suy nghĩ của bạn.
+            Nếu không biết thì nói thẳng là không biết.
+        """)
+    )
 
     # ------------------------------------------------------------------
     # Nhánh RETRIEVAL — RAG trên tài liệu nội bộ / kết quả web
+    # Cũng KHÔNG tính toán (R1) — cùng luật `_KHONG_TU_TINH` với GENERAL.
+    # `{context}` phải đứng CUỐI (test_retrieval_van_format_duoc_va_giu_nguyen_ngu_canh).
     # ------------------------------------------------------------------
-    RETRIEVAL_SYSTEM = dedent("""\
-        Bạn là ANSER Brain — chuyên gia thuế GTGT, kho vận và vận hành bán lẻ
-        cho SME Việt Nam.
+    RETRIEVAL_SYSTEM = (
+        dedent("""\
+            Bạn là ANSER Brain — chuyên gia thuế GTGT, kho vận và vận hành bán lẻ
+            cho SME Việt Nam.
 
-        Trả lời bằng tiếng Việt, văn xuôi, tối đa 6 câu.
-        Có phép tính thì tính ra con số cụ thể, ghi rõ công thức.
-        Dùng thông tin trong TÀI LIỆU dưới đây nếu liên quan; nếu không liên quan
-        thì dùng kiến thức của bạn.
-        Không bình luận về việc tài liệu có hay không có thông tin.
-        Không xuất JSON. Không viết code.
+            Trả lời bằng tiếng Việt, văn xuôi, tối đa 6 câu.
+        """)
+        + _KHONG_TU_TINH
+        + dedent("""\
+            Dùng thông tin trong TÀI LIỆU dưới đây nếu liên quan; nếu không liên quan
+            thì dùng kiến thức của bạn.
+            Không bình luận về việc tài liệu có hay không có thông tin.
+            Không xuất JSON. Không viết code.
 
-        TÀI LIỆU:
-        {context}
-    """)
+            TÀI LIỆU:
+            {context}
+        """)
+    )
 
     # ------------------------------------------------------------------
     # Nhánh DATA_INTERNAL — đọc dữ liệu thật từ DB cửa hàng
