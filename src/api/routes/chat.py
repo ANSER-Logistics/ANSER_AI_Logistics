@@ -24,6 +24,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
+from src.api.chay_ngoai_loop import chay_ngoai_loop
 from src.api.dependencies import (
     ChatRequest,
     clean_output,
@@ -877,7 +878,7 @@ async def chat_endpoint(
                     extra={"request_id": request_id},
                 )
                 if quyet.allow:
-                    web_results = web_search_fallback(user_msg)
+                    web_results = await chay_ngoai_loop(web_search_fallback, user_msg)
                     context_docs = (
                         f"[KẾT QUẢ TÌM KIẾM]\n{web_results}" if web_results else ""
                     )
