@@ -16,6 +16,7 @@ Bản Ngày 7. Thay đổi so với bản cũ:
 Ghi chú: nhánh FINANCIAL đã gỡ — validate hoá đơn đi qua /ocr (documents.py).
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -516,6 +517,90 @@ async def get_task_status(task_id: str, x_user_id: Optional[str] = Header(None))
     return task
 
 
+# ---------------------------------------------------------------------------
+# Gửi kết quả về Body (webhook)
+# ---------------------------------------------------------------------------
+#
+# Trước 16/11/2026 đây là MỘT lần `client.post` rồi log "Webhook dispatched", với hai lỗi câm:
+#   1. `httpx` không ném khi Body trả 401 hay 500. Mọi phản hồi HTTP đều được log là "đã gửi", kể cả
+#      khi Body từ chối: kết quả mất mà log nói thành công.
+#   2. Body khởi động lại (có chuyện, và lâu hơn một giây) hay quá tải thoáng qua thì lần gửi duy nhất
+#      mất luôn kết quả.
+#
+# Giờ: lần đầu gửi NGAY trong luồng như cũ (đường thành công không đổi một nhịp nào); thất bại
+# TẠM THỜI (lỗi mạng, hết giờ, 408, 429, 5xx) thì thử lại ở NỀN sau 1 giây rồi 4 giây, để tác vụ vẫn
+# báo hoàn thành ngay và Body hỏi `GET /api/v1/task/{id}` vẫn lấy được kết quả. Lỗi 4xx khác (401, 403,
+# 404, 422) KHÔNG thử lại: gửi lại cùng một thứ không làm nó hết sai, chỉ làm log ồn thêm.
+#
+# GIAO NHẬN "ÍT NHẤT MỘT LẦN": lần gửi đầu có thể đã tới Body nhưng phản hồi lạc mất (hết giờ), rồi lần
+# thử lại gửi lần hai. Mỗi lần gửi mang header `X-Task-ID`; Body nên bỏ qua task_id đã nhận.
+#
+# Không bao giờ log `payload` (là câu trả lời cho khách), chỉ task_id, mã trạng thái và số lần thử.
+_WEBHOOK_THU_LAI_SAU = (1.0, 4.0)
+_WEBHOOK_MA_THU_LAI = frozenset({408, 429})
+
+
+async def _ngu(giay: float) -> None:
+    """Một chỗ để test thay: không ai muốn test đợi 5 giây thật."""
+    await asyncio.sleep(giay)
+
+
+async def _gui_mot_lan(client, url: str, payload: dict, headers: dict) -> tuple[bool, bool, str]:
+    """Một lần gửi. Trả `(thanh_cong, nen_thu_lai, mo_ta)`."""
+    try:
+        r = await client.post(url, json=payload, headers=headers)
+    except Exception as exc:   # mạng, hết giờ, DNS: đều tạm thời; không ném ra ngoài
+        # Chỉ ghi LOẠI lỗi (AGENTS §4.1 quy tắc 4): thông điệp của httpx có thể kèm URL, và không bao giờ
+        # ghi `payload`, vì đó là câu trả lời cho khách.
+        logger.warning("Webhook về Body: không gửi được (%s)", type(exc).__name__)
+        return False, True, f"{type(exc).__name__}"
+    if r.status_code < 400:
+        return True, False, f"HTTP {r.status_code}"
+    return False, (r.status_code >= 500 or r.status_code in _WEBHOOK_MA_THU_LAI), f"HTTP {r.status_code}"
+
+
+async def _thu_lai_webhook(client, url: str, payload: dict, headers: dict, task_id: str, mo_ta: str) -> bool:
+    for i, cho in enumerate(_WEBHOOK_THU_LAI_SAU, start=2):
+        await _ngu(cho)
+        ok, thu_lai, mo_ta = await _gui_mot_lan(client, url, payload, headers)
+        if ok:
+            logger.info("Webhook về Body thành công ở lần thử %d, task %s", i, task_id)
+            return True
+        if not thu_lai:
+            break
+    logger.error(
+        "Webhook về Body THẤT BẠI, task %s (%s). Kết quả vẫn lấy được qua GET /api/v1/task/%s",
+        task_id, mo_ta, task_id,
+    )
+    return False
+
+
+_WEBHOOK_NEN: set = set()   # giữ tham chiếu: asyncio chỉ giữ tham chiếu yếu tới tác vụ nền
+
+
+async def _gui_webhook(client, url: str, payload: dict, headers: dict, task_id: str) -> bool:
+    """
+    Gửi lần đầu ngay; nếu thất bại tạm thời thì lên lịch thử lại ở nền. Trả kết quả của LẦN ĐẦU
+    (True = Body đã nhận). Không bao giờ ném.
+    """
+    ok, thu_lai, mo_ta = await _gui_mot_lan(client, url, payload, headers)
+    if ok:
+        logger.info("Webhook dispatched for task %s", task_id)
+        return True
+    if not thu_lai:
+        logger.error(
+            "Webhook về Body bị TỪ CHỐI, task %s (%s), không thử lại. Kết quả vẫn lấy được qua GET /api/v1/task/%s",
+            task_id, mo_ta, task_id,
+        )
+        return False
+    logger.warning("Webhook về Body lỗi tạm thời, task %s (%s); sẽ thử lại ở nền", task_id, mo_ta)
+    nen = asyncio.ensure_future(_thu_lai_webhook(client, url, payload, headers, task_id, mo_ta))
+    _WEBHOOK_NEN.add(nen)
+    nen.add_done_callback(_WEBHOOK_NEN.discard)
+    return False
+
+
+
 def _webhook_headers(task_id: str, request_id: str = "") -> dict[str, str]:
     """
     Header cho webhook gọi về Body. KHÔNG bịa token khi chưa cấu hình.
@@ -974,8 +1059,7 @@ async def chat_endpoint(
                 headers = _webhook_headers(task_id, request_id)
 
                 client = HttpClientPool.get_client()
-                await client.post(callback_url, json=payload, headers=headers)
-                logger.info("Webhook dispatched for task %s", task_id)
+                await _gui_webhook(client, callback_url, payload, headers, task_id)
             except Exception as exc:
                 logger.error("Webhook dispatch failed for task %s: %s", task_id, exc)
 
