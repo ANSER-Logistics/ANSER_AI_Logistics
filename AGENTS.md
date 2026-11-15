@@ -157,7 +157,7 @@ Mọi tham số phần cứng đọc từ biến môi trường, có mặc đị
 ```python
 TEXT_MODEL_ID          # đường dẫn hoặc HF id. KHÔNG có mặc định, cố ý
 VISION_MODEL_ID        # Qwen/Qwen2.5-VL-3B-Instruct
-VLLM_BASE_URL          # http://127.0.0.1:8001/v1
+VLLM_BASE_URL          # http://127.0.0.1:8001/v1 — CHỈ host nội bộ (R2; host công cộng bị `serving.kiem_url_noi_bo` từ chối)
 TEXT_GPU_FRACTION      # 0.55 (compose: 0.62, vì vision là container riêng)
 TEXT_MAX_MODEL_LEN     # 32768
 TEXT_QUANTIZATION      # rỗng = để vLLM tự nhận từ config.json của model

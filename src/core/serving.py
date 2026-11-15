@@ -45,14 +45,25 @@ request còn đang có người ngồi đợi. Đây là lựa chọn có ý th�
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, NoReturn, Optional
 
 logger = logging.getLogger("anser.serving")
+
+
+class CauHinhSai(ValueError):
+    """`ENV` / `VLLM_BASE_URL` không ghép thành một cấu hình chạy được.
+
+    Định nghĩa ở đây (tầng thấp) chứ không ở `engine.py`: `kiem_url_noi_bo` ném nó, và
+    `engine.py` import `serving.py`, nên import ngược lại là vòng (`tests/test_layering.py`).
+    `engine.CauHinhSai` vẫn dùng được: đó là CÙNG một lớp, được import lại.
+    """
 
 
 class Overloaded(RuntimeError):
@@ -378,6 +389,148 @@ def _chuan_hoa_base_url(url: str) -> str:
     return url
 
 
+# ---------------------------------------------------------------------------
+# R2 — `VLLM_BASE_URL` chỉ được trỏ vào máy nội bộ
+# ---------------------------------------------------------------------------
+# Mọi prompt Brain gửi đi đều đi qua địa chỉ này, và prompt là nơi dữ liệu khách
+# nằm (hoá đơn, công nợ, bảng giá cước, biên lợi nhuận). Trước đây không có gì
+# kiểm giá trị đó: một biến môi trường đặt nhầm là đủ để đẩy toàn bộ lưu lượng
+# tới `https://api.<nhà-cung-cấp>.com/v1`, và Brain vẫn báo `status: ok`.
+#
+# Kiểm bằng ĐỌC CHUỖI, không phân giải DNS: tên miền hôm nay trỏ về 10.0.0.5 thì
+# mai trỏ ra ngoài được, và một phép kiểm cần mạng thì tự nó là chỗ hỏng. Vì vậy
+# chỉ nhận những dạng mà CHỈ RIÊNG chuỗi đã chứng minh được là nội bộ:
+#   - IPv4 dạng 4 số thập phân chuẩn trong 127/8, 10/8, 172.16/12, 192.168/16;
+#   - IPv6 `[::1]` (và dạng IPv4-mapped của các dải trên);
+#   - tên KHÔNG có dấu chấm (`localhost`, tên service docker-compose `vllm-text`).
+# Tên có dấu chấm là tên miền công cộng (hoặc trông giống), bị từ chối kể cả khi
+# nó trông như IP (`127.0.0.1.evil.com`).
+#
+# Cố ý KHÔNG có công tắc ghi đè: thêm một biến cho phép host ngoài là đổi cách
+# quản lý cấu hình bảo mật, phải hỏi chủ dự án trước (AGENTS.md R2b mục 3).
+
+_MANG_V4_NOI_BO = tuple(
+    ipaddress.ip_network(n)
+    for n in ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
+# Bốn số thập phân, không số 0 đứng đầu (`0177.0.0.1` là bát phân với `inet_aton`).
+_V4_CHUAN = re.compile(r"^(?:0|[1-9][0-9]{0,2})(?:\.(?:0|[1-9][0-9]{0,2})){3}$")
+# Tên không dấu chấm. Chặn riêng dạng số: `2130706433` và `0x7f000001` không có
+# dấu chấm nhưng `getaddrinfo` đọc chúng thành địa chỉ IP (kể cả IP công cộng).
+_TEN_KHONG_CHAM = re.compile(r"^[a-z0-9_-]{1,63}$")
+_TEN_DANG_SO = re.compile(r"^(?:[0-9]+|0x[0-9a-f]*)$")
+_URL_BAT_DAU = re.compile(r"^(https?)://([^/?#]*)", re.IGNORECASE)
+_HOST_HIEN_TOI_DA = 80
+
+
+def _tu_choi_url(ten_bien: str, ly_do: str, host: str = "") -> NoReturn:
+    """
+    Ném `CauHinhSai` — cùng kiểu lỗi mà `engine.chon_backend` dùng cho `ENV` /
+    `VLLM_BASE_URL` sai, để `RuntimeState` đưa nó lên `/health.engine_error`.
+
+    Thông báo chỉ nhắc TÊN BIẾN và (khi có) `host` đã qua kiểm ký tự — không
+    bao giờ nhắc lại cả URL: URL có thể mang `user:pass@`, token ở query, hoặc
+    đường dẫn bí mật, và thông báo này được ghi vào log.
+    """
+    if len(host) > _HOST_HIEN_TOI_DA:
+        host = host[:_HOST_HIEN_TOI_DA] + "..."
+    nhac_host = f" (host={host!r})" if host else ""
+    raise CauHinhSai(
+        f"{ten_bien} bị từ chối: {ly_do}{nhac_host}. R2: mọi prompt gửi tới địa "
+        "chỉ này mang dữ liệu khách hàng, nên chỉ chấp nhận máy nội bộ — "
+        "localhost, 127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, "
+        "hoặc tên không có dấu chấm như tên service docker-compose "
+        "(ví dụ http://vllm-text:8001)."
+    )
+
+
+def kiem_url_noi_bo(url: str, ten_bien: str = "VLLM_BASE_URL") -> None:
+    """
+    Ném `CauHinhSai` nếu `url` có thể đưa prompt ra khỏi mạng nội bộ (R2).
+    Rỗng thì trả về: "chưa cấu hình" là chuyện của `chon_backend`, không phải của hàm này.
+
+    Hàm thuần: chỉ đọc chuỗi — không DNS, không socket, không đọc env.
+
+    Chặt hơn `urllib.parse` có chủ ý. Mỗi thư viện đọc URL một kiểu ở các mép
+    (dấu gạch ngược, ký tự Unicode trông như dấu chấm, `%2e`, số nguyên thay IP) và
+    chỗ nào hai bên đọc khác nhau, chỗ đó là đường thoát. Nên thay vì đoán
+    thư viện đọc ra gì, loại hẳn các dạng đó: khoảng trắng, ký tự điều khiển,
+    ký tự ngoài ASCII, dấu gạch ngược đều bị từ chối trước khi tách host.
+    """
+    s = (url or "").strip()
+    if not s:
+        return
+
+    if any(ord(c) <= 0x20 or ord(c) >= 0x7F for c in s):
+        _tu_choi_url(
+            ten_bien,
+            "chứa khoảng trắng, ký tự điều khiển hoặc ký tự ngoài ASCII "
+            "(các bộ đọc URL hiểu host khác nhau ở những ký tự này)",
+        )
+    if "\\" in s:
+        _tu_choi_url(ten_bien, "chứa dấu gạch ngược")
+
+    m = _URL_BAT_DAU.match(s)
+    if not m:
+        _tu_choi_url(ten_bien, "phải bắt đầu bằng http:// hoặc https://")
+    authority = m.group(2)
+
+    if "@" in authority:
+        _tu_choi_url(
+            ten_bien,
+            "không được chứa user:pass@ — khoá xác thực đặt ở VLLM_API_KEY, "
+            "và URL được ghi vào log",
+        )
+
+    la_ipv6 = authority.startswith("[")
+    if la_ipv6:
+        dong = authority.find("]")
+        if dong < 0:
+            _tu_choi_url(ten_bien, "địa chỉ IPv6 thiếu dấu ]")
+        host, phan_con = authority[1:dong], authority[dong + 1:]
+        if phan_con and not phan_con.startswith(":"):
+            _tu_choi_url(ten_bien, "có ký tự lạ sau địa chỉ IPv6", host)
+        sep, cong = phan_con[:1], phan_con[1:]
+    else:
+        host, sep, cong = authority.partition(":")
+
+    host = host.lower()
+    if not host:
+        _tu_choi_url(ten_bien, "thiếu host")
+    if sep and not (1 <= len(cong) <= 5 and cong.isdigit() and 1 <= int(cong) <= 65535):
+        _tu_choi_url(ten_bien, "cổng không hợp lệ", host)
+    if "%" in host:
+        _tu_choi_url(ten_bien, "host chứa mã hoá phần trăm", host)
+
+    if la_ipv6:
+        try:
+            ip6 = ipaddress.IPv6Address(host)
+        except ValueError:
+            _tu_choi_url(ten_bien, "địa chỉ IPv6 không đọc được", host)
+        ip4 = ip6.ipv4_mapped
+        if ip4 is None:
+            if ip6 != ipaddress.IPv6Address("::1"):
+                _tu_choi_url(ten_bien, "IPv6 này không phải ::1", host)
+            return
+    elif _V4_CHUAN.match(host):
+        try:
+            ip4 = ipaddress.IPv4Address(host)
+        except ValueError:
+            _tu_choi_url(ten_bien, "địa chỉ IPv4 không đọc được", host)
+    elif _TEN_KHONG_CHAM.match(host) and not _TEN_DANG_SO.match(host):
+        return
+    else:
+        _tu_choi_url(
+            ten_bien,
+            "host không phải máy nội bộ (có dấu chấm nghĩa là tên miền công "
+            "cộng, và các dạng số thập lục/bát phân/số nguyên không được nhận)",
+            host,
+        )
+
+    if not any(ip4 in mang for mang in _MANG_V4_NOI_BO):
+        _tu_choi_url(ten_bien, "IP này nằm ngoài các dải nội bộ", host)
+
+
 def _chuoi_tra_ve(x: Any) -> str:
     """`None` -> "" (model chỉ sinh token đặc biệt). Không phải chuỗi -> TypeError -> BackendError."""
     if x is None:
@@ -492,9 +645,10 @@ class VLLMServerClient:
         api_key: Optional[str] = None,
         max_connections: int = 32,
     ):
-        self.base_url: str = _chuan_hoa_base_url(
-            base_url or os.getenv("VLLM_BASE_URL") or ""
-        )
+        bruto = base_url or os.getenv("VLLM_BASE_URL") or ""
+        # R2: kiểm TRƯỚC khi chuẩn hoá và trước khi có bất kỳ HTTP client nào.
+        kiem_url_noi_bo(bruto, "VLLM_BASE_URL")
+        self.base_url: str = _chuan_hoa_base_url(bruto)
         self.model: str = model or os.getenv("VLLM_MODEL") or ""
         self.timeout_s = timeout_s
         # Khoá đọc từ env, KHÔNG nhận qua tham số gọi từ tầng trên (R2b).
