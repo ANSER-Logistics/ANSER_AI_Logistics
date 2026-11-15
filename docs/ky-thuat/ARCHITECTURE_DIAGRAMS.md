@@ -257,6 +257,17 @@ sequenceDiagram
 phép. Thiếu vế sau thì một tấm ảnh mờ đọc ra rỗng sẽ hiện lên như hoá đơn sạch —
 không phép kiểm nào thất bại vì chẳng có gì để kiểm.
 
+Cùng nguyên tắc cho VAT: thuế suất **và** tiền thuế đều chưa đọc được thì đó là
+"chưa biết", không phải "VAT bằng 0". `verify()` bỏ phép kiểm tổng cộng (không ghi
+vào `checks_performed`), thêm một dòng `issues` nói đúng nguyên nhân, và trả
+`computed.vat_amount` / `computed.total` là `null` — hai khoá vẫn có mặt vì Body
+đọc cả ba khoá của `computed` và hiện `null` thành "—". (Kiểu khai báo bên Body
+ghi `total: number`, không cho null; giao diện thật đã chịu được `null`, còn kiểu
+thì Body nên sửa cho khớp.) Hoá đơn thật sự không có VAT vẫn qua, miễn VLM đọc ra
+`vat_rate = 0` hoặc `vat_amount = 0`; tờ mà VLM để `null` cả hai thì luôn được
+đưa cho người xem lại, vì Brain không phân biệt được "không có VAT" với "VAT bị
+mờ" từ một ô trống.
+
 ---
 
 ## Phụ thuộc giữa các module Brain
