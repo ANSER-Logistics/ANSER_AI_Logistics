@@ -59,7 +59,6 @@ class ReportRequest:
     granularity: str = "quarter"
     periods_back: int = 4           # số kỳ gần nhất giữ lại trong báo cáo
     top_n: int = 10                 # số mặt hàng trong bảng xếp hạng
-    today: Optional[str] = None     # mốc "hôm nay"; None = date.today()
     sales: list[SaleLine] = field(default_factory=list)
     expenses: list[ExpenseLine] = field(default_factory=list)
 
