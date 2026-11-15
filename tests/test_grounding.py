@@ -16,6 +16,7 @@ import pytest
 from src.core.grounding import (
     GuardVerdict,
     customer_leak,
+    dau_lai_lo_ok,
     derived_ratios_ok,
     guard_answer,
     la_hinh_dang_tien,
@@ -384,13 +385,13 @@ def test_che_do_tien_tha_nam_va_so_hieu_van_ban():
     cau_nam = "Hôm nay là ngày 4 tháng 11 năm 2026."
     cau_vb = "Nghị định 72/2024/NĐ-CP quy định rõ điều này."
 
-    # Luật hiện tại: chặn cả hai
-    assert narration_numbers_ok(cau_nam, "")[0] is False
-    assert narration_numbers_ok(cau_vb, "")[0] is False
+    # Luật độ dài cũ (còn gọi được bằng cờ tường minh): chặn cả hai
+    assert narration_numbers_ok(cau_nam, "", chi_kiem_so_tien=False)[0] is False
+    assert narration_numbers_ok(cau_vb, "", chi_kiem_so_tien=False)[0] is False
 
-    # Luật hình dạng tiền: cho qua cả hai
-    assert narration_numbers_ok(cau_nam, "", chi_kiem_so_tien=True)[0] is True
-    assert narration_numbers_ok(cau_vb, "", chi_kiem_so_tien=True)[0] is True
+    # Luật hình dạng tiền, MẶC ĐỊNH từ 15/11/2026 (BR-23): cho qua cả hai
+    assert narration_numbers_ok(cau_nam, "")[0] is True
+    assert narration_numbers_ok(cau_vb, "")[0] is True
 
 
 def test_che_do_tien_bat_duoc_so_viet_ngan():
@@ -401,12 +402,11 @@ def test_che_do_tien_bat_duoc_so_viet_ngan():
     không bắt được vì câu không có từ so sánh nào.
     """
     cau = "Doanh thu khoảng 45 triệu."
-    assert narration_numbers_ok(cau, "")[0] is True          # lọt
-    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=True)[0] is False
+    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=False)[0] is True   # luật cũ: lọt
+    assert narration_numbers_ok(cau, "")[0] is False                          # mặc định mới: chặn
 
     # Có trong dữ liệu thì vẫn cho qua — đây là diễn giải, không phải bịa số.
-    assert narration_numbers_ok(cau, "doanh_thu: 45000000",
-                                chi_kiem_so_tien=True)[0] is True
+    assert narration_numbers_ok(cau, "doanh_thu: 45000000")[0] is True
 
 
 def test_che_do_tien_bat_duoc_phep_cong_model_tu_lam():
@@ -415,14 +415,13 @@ def test_che_do_tien_bat_duoc_phep_cong_model_tu_lam():
     cũng không thấy.
     """
     cau = "8 triệu cộng 3 triệu là 11 triệu."
-    assert narration_numbers_ok(cau, "")[0] is True          # lọt
-    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=True)[0] is False
+    assert narration_numbers_ok(cau, "", chi_kiem_so_tien=False)[0] is True   # luật cũ: lọt
+    assert narration_numbers_ok(cau, "")[0] is False                          # mặc định mới: chặn
 
 
-def test_mac_dinh_khong_doi_hanh_vi():
-    """Cổng mặc định phải GIỐNG HỆT luật cũ: bật lên là đổi hành vi hướng ra
-    khách, cần chủ dự án duyệt (brain#42). Test này là thứ sẽ đỏ nếu có ai
-    lặng lẽ đổi mặc định.
+def test_mac_dinh_la_hinh_dang_tien():
+    """Mặc định đổi từ 15/11/2026 (BR-23): hình dạng tiền thay ngưỡng độ dài, và `guard_answer`
+    dùng đúng mặc định đó. Cờ `chi_kiem_so_tien=False` vẫn gọi được luật cũ để so trước/sau.
     """
     for cau in (
         "Hôm nay là ngày 4 tháng 11 năm 2026.",
@@ -430,10 +429,93 @@ def test_mac_dinh_khong_doi_hanh_vi():
         "8 triệu cộng 3 triệu là 11 triệu.",
         "Lãi là 11.500.000 đồng.",
     ):
-        assert narration_numbers_ok(cau, "") == narration_numbers_ok(
-            cau, "", chi_kiem_so_tien=False
-        )
+        assert narration_numbers_ok(cau, "") == narration_numbers_ok(cau, "", chi_kiem_so_tien=True)
 
-    # Và `guard_answer` chưa có đường nào bật chế độ này.
-    assert guard_answer("Hôm nay là năm 2026.", "").blocked
+    # Hai luật thật sự khác nhau, nếu không thì test trên xanh suông.
+    assert narration_numbers_ok("Doanh thu khoảng 45 triệu.", "") != narration_numbers_ok(
+        "Doanh thu khoảng 45 triệu.", "", chi_kiem_so_tien=False)
 
+    # `guard_answer` đi qua mặc định mới: năm không bị chặn oan, số ngắn có đơn vị bị bắt.
+    assert guard_answer("Hôm nay là năm 2026.", "").ok
+    assert guard_answer("Doanh thu khoảng 45 triệu.", "").blocked
+
+
+# ---------------------------------------------------------------------------
+# BR-23 (15/11/2026): số có đơn vị được kiểm, làm tròn đúng độ chính xác thì được nhận
+#
+# Đo trên 400 kịch bản tất định (câu viết tay theo năm kiểu, KHÔNG phải câu trả lời thật):
+# câu đúng viết làm tròn 1 chữ số thập phân bị luật cũ chặn oan 5,1%, luật mới 0%; số bịa có
+# đơn vị luật cũ bắt 1,7–15,4%, luật mới 92–97%.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("cau, ctx", [
+    ("Cước khoảng 4,5 triệu đồng.", "quoted_price: 4496000"),       # làm tròn xuống, 1 chữ số thập phân
+    ("Cước khoảng 4,5 triệu đồng.", "quoted_price: 4540000"),       # làm tròn lên
+    ("Cước khoảng 4 triệu đồng.", "quoted_price: 4496000"),         # 0 chữ số thập phân
+    ("Doanh thu 3,96 tỷ đồng.", "revenue: 3961234567"),
+    ("Cước 5,2 triệu.", "quoted_price: 5250000"),                   # đúng điểm giữa: cách làm tròn nào cũng nhận
+    ("Cước 5,3 triệu.", "quoted_price: 5250000"),
+    ("Cước 104,8 triệu.", "quoted_price: 104800000"),               # luật cũ chặn oan: 4 chữ số "1048"
+])
+def test_so_co_don_vi_lam_tron_dung_thi_duoc_nhan(cau, ctx):
+    assert narration_numbers_ok(cau, ctx)[0] is True, cau
+
+
+@pytest.mark.parametrize("cau, ctx", [
+    ("Doanh thu khoảng 45 triệu.", "revenue: 12300000"),            # số khác hẳn
+    ("Doanh thu 3,96 tỷ đồng.", "revenue: 3860000000"),             # lệch một đơn vị ở chữ số cuối
+    ("Cước 4,6 triệu đồng.", "quoted_price: 4496000"),              # 4,496 làm tròn là 4,5 chứ không phải 4,6
+    ("Cước 8 triệu cộng 3 triệu là 11 triệu.", "a: 8000000"),       # 11 triệu không có
+])
+def test_so_co_don_vi_lam_tron_sai_van_bi_chan(cau, ctx):
+    assert narration_numbers_ok(cau, ctx)[0] is False, cau
+
+
+def test_lam_tron_khong_ap_cho_so_day_du():
+    """Số đầy đủ phải khớp CHÍNH XÁC: "4.500.000" không được nhận chỉ vì gần 4.496.000."""
+    assert narration_numbers_ok("Cước 4.500.000 đồng.", "quoted_price: 4496000")[0] is False
+
+
+# ---------------------------------------------------------------------------
+# BR-23: số ÂM không được nói theo chiều lãi/tăng
+# ---------------------------------------------------------------------------
+
+CTX_LO = '{"net_profit": -5000000, "revenue": 20000000, "gross_profit": 7500000}'
+
+
+@pytest.mark.parametrize("cau", [
+    "Lãi ròng 5.000.000 đồng.",
+    "Lợi nhuận ròng tăng 5.000.000 đồng.",
+    "Công ty lãi 5 triệu trong kỳ.",
+])
+def test_so_am_noi_thanh_lai_thi_bi_chan(cau):
+    ok, bad = dau_lai_lo_ok(cau, CTX_LO)
+    assert ok is False and bad
+    v = guard_answer(cau, CTX_LO)
+    assert v.blocked and v.reason == "ngược dấu"
+
+
+@pytest.mark.parametrize("cau", [
+    "Lỗ ròng 5.000.000 đồng.",                                           # đúng dấu
+    "Kỳ này lỗ 5.000.000 đồng.",
+    "Lợi nhuận ròng là -5.000.000 đồng.",                                # tự mang dấu trừ
+    "Lợi nhuận ròng là −5.000.000 đồng.",                                # dấu trừ Unicode
+    "Lợi nhuận ròng âm 5.000.000 đồng.",
+    "Lãi gộp 7.500.000 đồng, nhưng lợi nhuận ròng lỗ 5.000.000 đồng.",   # mệnh đề có cả hai chiều
+    "Lãi gộp 7.500.000 đồng.",                                           # số dương trong context
+    "Doanh thu 20.000.000 đồng.",
+    "Số dư 5.000.000 đồng.",                                             # trung tính: không từ chỉ chiều
+])
+def test_so_am_dung_dau_hoac_trung_tinh_thi_khong_bi_chan(cau):
+    assert dau_lai_lo_ok(cau, CTX_LO)[0] is True, cau
+    assert guard_answer(cau, CTX_LO).ok, cau
+
+
+def test_gach_noi_trong_ngay_khong_bi_nham_la_dau_tru():
+    """"2026-11-13" và "A-5" có dấu gạch nhưng không phải số âm."""
+    ctx = "ngay: 2026-11-13, ma: A-5000000, revenue: 5000000"
+    assert dau_lai_lo_ok("Lãi 5.000.000 đồng.", ctx)[0] is True
+
+
+def test_context_khong_co_so_am_thi_khong_chan_gi():
+    assert dau_lai_lo_ok("Lãi 5.000.000 đồng.", '{"net_profit": 5000000}')[0] is True

@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 
 logger = logging.getLogger("projecta.grounding")
 
@@ -218,12 +219,43 @@ def la_hinh_dang_tien(tho: str, hau_to: str | None, sau: str = "") -> bool:
     # (một số phiên bản), không phải một khoản tiền năm chữ số.
     return len(re.sub(r"\D", "", tho)) >= 5
 
+def _khop_lam_tron(tho: str, hau_to: str, ctx_so: set[int]) -> bool:
+    """
+    "4,5 triệu" có phải là một số trong context, LÀM TRÒN đúng độ chính xác đã viết không?
+
+    Model viết số tiền ngắn gọn có hậu tố ("khoảng 4,5 triệu" cho 4.496.000) là diễn đạt, không
+    phải tính toán: cùng thông tin, hiển thị gọn hơn. Chặn nó thì phép kiểm chặt (bật ở
+    `chi_kiem_so_tien`) sinh một loạt từ chối oan. Nhưng chỉ nhận khi làm tròn context tới ĐÚNG
+    số chữ số thập phân đã viết thì ra đúng số đó: "3,96 tỷ" khớp 3.961.234.567, còn "45 triệu"
+    không khớp 12.300.000. Số bịa không trùng một số thật làm tròn, trừ khi nằm trong nửa đơn vị
+    của nó, và khi đó nó không đổi nghĩa. Biên đóng: đúng điểm giữa thì cả hai cách làm tròn đều nhận.
+
+    Chỉ dùng cho số CÓ hậu tố thang bậc. Số đầy đủ ("12.345.678") phải khớp chính xác.
+    """
+    nhan = Decimal(_THANG[hau_to.lower()])
+    cach_doc: list[tuple[Decimal, int]] = []
+    chi_so = tho.replace(".", "").replace(",", "")
+    if chi_so.isdigit():
+        cach_doc.append((Decimal(chi_so), 0))
+    if tho.count(".") + tho.count(",") == 1 and chi_so.isdigit():
+        phan_le = tho.replace(",", ".").split(".")[1]
+        cach_doc.append((Decimal(tho.replace(",", ".")), len(phan_le)))
+    for gia_tri, so_le in cach_doc:
+        # Nửa đơn vị của chữ số cuối đã viết, ĐÓNG ở cả hai đầu: ở đúng điểm giữa ("5,25 triệu" cho
+        # 5.250.000 viết thành 5,2 hay 5,3) cả hai cách làm tròn đều là làm tròn, không bên nào là bịa.
+        nua_don_vi = Decimal(5).scaleb(-(so_le + 1))
+        for x in ctx_so:
+            if x * 2 >= nhan and abs(Decimal(x) / nhan - gia_tri) <= nua_don_vi:
+                return True
+    return False
+
+
 def narration_numbers_ok(
     answer: str,
     context: str,
     min_digits: int = MIN_DIGITS,
     *,
-    chi_kiem_so_tien: bool = False,
+    chi_kiem_so_tien: bool = True,
 ):
     """
     Mọi con số >= `min_digits` chữ số trong `answer` PHẢI có trong `context`.
@@ -233,14 +265,16 @@ def narration_numbers_ok(
     phép kiểm này chỉ NỚI so với bản trước, không bao giờ siết thêm: không có
     câu nào đang qua mà sau thay đổi lại bị chặn.
 
-    `chi_kiem_so_tien=True` thay nguong do dai bang phep phan biet hinh dang
-    tien (`la_hinh_dang_tien`). Sac hon o ca hai chieu — xem khoi chu thich cua
-    ham do. MAC DINH TAT: day la lop an toan huong ra khach, bat len la doi
-    hanh vi va can chu du an duyet (brain#42).
+    `chi_kiem_so_tien=True` (MẶC ĐỊNH từ 15/11/2026, BR-23) thay ngưỡng độ dài bằng phép
+    phân biệt hình dạng tiền (`la_hinh_dang_tien`): sắc hơn ở cả hai chiều, xem khối chú thích
+    của hàm đó. Số có hậu tố ("45 triệu") được kiểm, và được nhận nếu khớp context sau khi LÀM
+    TRÒN đúng độ chính xác đã viết (`_khop_lam_tron`). `False` là luật độ dài cũ, giữ cho test
+    và phép so sánh trước/sau; không có đường chạy nào dùng nó.
 
     Trả `(ok, con_số_vi_phạm | None)`.
     """
     ctx_numbers = numbers_in(context)
+    ctx_so = {int(x) for x in ctx_numbers if x.isdigit()} if chi_kiem_so_tien else set()
     for m in _SO_KEM_THANG.finditer(answer or ""):
         tho, hau_to = _bo_khong_thap_phan(m.group(1)), m.group(2)
         chinh = tho.replace(".", "").replace(",", "")
@@ -250,7 +284,80 @@ def narration_numbers_ok(
         elif len(chinh) < min_digits:
             continue
         if not ({chinh} | _nhan_thang(tho, hau_to)) & ctx_numbers:
+            if chi_kiem_so_tien and hau_to and _khop_lam_tron(tho, hau_to, ctx_so):
+                continue
             return False, chinh
+    return True, None
+
+
+# ---------------------------------------------------------------------------
+# Chốt DẤU lãi/lỗ (15/11/2026, BR-23)
+# ---------------------------------------------------------------------------
+# `numbers_in` bỏ dấu trừ để so cả hai chiều, nên "Lãi ròng 5.000.000" khớp
+# `{"net_profit": -5000000}`: lỗ bị nói thành lãi. Đó là loại sai tệ nhất của một báo
+# cáo tài chính vì con số có thật, chỉ ngược dấu, nên không ai nghi.
+#
+# Luật hẹp có chủ ý: chặn khi (1) số trong câu trả lời khớp CHỈ với số ÂM trong context,
+# (2) câu không tự mang dấu âm, và (3) mệnh đề chứa từ chỉ chiều DƯƠNG (lãi, lời, tăng,
+# dương) mà không có từ chỉ chiều ÂM (lỗ, âm, giảm, thua, hụt, sụt). Câu trung tính
+# ("khách trả dư 1.296.000" cho số dư -1.296.000) KHÔNG bị chặn: không từ nào nói ngược dấu.
+_TU_CHIEU_DUONG = re.compile(r"\b(lãi|lời|tăng|dương)\b", re.IGNORECASE)
+_TU_CHIEU_AM = re.compile(r"\b(lỗ|âm|giảm|thua|hụt|sụt)\b", re.IGNORECASE)
+_HET_CAU = re.compile(r"[.;!?\n]")
+_CUA_SO_CHU = 60
+
+LOI_TU_CHOI_DAU = (
+    "Tôi chưa trả lời được câu này một cách chắc chắn.\n\n"
+    "Bản nháp vừa tạo nêu con số {so} theo chiều lãi/tăng, trong khi dữ liệu ghi số đó là "
+    "SỐ ÂM (lỗ/giảm). Tôi chặn lại thay vì nói ngược lỗ thành lãi. "
+    "Bạn xem số liệu gốc bên dưới, hoặc hỏi lại cụ thể hơn."
+)
+
+
+def _co_dau_am_truoc(text: str, vi_tri: int) -> bool:
+    """Ngay trước `vi_tri` có dấu trừ gắn với con số (không phải gạch nối "2026-11", "A-5")?"""
+    truoc = text[:vi_tri].rstrip(" ")
+    if not truoc or truoc[-1] not in "-−–":
+        return False
+    return len(truoc) == 1 or not truoc[-2].isalnum()
+
+
+def _so_theo_dau(context: str) -> tuple[set[str], set[str]]:
+    """(dạng chuẩn hoá của các số DƯƠNG, của các số ÂM) trong context, gồm cả dạng nhân thang bậc."""
+    duong: set[str] = set()
+    am: set[str] = set()
+    for m in _SO_KEM_THANG.finditer(context or ""):
+        tho, hau_to = _bo_khong_thap_phan(m.group(1)), m.group(2)
+        dang = {tho.replace(".", "").replace(",", "")} | _nhan_thang(tho, hau_to)
+        (am if _co_dau_am_truoc(context, m.start()) else duong).update(dang)
+    return duong, am
+
+
+def dau_lai_lo_ok(answer: str, context: str):
+    """
+    Con số tiền trong `answer` mà context ghi là SỐ ÂM thì không được nói theo chiều lãi/tăng.
+
+    Trả `(ok, con_số_vi_phạm | None)`. Xem khối chú thích phía trên về độ hẹp của luật.
+    """
+    duong, am = _so_theo_dau(context)
+    if not am:
+        return True, None
+    ans = answer or ""
+    for m in _SO_KEM_THANG.finditer(ans):
+        tho, hau_to = _bo_khong_thap_phan(m.group(1)), m.group(2)
+        if not la_hinh_dang_tien(tho, hau_to, ans[m.end():]):
+            continue
+        dang = {tho.replace(".", "").replace(",", "")} | _nhan_thang(tho, hau_to)
+        if not (dang & am) or (dang & duong) or _co_dau_am_truoc(ans, m.start()):
+            continue
+        truoc = ans[max(0, m.start() - _CUA_SO_CHU): m.start()]
+        cat = [x.end() for x in _HET_CAU.finditer(truoc)]
+        truoc = truoc[cat[-1]:] if cat else truoc
+        sau = ans[m.end(): m.end() + _CUA_SO_CHU]
+        het = _HET_CAU.search(sau)
+        menh_de = truoc + " " + (sau[: het.start()] if het else sau)
+        if _TU_CHIEU_DUONG.search(menh_de) and not _TU_CHIEU_AM.search(menh_de):
+            return False, tho.replace(".", "").replace(",", "")
     return True, None
 
 
@@ -398,6 +505,12 @@ def guard_answer(answer: str, context: str, *, for_customer: bool = False) -> Gu
         return GuardVerdict(False, _LOI_TU_CHOI_SO.format(so=bad),
                             reason="bịa số", offending=str(bad))
 
+    ok, bad = dau_lai_lo_ok(answer, context)
+    if not ok:
+        logger.warning("Chặn câu trả lời: số âm bị nói theo chiều lãi/tăng %s", bad)
+        return GuardVerdict(False, LOI_TU_CHOI_DAU.format(so=bad),
+                            reason="ngược dấu", offending=str(bad))
+
     ok, cum = derived_ratios_ok(answer, context)
     if not ok:
         logger.warning("Chặn câu trả lời: tỷ lệ model tự suy ra %r", cum)
@@ -416,7 +529,9 @@ __all__ = [
     "LOI_SUY_BIEN",
     "LOI_TU_CHOI_SUY_RA",
     "GuardVerdict",
+    "LOI_TU_CHOI_DAU",
     "customer_leak",
+    "dau_lai_lo_ok",
     "la_hinh_dang_tien",
     "derived_ratios_ok",
     "guard_answer",
