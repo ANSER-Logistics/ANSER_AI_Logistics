@@ -1,7 +1,8 @@
 # AGENTS.md — Chỉ thị vận hành cho Agent kỹ thuật, dự án ANSER Brain
 
 > **Phiên bản:** 2.0 — 27/07/2026
-> **Đọc kèm:** [ARCHITECTURE.md](ARCHITECTURE.md) là nguồn sự thật về *kiến trúc*. File này là nguồn sự thật về *cách làm việc*.
+> **Đọc kèm:** [ARCHITECTURE.md](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md) là nguồn sự thật về *kiến trúc*. File này là nguồn sự thật về *cách làm việc*.
+> **Tài liệu ở đâu:** từ 15/11/2026 mọi tài liệu (kiến trúc, SRS, sổ tay người mới, roadmap, tài liệu khách hàng) nằm ở repo **private** [`ANSER-Logistics/anser-brain-docs`](https://github.com/ANSER-Logistics/anser-brain-docs). Repo này chỉ giữ file này, `.agents/` và `README.md` của từng thư mục mã. Người mới đọc [`docs/SRS_BRAIN.md`](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/docs/SRS_BRAIN.md) trước.
 > **Thay thế:** AGENTS.md v1.0 (giả định A100 80GB + Qwen2.5-Coder-32B — cả hai đều không còn đúng).
 
 ---
@@ -13,7 +14,7 @@
 | **`AI_ANSER` (Brain)** | FastAPI service cung cấp năng lực AI | ✅ Toàn quyền sửa |
 | **`ANSER Body`** (Flask, VPS, Neon, n8n) | Nền tảng nghiệp vụ, gọi Brain qua HTTP | ❌ **KHÔNG ĐƯỢC SỬA.** Chỉ được *đề xuất* thay đổi bằng văn bản |
 
-Khi một việc cần Body đổi (ví dụ thêm bảng logistics ở [ARCHITECTURE.md §10](ARCHITECTURE.md)), agent viết bản đặc tả thay đổi và **dừng lại chờ người quyết định** — không tự ý mock hay giả định Body đã có.
+Khi một việc cần Body đổi (ví dụ thêm bảng logistics ở [ARCHITECTURE.md §10](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md)), agent viết bản đặc tả thay đổi và **dừng lại chờ người quyết định** — không tự ý mock hay giả định Body đã có.
 
 **Pull Request TÍNH LÀ đề xuất** (chủ dự án chốt 04/11/2026). Mở PR vào repo Body là hợp lệ, và với thay đổi nhỏ thì tốt hơn issue: issue là *nhờ họ làm việc*, PR là *nhờ họ đọc việc đã làm*. Quyền quyết vẫn ở họ — merge hoặc đóng.
 
@@ -27,11 +28,11 @@ Ranh giới cụ thể, vì agent có quyền `admin` trên repo Body qua org:
 
 **Có quyền không có nghĩa là được phép.** Quyền admin đến từ việc tài khoản là owner của org, không phải từ việc ranh giới này được nới ra.
 
-Quy trình và bản nháp: [`docs/de-xuat-body/`](docs/de-xuat-body/).
+Quy trình và bản nháp: [`docs/de-xuat-body/`](https://github.com/ANSER-Logistics/anser-brain-docs/tree/main/docs/de-xuat-body).
 
 **Viết cho Body thì giả định họ không biết gì về Brain.** Hai đội, hai repo, hai bộ nghiệp vụ. Người bên Body không biết `R1` là gì, `BR-01` là sự cố nào, `reporting.py` làm gì. Mỗi PR hoặc issue gửi sang phải **tự đứng được** — không bắt ai mở repo Brain ra tra. Thuật ngữ riêng thì giải thích ngay tại chỗ, một câu.
 
-Luật đầy đủ, áp cho **mọi** tài liệu trong đội lẫn ngoài đội: [`docs/VIET-CHO-AI-DOC.md`](docs/VIET-CHO-AI-DOC.md).
+Luật đầy đủ, áp cho **mọi** tài liệu trong đội lẫn ngoài đội: [`docs/VIET-CHO-AI-DOC.md`](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/docs/VIET-CHO-AI-DOC.md).
 
 ### Bản sao mô tả
 
@@ -53,7 +54,7 @@ Từ 04/11/2026 `_ToolIn` đặt `extra="forbid"`, nên mỗi chỗ lệch khôn
 
 ## 2. Năm ràng buộc bất biến
 
-Đây là phiên bản hành động của 5 nguyên tắc trong [ARCHITECTURE.md §1](ARCHITECTURE.md). Vi phạm bất kỳ điều nào ⇒ code bị từ chối, không tranh luận.
+Đây là phiên bản hành động của 5 nguyên tắc trong [ARCHITECTURE.md §1](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md). Vi phạm bất kỳ điều nào ⇒ code bị từ chối, không tranh luận.
 
 ### R1 — Deterministic-first
 
@@ -102,7 +103,7 @@ Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham
 3. **Đưa bất kỳ giá trị bảo mật nào vào env / đổi cách quản lý bí mật → HỎI Ý KIẾN chủ dự án TRƯỚC** — chỉ thị trực tiếp của chủ dự án. Tái sử dụng biến đã có (như `DATABASE_URL`) để sửa sự cố thì được, nhưng phải báo lại rõ ràng.
 4. Credential đã lộ là credential **đã chết** — xoá khỏi git không thu hồi được nó (bot quét GitHub trong vài giây). Việc đầu tiên luôn là **xoay/vô hiệu credential**, dọn repo chỉ là bước sau.
 
-**Lưu ý trung thực với khách:** ở bậc hạ tầng T0/T1 (GPU thuê), R2 mới thỏa mãn *một phần* — xem [ARCHITECTURE.md §4.3](ARCHITECTURE.md). Không quảng cáo "dữ liệu không rời hệ thống" trước khi đạt T3 (máy tự sở hữu).
+**Lưu ý trung thực với khách:** ở bậc hạ tầng T0/T1 (GPU thuê), R2 mới thỏa mãn *một phần* — xem [ARCHITECTURE.md §4.3](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md). Không quảng cáo "dữ liệu không rời hệ thống" trước khi đạt T3 (máy tự sở hữu).
 
 ### R3 — Kỷ luật ngân sách
 
@@ -168,7 +169,7 @@ Bản trước của danh sách này ghi `GPU_MEMORY_UTILIZATION`, `MAX_MODEL_LE
 
 `TEXT_GPU_FRACTION` cũng **chưa từng được code đọc** cho tới 04/11/2026 — `config.py` hardcode `0.55`, con số đo trên L4 22,5GB. Đường server đọc được từ env từ trước (compose truyền `--gpu-memory-utilization`), chỉ đường trong-tiến-trình còn kẹt. Nên tiêu chí nghiệm thu bên dưới **đang không đạt** ở đúng đường đó: chuyển sang 3090 24GB thì phải sửa code. Đã nối vào env, mặc định giữ `0.55` nên hành vi không đổi.
 
-Cặp `ENV` + `VLLM_BASE_URL` chọn backend text/vision ở đúng một chỗ, `engine.py::chon_backend()`. (Một chỗ khác cũng đọc `ENV`: `agents/manager.py` quyết định `SemanticRouter` có tự nạp embedder không — đó là chuyện của bộ định tuyến, không phải chọn backend.) Có `VLLM_BASE_URL` thì text đi vLLM server ở mọi `ENV`. `SERVER` nghĩa là Brain không nạp model nào: bắt buộc có `VLLM_BASE_URL`, vision tắt có tuyên bố. Giá trị `ENV` lạ là lỗi cấu hình, không lặng lẽ nạp CUDA. Bảng đầy đủ ở [SO_TAY_NGUOI_MOI.md §2.4](SO_TAY_NGUOI_MOI.md).
+Cặp `ENV` + `VLLM_BASE_URL` chọn backend text/vision ở đúng một chỗ, `engine.py::chon_backend()`. (Một chỗ khác cũng đọc `ENV`: `agents/manager.py` quyết định `SemanticRouter` có tự nạp embedder không — đó là chuyện của bộ định tuyến, không phải chọn backend.) Có `VLLM_BASE_URL` thì text đi vLLM server ở mọi `ENV`. `SERVER` nghĩa là Brain không nạp model nào: bắt buộc có `VLLM_BASE_URL`, vision tắt có tuyên bố. Giá trị `ENV` lạ là lỗi cấu hình, không lặng lẽ nạp CUDA. Bảng đầy đủ ở [SO_TAY_NGUOI_MOI.md §2.4](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/SO_TAY_NGUOI_MOI.md).
 
 Tiêu chí nghiệm thu: **chuyển từ GPU thuê sang máy tự sở hữu chỉ đổi `.env`, không sửa dòng code nào.**
 
@@ -186,7 +187,7 @@ Tiêu chí nghiệm thu: **chuyển từ GPU thuê sang máy tự sở hữu ch�
 
 Chế độ `LOCAL` không phải "chế độ giả vờ" — nó là thứ cho phép test toàn bộ tầng tất định (nơi P1 nói rằng phần lớn giá trị nằm ở đó) mà không cần GPU. Giữ nó hoạt động.
 
-> ❌ **Colab không còn là môi trường production.** Điều khoản Colab Paid cấm phục vụ web service. Chỉ dùng Colab cho fine-tune / quantize / thử nghiệm rời rạc — xem [ARCHITECTURE.md §4.4](ARCHITECTURE.md).
+> ❌ **Colab không còn là môi trường production.** Điều khoản Colab Paid cấm phục vụ web service. Chỉ dùng Colab cho fine-tune / quantize / thử nghiệm rời rạc — xem [ARCHITECTURE.md §4.4](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md).
 
 ### 3.1b. Kiểm thử GPU chạy trên Google Colab
 
@@ -228,7 +229,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 
 - Xoá code chết thay vì để lại. `RetailChatResponse`/`ProductExtraction` từng bị đánh dấu dead code — kiểm tra trước khi thêm schema mới.
 - `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 306a16c:src/archive/<file>` nếu cần đối chiếu.
-- Sửa code là sửa tài liệu **trong cùng PR**. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4).
+- Sửa code là sửa tài liệu. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4). **Từ 15/11/2026 tài liệu ở repo khác**, nên "cùng PR" không còn nghĩa đen. Thay vào đó: PR nào đổi route, module `src/core/`, biến môi trường hoặc một hành vi mà tài liệu mô tả phải **nêu điều đó trong mô tả PR** và mở PR tương ứng ở `anser-brain-docs`, nêu số PR bên kia. CI của repo tài liệu kéo mã về và bắt các lệch mà máy bắt được (route, module, biến môi trường, liên kết), chạy khi có commit và mỗi thứ Hai. Chỗ hở: không có gì ép việc mở PR bên kia, chỉ có người duyệt.
 
 ---
 
@@ -332,7 +333,7 @@ Một việc chỉ được coi là xong khi đủ cả 7:
 - [ ] Code chạy ở `ENV=LOCAL` không cần GPU
 - [ ] Không vi phạm R1-R5
 - [ ] Có test cho phần logic tất định; `pytest` xanh (hoặc nêu rõ cái nào đỏ và vì sao)
-- [ ] Tài liệu bị ảnh hưởng đã cập nhật trong cùng PR
+- [ ] Tài liệu bị ảnh hưởng đã cập nhật (PR ở `anser-brain-docs`, nêu số PR trong mô tả PR này; §4.2)
 - [ ] Nêu được chỉ số cải thiện và cách đo
 - [ ] Nêu được tác động chi phí bằng VNĐ/tháng
 - [ ] `[PASSED BY MENTOR]`
@@ -341,7 +342,7 @@ Một việc chỉ được coi là xong khi đủ cả 7:
 
 ## 8. Ưu tiên hiện tại
 
-Theo [ARCHITECTURE.md §12](ARCHITECTURE.md):
+Theo [ARCHITECTURE.md §12](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/ARCHITECTURE.md):
 
 | Thứ tự | Việc | Trạng thái |
 |---|---|---|
@@ -356,7 +357,7 @@ Theo [ARCHITECTURE.md §12](ARCHITECTURE.md):
 | S5 | XAI hoá đơn: `reconciliation.py` + `InvoiceFieldValidator` + gộp prompt hoá đơn | ⚪ Chờ |
 | S6 | Lược đồ Logistics bên Body + API xuất dòng bán/chi phí cho `/tools/report` — **cần phối hợp repo Body** | ⚪ Chặn |
 
-**Chủ dự án chốt 12/11/2026: chu kỳ 02 chạy song song hai nghiệp vụ** — sổ sách/kế toán (phần đã chạy trên dữ liệu thật của khách pilot) và logistics/báo giá vận tải. Hai tài liệu từng nói ngược nhau: `ROADMAP.md` (13/08) ghi báo giá cước "tạm gác" vì khách pilot chuyên bán dầu, còn bản trước của đoạn này ghi báo giá vận tải là ưu tiên 1. Mỗi cái đúng ở thời điểm viết; từ nay theo quyết định này và [`docs/chu-ky-02/SRS_CHU_KY_02.md`](docs/chu-ky-02/SRS_CHU_KY_02.md). Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
+**Chủ dự án chốt 12/11/2026: chu kỳ 02 chạy song song hai nghiệp vụ** — sổ sách/kế toán (phần đã chạy trên dữ liệu thật của khách pilot) và logistics/báo giá vận tải. Hai tài liệu từng nói ngược nhau: `ROADMAP.md` (13/08) ghi báo giá cước "tạm gác" vì khách pilot chuyên bán dầu, còn bản trước của đoạn này ghi báo giá vận tải là ưu tiên 1. Mỗi cái đúng ở thời điểm viết; từ nay theo quyết định này và [`docs/chu-ky-02/SRS_CHU_KY_02.md`](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/docs/chu-ky-02/SRS_CHU_KY_02.md). Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
 
 ### S1b — cổng đo chất lượng chưa chạy đủ (soát 04/11/2026)
 

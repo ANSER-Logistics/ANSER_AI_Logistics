@@ -9,7 +9,8 @@ phép kiểm máy, vì lệch pha tài liệu là loại lỗi không ai thấy 
 Hai phép kiểm, cả hai đều có chốt chống xanh suông (số mẫu tối thiểu), vì một biểu thức
 chính quy hỏng sẽ lặp trên tập rỗng và xanh hết:
 
-  1. Mọi liên kết tương đối trong *.md trỏ tới file/thư mục CÓ THẬT.
+  1. Mọi liên kết tương đối trong *.md trỏ tới file/thư mục CÓ THẬT. (Liên kết sang repo
+     tài liệu là URL tuyệt đối nên không kiểm ở đây; CI của `anser-brain-docs` kiểm chiều ngược lại.)
   2. Mọi biến môi trường AGENTS.md §R5 khai là "tên thật trong code" thì code ĐỌC nó.
 """
 
@@ -45,8 +46,10 @@ def _lien_ket_tuong_doi(p: Path):
 
 def test_chot_chong_xanh_suong_co_du_file_va_lien_ket():
     files = _tat_ca_md()
-    assert len(files) >= 20, f"chỉ thấy {len(files)} file .md — sai ROOT?"
-    assert sum(1 for f in files for _ in _lien_ket_tuong_doi(f)) >= 200
+    # Từ 15/11/2026 phần lớn tài liệu ở repo `anser-brain-docs`; ở đây còn AGENTS.md, README.md
+    # gốc, .agents/ và README từng thư mục mã (đo 15/11: 17 file, 28 liên kết tương đối).
+    assert len(files) >= 12, f"chỉ thấy {len(files)} file .md — sai ROOT?"
+    assert sum(1 for f in files for _ in _lien_ket_tuong_doi(f)) >= 20
 
 
 def test_moi_lien_ket_tuong_doi_trong_tai_lieu_tro_toi_noi_co_that():
