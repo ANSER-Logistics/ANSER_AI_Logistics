@@ -20,7 +20,7 @@ DÙNG ĐỂ:
   - so với một model sau endpoint (xem `providers.py` và README mục
     "`--model` nhận ba dạng"):
       --model 'openai:http://127.0.0.1:8001/v1#anser-v3'
-      --model anthropic:claude-opus-5      # R2: chỉ trên bộ tổng hợp/ẩn danh
+      --model anthropic:claude-opus-5      # R2: chỉ trên bộ hoàn toàn hư cấu
 
 Ngưỡng chỉnh qua env: EXTRACT_FIELD_MIN, EXTRACT_READY_MIN, N8N_VALID_MIN, NARR_MIN
 """

@@ -526,3 +526,38 @@ def test_thieu_grammar_thi_DUNG_chu_khong_canh_bao_roi_chay_tiep():
     than = inspect.getsource(VLLMTrongTienTrinh.sinh)
     assert "raise SystemExit" in than
     assert "StructuredOutputsParams" in than, "thông báo phải gọi tên API thay thế"
+
+
+# ---------------------------------------------------------------------------
+# R2: provider `anthropic:` chỉ thấy bộ đề hoàn toàn hư cấu
+# ---------------------------------------------------------------------------
+
+def test_benchmark_chi_doc_bon_tap_do_hu_cau_co_dinh():
+    """
+    Chủ dự án chốt 15/11/2026: `--model anthropic:...` chỉ chạy trên bộ đề hoàn
+    toàn hư cấu. Ràng buộc nằm ở cấu trúc, không ở một công tắc: `benchmark_v3`
+    chỉ đọc `GENERATED_DIR / "eval_<nhánh>.jsonl"` cho bốn nhánh. Test này không
+    phân biệt được dữ liệu bịa với dữ liệu thật (không ai làm được bằng mã);
+    nó chỉ làm cho việc THÊM một đường đọc dữ liệu thứ năm vào bộ đo thành một
+    thay đổi phải sửa test này, tức phải có người cân nhắc R2 trước.
+    """
+    import ast
+    from pathlib import Path
+
+    nguon = Path("offline_training/benchmark_v3.py").read_text(encoding="utf-8")
+    cay = ast.parse(nguon)
+    da_doc: list[str] = []
+    for nut in ast.walk(cay):
+        if (isinstance(nut, ast.Call) and isinstance(nut.func, ast.Name)
+                and nut.func.id == "load_jsonl"):
+            arg = nut.args[0] if nut.args else None
+            assert (
+                isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.Div)
+                and isinstance(arg.left, ast.Name) and arg.left.id == "GENERATED_DIR"
+                and isinstance(arg.right, ast.Constant)
+            ), f"load_jsonl ở dòng {nut.lineno} không đọc từ GENERATED_DIR / '<tên cố định>'"
+            da_doc.append(arg.right.value)
+    assert sorted(da_doc) == [
+        "eval_agent.jsonl", "eval_extraction.jsonl",
+        "eval_n8n.jsonl", "eval_narration.jsonl",
+    ]
