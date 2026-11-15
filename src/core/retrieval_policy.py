@@ -221,6 +221,7 @@ _TU_THONG_DUNG = frozenset(
     gì nào sao đâu bao nhiêu mấy
     sạn vãng lai quen du lịch cọc chậm tư nhân bảo hiểm luật kiểm toán cửa người lớn nhỏ
     xác rồi lo ngại logistics online offline startup freight forwarder khác nhau giống
+    kém hiệu quả phân phối cạnh tranh trẻ
     """.split()
 )
 
