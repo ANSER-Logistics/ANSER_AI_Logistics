@@ -56,6 +56,8 @@ from typing import Any
 GOC_DU_AN = Path(__file__).resolve().parent.parent
 RA = GOC_DU_AN / "tests" / "du_lieu_eval"
 
+# Tên file gốc do MISA đặt và có chứa tên khách. Đổi tên file trên máy cho khớp các tên dưới
+# đây (KHACH = tên khách); KHÔNG ghi tên thật vào repo công khai (AGENTS.md R2).
 TEP = {
     "ton_kho_24_07": "Tong_hop_ton_kho-KHACH-Kho-HH-24-07.xlsx",
     "ton_kho_11_08": "Tong_hop_ton_kho-37.xlsx",

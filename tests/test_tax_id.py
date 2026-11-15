@@ -1,8 +1,12 @@
 """
 Kiểm thử src/core/tax_id.py.
 
-Giá trị mong đợi ở đây tính TAY từ công thức, và đối chiếu với mã số thuế thật
-trong hồ sơ khách hàng — không lấy từ chính hàm đang kiểm.
+Giá trị mong đợi ở đây tính TAY từ công thức, không lấy từ chính hàm đang kiểm.
+
+Mã số thuế và số định danh trong file này đều là giá trị TỔNG HỢP: không thuộc doanh nghiệp
+hay cá nhân nào. Công thức đã được đối chiếu với các mã thật trong hồ sơ của khách pilot khi
+viết module (08/2026) và không có mã nào lệch; những mã thật đó KHÔNG được đưa vào repo
+công khai (AGENTS.md R2). Cho mã mới thì dùng tiền tố 99 hoặc 09: không phải mã tỉnh nào.
 """
 
 from __future__ import annotations
@@ -11,9 +15,9 @@ import pytest
 
 from src.core.tax_id import chuan_hoa, kiem_ma_so_thue, ma_chu_quan
 
-# Mã số thuế thật, lấy từ danh sách khách hàng / nhà cung cấp của khách pilot.
+# Mã số thuế tổng hợp, đúng số kiểm tra.
 THAT = [
-    "0991234566",   # chính khách pilot
+    "0991234566",   # có số 0 đầu, dùng cho các ca Excel làm mất số 0
     "9902000029",
     "0991000021",
     "9904000049",
@@ -25,13 +29,13 @@ THAT = [
 
 def test_tinh_tay_so_kiem_tra():
     """
-    0991234566 — chín chữ số đầu là 0,1,0,9,5,2,7,6,0.
+    0991234566 — chín chữ số đầu là 0,9,9,1,2,3,4,5,6.
 
-        0·31 + 1·29 + 0·23 + 9·19 + 5·17 + 2·13 + 7·7 + 6·5 + 0·3
-      =   0 +  29 +   0 + 171 +  85 +  26 +  49 +  30 +   0  = 390
-        390 mod 11 = 5   ->   số kiểm tra = 10 − 5 = 5
+        0·31 + 9·29 + 9·23 + 1·19 + 2·17 + 3·13 + 4·7 + 5·5 + 6·3
+      =   0 + 261 + 207 +  19 +  34 +  39 +  28 +  25 +  18  = 631
+        631 mod 11 = 4   ->   số kiểm tra = 10 − 4 = 6
 
-    Chữ số cuối của mã thật đúng là 5.
+    Chữ số cuối đúng là 6.
     """
     kq = kiem_ma_so_thue("0991234566")
     assert kq.hop_le is True
@@ -57,7 +61,7 @@ def test_doi_cho_hai_chu_so_lien_ke_cung_bat_duoc():
 
 def test_ly_do_noi_ro_chu_so_dung_phai_la_bao_nhieu():
     kq = kiem_ma_so_thue("0991234562")
-    assert "4" in kq.ly_do and "5" in kq.ly_do
+    assert "2" in kq.ly_do and "6" in kq.ly_do
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +119,8 @@ def test_khuon_la_thi_tra_None_kem_ly_do(raw):
 # Số định danh cá nhân 12 số — Thông tư 86/2024/TT-BTC
 # ---------------------------------------------------------------------------
 
-# Năm mã có thật trong danh sách khách hàng của khách pilot: hộ kinh doanh và
-# cá nhân. Bản đầu của module báo cả năm là "không đúng khuôn".
+# Năm số định danh cá nhân tổng hợp (tiền tố 700, không phải mã tỉnh nào), dạng hộ kinh doanh
+# và cá nhân dùng. Bản đầu của module báo cả năm là "không đúng khuôn".
 DINH_DANH_THAT = [
     "700000000001",   # HỘ KINH DOANH LÊ VĂN MẪU 1983
     "700000000002",   # TRẦN THỊ MẪU
