@@ -149,10 +149,18 @@ _SO_CHU_CON_SOT = re.compile(
 # Đầu tư", "Bộ Tài chính", "Tổng cục Thuế" là cơ quan nhà nước, công khai, và
 # là thứ làm truy vấn tìm đúng văn bản — xoá chúng là đổi một lỗi R2 lấy một
 # câu trả lời sai.
+#
+# Có cả dạng KHÔNG DẤU ("cong ty", "khach hang"): gõ điện thoại không dấu là chuyện thường,
+# và bản trước chỉ nhận dạng có dấu nên "cong ty Minh Long" đi nguyên ra ngoài.
+#
+# "nhà cung cấp" dài BA từ. Bản trước chỉ thử khớp một và hai từ nên mẫu này không bao giờ
+# khớp: "nhà cung cấp Minh Long" đi nguyên văn tới bộ tìm kiếm.
 _DANH_DAU_DOI_TAC = re.compile(
-    r"\A(công ty|cty|khách hàng|khách|nhà xe|đối tác|nhà cung cấp)\Z",
+    r"\A(công ty|cty|khách hàng|khách|nhà xe|đối tác|nhà cung cấp"
+    r"|cong ty|khach hang|khach|nha xe|doi tac|nha cung cap)\Z",
     re.IGNORECASE,
 )
+_DO_DAI_DANH_DAU_TOI_DA = 3  # số từ của từ đánh dấu dài nhất ("nhà cung cấp")
 
 # Hình thức pháp nhân: viết hoa nhưng KHÔNG phải tên riêng — nên vòng quét BỎ
 # QUA chúng rồi đi tiếp, chứ không dừng lại ở chúng.
@@ -164,25 +172,98 @@ _DANH_DAU_DOI_TAC = re.compile(
 # một chút thì không.
 _HINH_THUC_PHAP_NHAN = {"TNHH", "CP", "CTCP", "MTV", "TM", "DV", "XNK", "SX"}
 
+# ---------------------------------------------------------------------------
+# Tên viết THƯỜNG sau từ đánh dấu (BR-26)
+# ---------------------------------------------------------------------------
+# "công ty minh long có bắt buộc không" — không có chữ hoa nào để bám vào, nên
+# `_xoa_ten_rieng` bỏ qua và tên khách đi nguyên văn tới bộ tìm kiếm. Gõ điện thoại,
+# gõ nhanh, không viết hoa là chuyện thường.
+#
+# Luật: sau từ đánh dấu, mỗi từ viết thường KHÔNG nằm trong `_TU_THONG_DUNG` là một ứng
+# viên tên riêng và bị xoá, tối đa `_SO_TU_TEN_TOI_DA`. Gặp từ thông dụng thì dừng. Gặp
+# từ lạ thứ tư liền nhau thì KHÔNG GỬI truy vấn đi (fail-closed): một chuỗi dài những từ
+# lạ sau "khách" nhiều khả năng không còn là một cái tên mà là một đoạn mô tả khách, và
+# một lần tra web hụt rẻ hơn một tên khách rò ra ngoài (R2).
+#
+# KHỚP THEO DẤU CHÍNH XÁC, không bỏ dấu rồi so. Bỏ dấu thì "mình" (đại từ) khớp "minh"
+# (tên riêng) và "đang" khớp "Đặng": đúng hai từ mà luật này sinh ra để phân biệt. Hệ quả:
+# câu gõ không dấu có từ đánh dấu thì hầu như luôn bị chặn — chấp nhận, vì không có cách
+# nào tách "mình" khỏi "minh" khi đã mất dấu.
+#
+# KHÔNG đưa vào đây những từ có thể là tên: "minh", "long", "hà", "hải", "nam", "anh",
+# "chị", "em" (đại từ nhưng cũng là tên), "thịnh", "hưng", "phát" (Hoàng Phát, nhưng cũng
+# "phát hành": "công ty phát hành hoá đơn" thành "công ty hoá đơn", chấp nhận mất chữ đó).
+# Thêm một từ vào đây là nới lỏng một lớp R2: phải kèm một câu trong
+# `test_cau_cong_khai_that_co_tu_danh_dau_di_nguyen_van` cho thấy câu đó có thật và đang
+# bị cắt nhầm.
+#
+# KHÔNG chữa được ở đây, và cố ý nói ra: tên đứng SAU một từ thông dụng
+# ("công ty vận tải minh long", vì "vận" dừng vòng quét) hoặc không đứng sau từ đánh dấu
+# ("minh long có phải nộp thuế không") vẫn lọt.
+_SO_TU_TEN_TOI_DA = 3
+
+_TU_THONG_DUNG = frozenset(
+    """
+    của là có không và với cho để thì mà hay hoặc nếu khi nào gì sao thế này kia đó ấy
+    những các một mọi mỗi từng cả đã đang sẽ vừa mới còn cũng chỉ rất quá lắm hơn nhất
+    được bị phải nên cần muốn định bắt buộc nữa lại luôn ngay thật khá hơi
+    tôi mình ta chúng họ bên phía chỗ nhà ở tại trong ngoài trên dưới sau trước giữa
+    theo về đến tới từ qua sang vào ra lên xuống do bởi vì như
+    mua bán nhập xuất trả nợ đòi thu chi nộp kê khai ký gửi nhận đặt giao hủy huỷ hoàn
+    đổi xin yêu cầu cung cấp dùng sử dụng làm tính lập ghi thanh toán chuyển lưu
+    xử lý thực hiện áp tìm hiểu quay đăng điền đưa thối trừ cộng
+    hàng hoá hóa đơn tiền giá thuế doanh nghiệp vận tải cước phí xe kho tài chính cá nhân
+    tổ chức cổ phần trách nhiệm hữu hạn thương mại dịch vụ sản khẩu đại lý nước nội địa
+    lẻ sỉ mẹ con công ty cty phụ thuộc liên quan nghiệp vụ hộ kinh gia đình
+    mới cũ thân thiết thường xuyên tiềm năng mục tiêu hài lòng khó tính trung thành vip
+    tháng năm ngày tuần quý kỳ lần lúc hôm nay mai qua cuối đầu
+    nợ công đã hết quá hạn còn thiếu dư số lượng tổng đủ
+    gì nào sao đâu bao nhiêu mấy
+    sạn vãng lai quen du lịch cọc chậm tư nhân bảo hiểm luật kiểm toán cửa người lớn nhỏ
+    xác rồi lo ngại logistics online offline startup freight forwarder khác nhau giống
+    kém hiệu quả phân phối cạnh tranh trẻ
+    """.split()
+)
+
+
+class _KhongLocSach(Exception):
+    """Tên viết thường dài quá ngưỡng: không xoá chắc được thì không gửi (R2)."""
+
+
+def _do_dai_danh_dau(tu: list[str], i: int) -> int:
+    """Từ đánh dấu bắt đầu ở `tu[i]` dài mấy từ (0 nếu không phải): thử dài trước."""
+    for dai in range(min(_DO_DAI_DANH_DAU_TOI_DA, len(tu) - i), 0, -1):
+        cum = " ".join(w.strip(".,;:!?") for w in tu[i : i + dai])
+        if _DANH_DAU_DOI_TAC.match(cum):
+            return dai
+    return 0
+
+
+def _tu_la_ten_thuong(w: str) -> bool:
+    """Từ viết thường, toàn chữ, không thuộc `_TU_THONG_DUNG`: ứng viên tên riêng."""
+    return bool(w) and w.isalpha() and w.islower() and w not in _TU_THONG_DUNG
+
 
 def _xoa_ten_rieng(query: str) -> str:
-    """Bỏ chuỗi từ viết hoa đứng ngay sau một từ đánh dấu đối tác."""
+    """Bỏ tên riêng đứng ngay sau một từ đánh dấu đối tác: chuỗi từ viết hoa, rồi tới
+    `_SO_TU_TEN_TOI_DA` từ thường lạ. Ném `_KhongLocSach` nếu còn từ lạ thứ tư."""
     tu = (query or "").split()
     ra: list[str] = []
     i = 0
     while i < len(tu):
         ra.append(tu[i])
-        # Từ đánh dấu dài một hoặc hai từ: "khách" / "khách hàng", "nhà xe".
-        dai = 0
-        if i + 1 < len(tu) and _DANH_DAU_DOI_TAC.match(" ".join(tu[i : i + 2])):
-            dai = 2
-        elif _DANH_DAU_DOI_TAC.match(tu[i]):
-            dai = 1
+        # Từ đánh dấu dài một tới ba từ: "khách", "khách hàng", "nhà cung cấp".
+        dai = _do_dai_danh_dau(tu, i)
         if not dai:
             i += 1
             continue
-        if dai == 2:
-            ra.append(tu[i + 1])
+        ra.extend(tu[i + 1 : i + dai])
+        # Từ đánh dấu kết thúc bằng dấu hết câu/mệnh đề ("...cho khách. Dịch vụ gia công"):
+        # chữ đứng sau là câu khác, không phải tên khách. (Dấu hai chấm thì không dừng:
+        # "nhà cung cấp: Minh Long" là một danh sách tên.)
+        if tu[i + dai - 1][-1] in ".!?;,":
+            i += dai
+            continue
         j = i + dai
         while j < len(tu):
             w = tu[j].strip(".,;:!?")
@@ -205,6 +286,20 @@ def _xoa_ten_rieng(query: str) -> str:
             if not w[0].isupper():
                 break
             j += 1
+        # Tên viết thường: xoá tới `_SO_TU_TEN_TOI_DA` từ lạ, dừng ở từ thông dụng, ở từ
+        # có dấu câu theo sau (hết mệnh đề), và ở bất kỳ thứ gì không phải chữ thường.
+        so_tu = 0
+        while j < len(tu):
+            w = tu[j].strip(".,;:!?")
+            if not _tu_la_ten_thuong(w):
+                break
+            so_tu += 1
+            if so_tu > _SO_TU_TEN_TOI_DA:
+                raise _KhongLocSach(so_tu)
+            ket_thuc = tu[j][-1] in ".,;:!?"
+            j += 1
+            if ket_thuc:
+                break
         i = j
     return " ".join(ra)
 
@@ -230,18 +325,22 @@ def loc_truy_van_web(query: str) -> str:
     Chỉ xoá SAU từ đánh dấu, nên `Bộ Tài chính` / `Tổng cục Thuế` ở lại — đó là
     cơ quan nhà nước, công khai, và là thứ làm truy vấn tìm đúng văn bản.
 
-    CÒN SÓT, cố ý, một chỗ: **tên viết thường**.
+    TÊN VIẾT THƯỜNG (BR-26, thêm 15/11/2026): sau từ đánh dấu, từ viết thường không
+    thuộc `_TU_THONG_DUNG` bị xoá, tối đa ba từ; từ lạ thứ tư thì trả chuỗi rỗng.
 
-        "công ty minh long có bắt buộc không"   -> KHÔNG đổi
+        "công ty minh long có bắt buộc không"   -> "công ty có bắt buộc không"
+        "công ty của tôi", "công ty vận tải"    -> không đổi
 
-    Quy tắc dựa vào chữ viết hoa. Xoá N từ sau từ đánh dấu bất kể hoa thường thì
-    `"công ty của tôi"` và `"công ty vận tải"` cũng bị cắt — đổi một lỗi R2 lấy
-    một truy vấn hỏng. Cần chủ dự án cân, xem việc trên bảng kanzo.
+    CÒN SÓT, cố ý, hai chỗ — đọc kỹ vì một lớp lọc im lặng bỏ sót còn nguy hơn không
+    có lớp nào, người đọc sẽ tưởng đã an toàn:
 
-    Ghi ra đây vì một lớp lọc im lặng bỏ sót còn nguy hơn không có lớp nào:
-    người đọc sẽ tưởng đã an toàn. Bản trước của chính đoạn này nói ngược lại —
-    nó ghi "KHÔNG bỏ được TÊN RIÊNG" và "chưa xử" trong khi `_xoa_ten_rieng` đã
-    chạy — tức là nói lớp lọc yếu hơn thực tế. Lệch theo chiều nào cũng sai.
+      1. Tên KHÔNG đứng ngay sau từ đánh dấu: "minh long có phải nộp thuế không".
+      2. Tên đứng sau một từ thông dụng: "công ty vận tải minh long", vì "vận" dừng vòng
+         quét. Chữa cả hai thì phải xoá bất kể từ đánh dấu, và lúc đó "công ty vận tải"
+         cũng bị cắt.
+
+    Câu gõ KHÔNG DẤU mà có từ đánh dấu thì hầu như luôn trả chuỗi rỗng: danh sách từ
+    thông dụng khớp theo dấu chính xác (lý do ở `_TU_THONG_DUNG`).
     """
     goc = query or ""
 
@@ -263,7 +362,15 @@ def loc_truy_van_web(query: str) -> str:
     # thêm ngoại lệ cho từng từ ghép.
     sach = _SO_TIEN.sub(" ", sach)
     sach = re.sub(r"\x00(\d+)\x00", lambda m: giu[int(m.group(1))], sach)
-    ra = _xoa_ten_rieng(" ".join(sach.split()))
+    try:
+        ra = _xoa_ten_rieng(" ".join(sach.split()))
+    except _KhongLocSach:
+        # KHÔNG ghi truy vấn vào log: log là chỗ thứ hai tên khách rời hệ thống.
+        logger.warning(
+            "Truy vấn web có chuỗi từ thường lạ sau từ đánh dấu đối tác — không gửi (R2)",
+            extra={"so_tu_toi_da": _SO_TU_TEN_TOI_DA},
+        )
+        return ""
 
     # Chốt chặn cuối, FAIL-CLOSED. Regex ở trên chỉ biết những HÌNH DẠNG ta đã
     # nghĩ ra; `doc_so_tien` là bộ đọc số tiền của cổng đầu vào và biết thêm
