@@ -24,9 +24,18 @@ Loại xe và khả năng chạy tuyến là RÀNG BUỘC CỨNG — hãng khôn
 không phải trừ điểm. Gợi ý một hãng không có xe phù hợp là gợi ý sai, dù điểm tổng
 có cao đến đâu.
 
-Một hãng có NHIỀU HƠN MỘT giá chào trong cùng lời gọi cũng bị LOẠI (issue #37):
-đó là dữ liệu nguồn bị trùng, và chọn một trong số đó là quy tắc nghiệp vụ chưa
-ai chốt. Lý do loại liệt kê đủ các giá để người dùng biết sửa dòng nào.
+Một hãng có NHIỀU HƠN MỘT giá chào KHÁC NHAU trong cùng lời gọi cũng bị LOẠI
+(issue #37): đó là dữ liệu nguồn bị trùng, và chọn một trong số đó là quy tắc
+nghiệp vụ chưa ai chốt. Lý do loại liệt kê đủ các giá (mỗi giá một lần) để
+người dùng biết sửa dòng nào.
+
+Hai giá chào GIỐNG HỆT thì GỘP làm một, không loại (chủ dự án uỷ quyền chốt
+15/11/2026). "Giống hệt" = bằng nhau ở MỌI trường của `QuoteOffer` — hôm nay là
+nhà xe, giá và `valid_to`; thêm trường mới vào `QuoteOffer` thì tự động nằm
+trong phép so, nên chỉ có thể loại nhiều hơn chứ không gộp nhầm. Gộp không phải
+chọn: không có giá nào bị bỏ, chỉ một dòng nhập lặp được đếm một lần. Cùng giá
+mà khác `valid_to` KHÔNG phải giống hệt (hai hạn hiệu lực, không biết hạn nào
+đúng) nên vẫn bị loại.
 
 DỮ LIỆU THIẾU
 -------------
@@ -170,24 +179,51 @@ def _vnd(so: float) -> str:
     return f"{so:,.0f}".replace(",", ".") + "đ"
 
 
+def _mo_ta_gia_chao(offers: list[QuoteOffer]) -> str:
+    """Liệt kê các giá chào KHÁC NHAU của một nhà xe, mỗi giá đúng một lần.
+
+    Thứ tự theo (giá, hạn) để câu lý do không phụ thuộc thứ tự dòng nguồn. Nếu
+    có dòng ghi `valid_to` thì hạn được nêu ở MỌI giá (dòng không ghi là "không
+    ghi hạn"): hai giá chào cùng số tiền mà khác hạn chỉ phân biệt được nhờ nó,
+    nếu không lý do sẽ in "3.500.000đ, 3.500.000đ" — đúng kiểu liệt kê trùng.
+    """
+    ds = sorted(offers, key=lambda o: (o.price, o.valid_to is not None, o.valid_to or ""))
+    co_han = any(o.valid_to is not None for o in ds)
+    nhan = []
+    for o in ds:
+        s = _vnd(o.price)
+        if co_han:
+            s += f" (hiệu lực đến {o.valid_to})" if o.valid_to is not None else " (không ghi hạn)"
+        nhan.append(s)
+    return ", ".join(nhan)
+
+
 def _gom_gia_chao(
     offers: Iterable[QuoteOffer],
 ) -> tuple[dict[Any, QuoteOffer], dict[Any, list[QuoteOffer]]]:
     """
-    Tách giá chào thành (nhà xe có ĐÚNG MỘT giá, nhà xe có NHIỀU giá).
+    Tách giá chào thành (nhà xe có ĐÚNG MỘT giá, nhà xe có NHIỀU giá KHÁC NHAU).
 
     Bản trước dựng `{o.carrier_id: o for o in offers}`: nhà xe có hai giá thì giá
     đứng sau đè giá đứng trước, im lặng — kết quả xếp hạng phụ thuộc thứ tự dòng
     trong dữ liệu nguồn (issue #37). Từ PR #41 n8n đã lọc theo đúng tuyến, nên
     nhiều giá cho một nhà xe trong một lời gọi là dữ liệu nguồn bị trùng.
 
-    Cố ý KHÔNG chọn giá thấp nhất hay mới nhất: giá cao hơn có thể là bản mới
-    và mới đúng. Chọn là quy tắc nghiệp vụ, thuộc quyền chủ dự án — ở đây chỉ
-    tách ra để `_hard_filter` loại và nói rõ lý do.
+    Hai dòng GIỐNG HỆT (`QuoteOffer.__eq__`: bằng ở mọi trường) thì gộp làm một —
+    chủ dự án chốt 15/11/2026. Gộp không đè giá nào: hai dòng giống hệt không
+    mang thông tin khác nhau, nên không có "giá bị bỏ". Phép so dùng `==` của
+    dataclass thay vì liệt kê `(price, valid_to)` để trường thêm sau này tự động
+    được so; quên cập nhật chỉ làm loại nhiều hơn, không bao giờ gộp nhầm.
+
+    Cố ý KHÔNG chọn giá thấp nhất hay mới nhất khi các giá khác nhau: giá cao
+    hơn có thể là bản mới và mới đúng. Chọn là quy tắc nghiệp vụ, thuộc quyền
+    chủ dự án — ở đây chỉ tách ra để `_hard_filter` loại và nói rõ lý do.
     """
     nhom: dict[Any, list[QuoteOffer]] = {}
     for o in offers:
-        nhom.setdefault(o.carrier_id, []).append(o)
+        da_co = nhom.setdefault(o.carrier_id, [])
+        if o not in da_co:
+            da_co.append(o)
     mot_gia = {cid: ds[0] for cid, ds in nhom.items() if len(ds) == 1}
     nhieu_gia = {cid: ds for cid, ds in nhom.items() if len(ds) > 1}
     return mot_gia, nhieu_gia
@@ -218,12 +254,12 @@ def _hard_filter(
 
         if carrier.id in duplicate_offers:
             # Sắp xếp để câu lý do không phụ thuộc thứ tự dòng — đúng thứ #37 bỏ.
-            gia = ", ".join(_vnd(p) for p in sorted(o.price for o in duplicate_offers[carrier.id]))
+            gia = _mo_ta_gia_chao(duplicate_offers[carrier.id])
             rejected.append({
                 "carrier_id": carrier.id,
                 "name": carrier.name,
                 "reason": (
-                    f"có {len(duplicate_offers[carrier.id])} giá chào cho cùng tuyến "
+                    f"có {len(duplicate_offers[carrier.id])} giá chào khác nhau cho cùng tuyến "
                     f"{request.origin} → {request.destination} ({gia}) — không tự "
                     f"chọn giá nào, cần kiểm dữ liệu nguồn"
                 ),
