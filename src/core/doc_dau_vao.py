@@ -46,6 +46,8 @@ import re
 import unicodedata
 from typing import Any, TypeGuard
 
+from src.core.vat_catalog import KHONG_GIAM, phan_loai_thue_suat
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -462,6 +464,115 @@ def bien_khong_co_trong_cau(cau: str, args: dict) -> float | None:
     return None if float(bien) in co else float(bien)
 
 
+# ---------------------------------------------------------------------------
+# `vat`: thuế suất do BẢNG TRA quyết, số lượng phải có trong câu (BR-30, 15/11/2026)
+# ---------------------------------------------------------------------------
+# Khi gọi `vat`, model tự điền `is_reduced_vat` (8% hay 10%) và `qty`. Câu người dùng thường
+# không nói cả hai. Thuế suất là một quy tắc pháp lý, không phải thứ đoán từ ngữ cảnh: model
+# đọc sai "10 -> 100" hoặc chọn 8% cho một mặt hàng loại trừ thì `vat` vẫn tính ĐÚNG trên đầu
+# vào sai, và kết quả trông có nguồn. Số lượng model bịa thì nhân vào mọi dòng.
+#
+# THUẾ SUẤT, ba luật theo thứ tự:
+#   1. Mặt hàng bảng tra `vat_catalog.phan_loai_thue_suat` kết luận KHÔNG được giảm (kim loại,
+#      rượu bia, viễn thông, tài chính...) -> mã ép `is_reduced_vat = False` (10%), kể cả khi
+#      câu hay model nói 8%. Có căn cứ pháp lý đi kèm, và là chiều AN TOÀN.
+#   2. Câu KHÔNG nói tới thuế suất -> GỠ giá trị model điền (và `default_is_reduced`), tool dùng
+#      mặc định của nó: 10%, mức chuẩn. Model tự chọn 8% mà không ai bảo là chiều NGUY HIỂM:
+#      nhầm sang 10% chỉ khiến hoá đơn đắt hơn và phải điều chỉnh, nhầm sang 8% thì bị truy thu
+#      cộng tiền chậm nộp, hai sai lầm không cùng giá (xem `phan_loai_thue_suat`).
+#   3. Câu CÓ nói thuế suất ("giảm 8%", "VAT 10%") -> giữ giá trị model: nó đọc từ câu.
+#   Kết quả của `vat` ghi `tax_rate` từng dòng nên mức đã dùng luôn hiện ra.
+#
+# CỐ Ý CHƯA LÀM, cần chủ dự án (hoặc kế toán) quyết: mã tự đặt 8% khi bảng tra nói "được giảm"
+# (dầu nhớt, cước vận tải...). Làm vậy đổi mặc định 10% -> 8% cho cả loại hàng khách pilot bán,
+# tức đổi MỌI con số `vat` trả ra, dựa trên một bảng do team tự viết và chưa có kế toán thật soát.
+# Thiếu bước đó thì mặc định 10% vẫn đúng chiều an toàn nhưng có thể dư 2% so với hoá đơn thật.
+#
+# SỐ LƯỢNG: `qty` khác 1 mà không có số nào đó trong câu (số hoặc chữ) -> hỏi lại, không chạy.
+# `qty` bắt buộc ở lược đồ nên không gỡ được như `is_reduced_vat`.
+_NOI_THUE_SUAT = re.compile(
+    r"(?:\b(?:8|10)\s*%|giảm\s+(?:thuế|vat|gtgt)|giam\s+(?:thue|vat)|thuế\s+suất|thue\s+suat)",
+    re.IGNORECASE,
+)
+_SO_DEM_CHU = {"một": 1, "hai": 2, "ba": 3, "bốn": 4, "năm": 5, "sáu": 6, "bảy": 7, "tám": 8,
+               "chín": 9, "mười": 10, "mốt": 1}
+_SO_TRONG_CAU = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def ap_thue_suat_tu_bang_tra(cau: str, args: dict) -> tuple[dict, list[str]]:
+    """
+    Áp ba luật thuế suất ở khối chú thích trên cho từng dòng của `vat`.
+    Trả (args mới, mô tả các thay đổi).
+    """
+    items = args.get("items")
+    if not isinstance(items, list):
+        return args, []
+    cau_noi_thue = bool(_NOI_THUE_SUAT.search(cau or ""))
+    doi: list[str] = []
+    moi: list[Any] = []
+    for it in items:
+        if not isinstance(it, dict):
+            moi.append(it)
+            continue
+        it = dict(it)
+        truoc = it.get("is_reduced_vat")
+        if phan_loai_thue_suat(str(it.get("name") or "")).ket_luan == KHONG_GIAM:
+            it["is_reduced_vat"] = False                       # luật 1
+        elif not cau_noi_thue:
+            it.pop("is_reduced_vat", None)                     # luật 2
+        if it.get("is_reduced_vat") != truoc:
+            doi.append(f"{it.get('name')!s:.40}: {truoc!r} -> {it.get('is_reduced_vat')!r}")
+        moi.append(it)
+    ra = {**args, "items": moi}
+    if "default_is_reduced" in ra and not cau_noi_thue:
+        ra.pop("default_is_reduced")
+        doi.append("default_is_reduced: gỡ")
+    return ra, doi
+
+
+def _so_trong_cau(cau: str) -> set[float]:
+    """Mọi số đếm trong câu, đọc cả hai nghĩa của dấu chấm/phẩy, cộng số viết bằng chữ nhỏ."""
+    ra: set[float] = set()
+    for m in _SO_TRONG_CAU.finditer(cau or ""):
+        tho = m.group(0)
+        chi_so = tho.replace(".", "").replace(",", "")
+        if chi_so.isdigit():
+            ra.add(float(chi_so))
+        if tho.count(".") + tho.count(",") == 1:
+            try:
+                ra.add(float(tho.replace(",", ".")))
+            except ValueError:
+                # Chuỗi không đọc được thành số thì cách đọc thập phân đó không tồn tại: bình
+                # thường, không phải lỗi cần ghi.
+                pass
+    low = unicodedata.normalize("NFC", (cau or "").lower())
+    for tu, gia_tri in _SO_DEM_CHU.items():
+        if re.search(rf"(?<!\w){tu}(?!\w)", low):
+            ra.add(float(gia_tri))
+    return ra
+
+
+def so_luong_khong_co_trong_cau(cau: str, args: dict, bo_qua: tuple[str, ...] = ()) -> list[float]:
+    """
+    `qty` model điền (khác 1) mà câu không có số nào bằng nó -> trả các giá trị đó (bịa).
+    1 là nghĩa "không ghi số lượng" (xem `calculate_vat`), nên luôn hợp lệ.
+    """
+    if "items" in bo_qua:
+        return []
+    items = args.get("items")
+    if not isinstance(items, list):
+        return []
+    co = _so_trong_cau(cau)
+    ra: list[float] = []
+    for it in items:
+        q = it.get("qty") if isinstance(it, dict) else None
+        if isinstance(q, bool) or not isinstance(q, (int, float)) or q == 1:
+            continue
+        if float(q) not in co and float(q) not in ra:
+            ra.append(float(q))
+    return ra
+
+
 def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]:
     """
     MỘT chỗ duy nhất quyết định đầu vào tool lấy từ câu người dùng — `chat.py`
@@ -473,6 +584,7 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
       "ok"             vat/quote: đầu vào khớp câu, chạy tool được
       "bo_sot"         có số tiền trong câu mà tham số thiếu
       "bia"            tham số có số tiền không có trong câu
+      "so_luong"       vat: `qty` model điền không có trong câu
       "thue"           vat: câu không nói giá đã gồm VAT hay chưa
     """
     args = dict(args or {})
@@ -495,6 +607,16 @@ def chot_dau_vao(ten: str, args: dict, cau: str) -> tuple[dict, str | None, str]
         dong = tach_hoa_don(cau)
         if dong:
             args, ma_dien = {**args, "items": dong}, ("items",)
+        args, doi_thue = ap_thue_suat_tu_bang_tra(cau, args)
+        if doi_thue:
+            logger.info("vat: thuế suất chỉnh theo luật bảng tra/câu, không theo model: %s", "; ".join(doi_thue))
+        sai_sl = so_luong_khong_co_trong_cau(cau, args, bo_qua=ma_dien)
+        if sai_sl:
+            ds = ", ".join(f"{v:g}" for v in sai_sl)
+            return args, (
+                f"Tôi không thấy số lượng {ds} trong tin nhắn của bạn, nên chưa dùng nó để "
+                "tính — tôi không tự thêm số. Bạn cho tôi biết số lượng từng mặt hàng nhé."
+            ), "so_luong"
     if ten == "quote":
         args, bo = bo_chinh_sach_khong_noi_toi(cau, args)
         if bo:
