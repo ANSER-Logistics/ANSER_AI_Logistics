@@ -32,9 +32,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
+
+from src.core.utils import hom_nay_vn  # định nghĩa duy nhất của "hôm nay" (R4); giữ tên ở đây
 
 # Báo giá vận tải VN chốt theo bậc nghìn đồng.
 _QUOTE_STEP_VND = 1000
@@ -111,19 +113,6 @@ def doc_nguong_tuoi_gia_dau() -> tuple[int, int]:
             f"FUEL_PRICE_WARN_DAYS={warn} và FUEL_PRICE_MAX_DAYS={toi_da} phải thoả 1 <= WARN <= MAX"
         )
     return warn, toi_da
-
-
-_GIO_VN = timezone(timedelta(hours=7))   # UTC+7, Việt Nam không có giờ mùa hè
-
-
-def hom_nay_vn(bay_gio: Optional[datetime] = None) -> date:
-    """Ngày hôm nay theo GIỜ VIỆT NAM, không theo múi giờ máy chủ.
-
-    `date.today()` lấy múi giờ của máy: container thường chạy UTC, nên từ 00:00 đến 07:00
-    sáng ở Việt Nam nó còn là hôm qua và tuổi giá dầu lệch một ngày. Luồng n8n đã chốt
-    UTC+7 (brain#217); phía Brain phải cùng một định nghĩa "hôm nay" (R4).
-    """
-    return (bay_gio or datetime.now(timezone.utc)).astimezone(_GIO_VN).date()
 
 
 def _tuoi_gia_dau(

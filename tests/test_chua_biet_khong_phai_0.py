@@ -101,7 +101,7 @@ def test_ky_chi_co_chi_phi_canh_ky_co_doanh_thu():
     """Hai kỳ: một kỳ có bán (đủ giá vốn), một kỳ chỉ có chi phí. Chỉ kỳ thứ hai là None."""
     sales = [SaleLine(date="2026-08-10", revenue=10_000_000, product="A", quantity=1, cogs=6_000_000)]
     chi = [ExpenseLine(date="2026-11-03", amount=1_000_000)]
-    r = build_report(ReportRequest(granularity="quarter", sales=sales, expenses=chi, today="2026-11-12"))
+    r = build_report(ReportRequest(granularity="quarter", sales=sales, expenses=chi))
     theo_ky = {p["period"]: p for p in r["periods"]}
     co_ban = [p for p in r["periods"] if p["revenue"] > 0]
     chi_phi = [p for p in r["periods"] if p["revenue"] == 0]
@@ -116,7 +116,7 @@ def test_ky_chi_co_chi_phi_canh_ky_co_doanh_thu():
 def test_co_doanh_thu_nhung_khong_co_gia_von_van_la_0_that():
     """0% ở đây LÀ phép đo (có doanh thu, không dòng nào có giá vốn) — không được đổi thành None."""
     sales = [SaleLine(date="2026-11-03", revenue=10_000_000, product="A", quantity=1, cogs=None)]
-    r = build_report(ReportRequest(sales=sales, today="2026-11-12"))
+    r = build_report(ReportRequest(sales=sales))
     assert r["explain"]["cogs_coverage_pct"] == 0.0
     assert r["explain"]["confidence"] == "thấp"
 
