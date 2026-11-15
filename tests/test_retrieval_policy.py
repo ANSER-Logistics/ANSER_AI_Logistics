@@ -7,6 +7,10 @@ hướng "chặn nhầm" thì mất một câu trả lời; sai theo hướng "c
 chủ doanh nghiệp ra quyết định dựa trên thông tin của công ty khác.
 """
 
+import json
+import logging
+from pathlib import Path
+
 import pytest
 
 from src.core.retrieval_policy import (
@@ -257,3 +261,170 @@ def test_giu_hinh_thuc_phap_nhan_nhung_xoa_ten():
     ra = loc_truy_van_web("công ty CP XNK Đại Việt xuất hoá đơn thế nào")
     assert "CP" in ra and "XNK" in ra
     assert "Đại" not in ra and "Việt" not in ra
+
+
+# ---------------------------------------------------------------------------
+# Tên viết THƯỜNG sau từ đánh dấu (BR-26)
+#
+# "công ty minh long có bắt buộc không" từng đi nguyên văn tới bộ tìm kiếm vì
+# không có chữ hoa nào để bám vào. Luật mới: xoá tới ba từ thường lạ sau từ đánh
+# dấu, dừng ở từ thông dụng, và từ lạ thứ tư thì không gửi gì.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "cau, ten_phai_biet_mat, phai_con",
+    [
+        ("công ty minh long có bắt buộc xuất hoá đơn không", ["minh", "long"], "công ty có bắt buộc"),
+        ("nhà xe vạn tín thu cước thế nào", ["vạn", "tín"], "nhà xe thu cước"),
+        ("thủ tục kiện khách trần văn nam đòi nợ", ["trần", "văn", "nam"], "khách đòi nợ"),
+        # Chữ hoa vẫn được lo như cũ, kể cả khi từ đánh dấu gõ không dấu.
+        ("cong ty Minh Long có bắt buộc không", ["Minh", "Long"], "cong ty có bắt buộc"),
+        # "nhà cung cấp" dài ba từ: bản trước không bao giờ nhận ra nó là từ đánh dấu.
+        ("nhà cung cấp Minh Long có phải xuất hoá đơn không", ["Minh", "Long"], "nhà cung cấp có phải"),
+        ("nhà cung cấp minh long có phải xuất hoá đơn không", ["minh", "long"], "nhà cung cấp có phải"),
+        # Sau dấu hai chấm là một danh sách tên.
+        ("nhà cung cấp: Minh Long, Hưng Phát có phải nộp thuế không", ["Minh", "Hưng"], "nhà cung cấp:"),
+    ],
+)
+def test_ten_viet_thuong_khong_roi_khoi_he_thong(cau, ten_phai_biet_mat, phai_con):
+    ra = loc_truy_van_web(cau)
+    for ten in ten_phai_biet_mat:
+        assert ten not in ra, f"còn sót {ten!r} trong {ra!r}"
+    assert phai_con in ra, f"xoá quá tay: {ra!r}"
+
+
+def test_tu_danh_dau_nhan_ca_dang_khong_dau():
+    """Gõ không dấu là chuyện thường; bản trước chỉ nhận dạng có dấu."""
+    for cau in ["cong ty Minh Long", "khach hang Minh Long", "nha xe Minh Long", "doi tac Minh Long"]:
+        ra = loc_truy_van_web(cau + " có phải nộp thuế không")
+        assert "Minh" not in ra and "Long" not in ra, ra
+
+
+def test_tu_la_thu_tu_thi_khong_gui_gi():
+    """Chuỗi quá dài những từ lạ sau từ đánh dấu: không chắc xoá sạch được thì KHÔNG GỬI (R2)."""
+    assert loc_truy_van_web("công ty minh long hưng phát có bắt buộc không") == ""
+    # Đúng ngưỡng: ba từ lạ vẫn xoá được và vẫn gửi.
+    ra = loc_truy_van_web("công ty minh long hưng có bắt buộc không")
+    assert ra == "công ty có bắt buộc không"
+    # Câu gõ KHÔNG DẤU hoàn toàn: không phân biệt được "mình" với "minh" nên bị chặn.
+    assert loc_truy_van_web("cong ty minh long co bat buoc khong") == ""
+
+
+def test_khop_dau_chinh_xac_minh_khong_phai_minh():
+    """"mình" (đại từ, thông dụng) khác "minh" (tên riêng). Bỏ dấu rồi so thì hai từ này khớp nhau."""
+    assert loc_truy_van_web("công ty mình có phải nộp thuế không") == "công ty mình có phải nộp thuế không"
+    assert loc_truy_van_web("công ty minh có phải nộp thuế không") == "công ty có phải nộp thuế không"
+
+
+def test_danh_sach_tu_thong_dung_khong_chua_tu_co_the_la_ten():
+    """Thêm một từ vào danh sách là nới lỏng một lớp R2; những từ này không được vào."""
+    from src.core.retrieval_policy import _TU_THONG_DUNG
+
+    co_the_la_ten = {"minh", "long", "hà", "hải", "nam", "phát", "thịnh", "hưng", "anh", "chị", "em",
+                     "lan", "hoa", "tâm", "đức", "dũng"}
+    assert not (co_the_la_ten & _TU_THONG_DUNG), sorted(co_the_la_ten & _TU_THONG_DUNG)
+    # Khớp theo dấu chính xác nên mọi mục phải là chữ thường có dấu đúng, không khoảng trắng.
+    assert all(t == t.lower() and t.isalpha() for t in _TU_THONG_DUNG)
+    assert len(_TU_THONG_DUNG) >= 150  # chống xanh suông: đọc nhầm thì tập rỗng và mọi câu bị chặn
+
+
+def test_het_cau_thi_het_ten_khong_xoa_sang_cau_sau():
+    """"cho khách. Dịch vụ gia công" — chữ sau dấu chấm là câu khác, không phải tên khách."""
+    cau = "Cửa hàng nhận gia công cho khách. Dịch vụ gia công và nguyên liệu tách riêng hay gộp chung?"
+    assert loc_truy_van_web(cau) == cau
+
+
+# Câu hỏi công khai kiểu thật, có từ đánh dấu: phải đi nguyên văn. Mỗi câu là một ca có thật
+# mà luật tên-viết-thường có thể cắt nhầm; từ nào phải vào `_TU_THONG_DUNG` để câu thoát đều có
+# ở đây. Không có số trong câu: lọc số là việc của lớp khác.
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "khách hàng nước ngoài có được hoàn thuế GTGT không",
+        "công ty vận tải có phải nộp thuế môn bài không",
+        "công ty tôi có phải xuất hoá đơn điện tử không",
+        "công ty của tôi mới mở thì khai thuế theo quý hay tháng",
+        "nhà cung cấp nước ngoài có chịu thuế nhà thầu không",
+        "khách hàng không lấy hoá đơn thì xử lý thế nào",
+        "công ty cổ phần có phải nộp thuế TNDN không",
+        "đối tác nước ngoài ký hợp đồng bằng tiếng Anh thì thuế thế nào",
+        "nhà xe cho thuê xe có phải xuất hoá đơn không",
+        "khách mua hàng xong đòi trả lại thì hoá đơn xử lý sao",
+        "công ty con có được khấu trừ thuế đầu vào của công ty mẹ không",
+        "khách vãng lai không lấy hoá đơn có phải lập hoá đơn bán lẻ không",
+        "công ty nợ thuế quá hạn bị phạt chậm nộp bao nhiêu",
+        "nhà cung cấp dịch vụ vận chuyển quốc tế có chịu thuế GTGT không",
+        "công ty logistics có phải đăng ký giấy phép kinh doanh vận tải không",
+        "khách đặt cọc trước thì xuất hoá đơn lúc nào",
+        "công ty bảo hiểm có phải xuất hoá đơn điện tử không",
+        "công ty tư nhân và công ty TNHH khác nhau thế nào về thuế",
+        "nhà xe chậm giao hàng thì phạt hợp đồng theo luật nào",
+        "khách hàng trả chậm có được tính vào doanh thu tính thuế không",
+        "khách sạn có phải nộp thuế GTGT không",
+        "đối tác nào được miễn thuế nhập khẩu theo nghị định 134/2016/NĐ-CP",
+    ],
+)
+def test_cau_cong_khai_that_co_tu_danh_dau_di_nguyen_van(cau):
+    assert loc_truy_van_web(cau) == cau
+
+
+def test_log_khong_chua_noi_dung_truy_van(caplog):
+    """Log là chỗ thứ hai tên khách rời hệ thống: dòng cảnh báo không được kèm truy vấn."""
+    cau = "công ty zxqv ptrk wmnb hhjd có bắt buộc không"
+    with caplog.at_level(logging.DEBUG, logger="src.core.retrieval_policy"):
+        assert loc_truy_van_web(cau) == ""
+    assert caplog.records, "chặn truy vấn mà không ghi log nào thì không ai biết"
+    for r in caplog.records:
+        dau_van_tay = " ".join([r.getMessage(), str(r.__dict__)])
+        for tu in ("zxqv", "ptrk", "wmnb", "hhjd"):
+            assert tu not in dau_van_tay, f"log chứa nội dung truy vấn: {dau_van_tay!r}"
+
+
+# ---------------------------------------------------------------------------
+# Nghiệm thu BR-26: tỷ lệ câu công khai thật bị lớp này cắt hoặc chặn nhầm ≤ 1%
+# trên các câu hỏi có sẵn trong repo (đo ngày 15/11/2026: 0 trên 108 câu duy nhất).
+# 108 mẫu chưa đủ để khẳng định ≤ 1% bằng thống kê (0/108 có cận trên 95% khoảng 3,4%):
+# con số này canh việc KHÔNG TỆ ĐI, không chứng minh mức tuyệt đối.
+# ---------------------------------------------------------------------------
+
+_GOC = Path(__file__).resolve().parent.parent
+
+
+def _cau_hoi_co_san() -> list[str]:
+    nguon = [_GOC / "offline_training" / "seed_prompts.jsonl",
+             *sorted((_GOC / "offline_training" / "v2_sources").glob("*.jsonl"))]
+    cau: list[str] = []
+    for p in nguon:
+        for dong in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                o = json.loads(dong)
+            except ValueError:
+                continue
+            if not isinstance(o, dict):
+                continue
+            if "messages" in o:
+                cau += [m.get("content", "") for m in o["messages"] if m.get("role") == "user"]
+            else:
+                cau += [o[k] for k in ("prompt", "question", "user", "message", "text", "input",
+                                       "query", "instruction") if isinstance(o.get(k), str)]
+    return sorted({c for c in cau if c})
+
+
+def test_ty_le_chan_nham_tren_cau_hoi_cong_khai_co_san(monkeypatch):
+    from src.core import retrieval_policy as rp
+
+    cong_khai = [c for c in _cau_hoi_co_san() if decide_web_fallback(c).allow]
+    assert len(cong_khai) >= 100, f"chỉ thấy {len(cong_khai)} câu công khai — đổi định dạng file nguồn?"
+
+    thuc = {c: loc_truy_van_web(c) for c in cong_khai}
+    # Đường cơ sở: cùng bộ lọc số nhưng KHÔNG có lớp tên riêng.
+    monkeypatch.setattr(rp, "_xoa_ten_rieng", lambda q: q)
+    co_so = {c: loc_truy_van_web(c) for c in cong_khai}
+
+    khac = [(c, co_so[c], thuc[c]) for c in cong_khai if thuc[c] != co_so[c]]
+    chan = [c for c, _, moi in khac if moi == ""]
+    assert len(khac) <= max(1, len(cong_khai) // 100), (
+        f"{len(khac)}/{len(cong_khai)} câu công khai bị lớp tên riêng đổi, {len(chan)} bị chặn: "
+        + "; ".join(f"{c[:70]!r} -> {m[:70]!r}" for c, _, m in khac[:5])
+    )
