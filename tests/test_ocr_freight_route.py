@@ -105,6 +105,35 @@ def test_anh_mo_doc_ra_rong_KHONG_duoc_coi_la_hoa_don_sach(gia_lap_vision):
     assert body["validation"]["checks_performed"] == []
 
 
+def test_chua_doc_duoc_VAT_thi_doi_nguoi_xem_lai_va_khong_dua_con_so_tong_tinh_lai(gia_lap_vision):
+    """
+    Ảnh mờ mất dòng thuế, tổng đọc ra bằng cộng tiền hàng. Bản cũ coi VAT là 0,
+    thấy khớp rồi báo "Số liệu khớp — dùng được". Giờ phải đòi người xem lại, và
+    `computed.total` là `null` (Body hiện "—") chứ không phải một con số tính ra
+    từ giả định VAT=0.
+    """
+    gia_lap_vision.result = {**HOA_DON_DUNG, "vat_rate": None, "vat_amount": None,
+                             "total": 24_500_000}
+    body = _post("/ocr/freight").json()
+    assert body["success"] is True, body
+    assert body["needs_manual_review"] is True
+    v = body["validation"]
+    assert v["ok"] is False
+    assert any("VAT" in i for i in v["issues"])
+    # Hình dạng không đổi: đủ khoá Body khai, giá trị "chưa biết" là null.
+    assert set(v["computed"]) == {"subtotal", "vat_amount", "total"}
+    assert v["computed"]["vat_amount"] is None and v["computed"]["total"] is None
+
+
+def test_vat_0_phan_tram_doc_duoc_van_la_hoa_don_sach(gia_lap_vision):
+    """Phía bên kia của ranh giới: VAT đọc được là 0 thì KHÔNG bị đòi xem lại."""
+    gia_lap_vision.result = {**HOA_DON_DUNG, "vat_rate": 0.0, "vat_amount": 0.0,
+                             "total": 24_500_000}
+    body = _post("/ocr/freight").json()
+    assert body["needs_manual_review"] is False, body["validation"]["issues"]
+    assert body["validation"]["computed"]["total"] == 24_500_000
+
+
 def test_thieu_truong_bat_buoc_duoc_liet_ke(gia_lap_vision):
     gia_lap_vision.result = {**HOA_DON_DUNG, "carrier_name": None}
     body = _post("/ocr/freight").json()
