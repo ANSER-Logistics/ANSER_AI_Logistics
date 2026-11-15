@@ -92,7 +92,7 @@ Dữ liệu khách hàng gồm: tồn kho, doanh thu, công nợ, **bảng giá 
 
 Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham số chứa dữ liệu khách**: giá xăng dầu, thời tiết, tỷ giá, tìm kiếm web.
 
-> ⚠️ `src/evaluate_system.py` **ĐÃ XOÁ** (07/11/2026, chủ dự án duyệt). Chặn chạy từ 04/11, xoá hẳn ba ngày sau. Lấy lại bằng `git show 75ead8a:src/evaluate_system.py`. Nó đã bị [`benchmark_v3.py`](offline_training/benchmark_v3.py) thay thế. Ngoài rủi ro R2 (gửi prompt + ground truth + đầu ra model tới DeepSeek, không rào nào chặn việc lỡ chạy trên dữ liệu khách), judge của nó chấm theo **định dạng Make.com** — thứ R4 đã bỏ — nên mọi điểm số nó đưa ra đều đo sai thứ. `benchmark_v3` chấm n8n bằng chính `validate_workflow()` của runtime và chấm narration bằng `src/core/grounding.py`, tức phép kiểm lúc đo và lúc chạy là MỘT. Lý do đầy đủ ở docstring đầu file.
+> ⚠️ `src/evaluate_system.py` **ĐÃ XOÁ** (07/11/2026, chủ dự án duyệt). Chặn chạy từ 04/11, xoá hẳn ba ngày sau. Lấy lại bằng `git show db7c48c^:src/evaluate_system.py`. Nó đã bị [`benchmark_v3.py`](offline_training/benchmark_v3.py) thay thế. Ngoài rủi ro R2 (gửi prompt + ground truth + đầu ra model tới DeepSeek, không rào nào chặn việc lỡ chạy trên dữ liệu khách), judge của nó chấm theo **định dạng Make.com** — thứ R4 đã bỏ — nên mọi điểm số nó đưa ra đều đo sai thứ. `benchmark_v3` chấm n8n bằng chính `validate_workflow()` của runtime và chấm narration bằng `src/core/grounding.py`, tức phép kiểm lúc đo và lúc chạy là MỘT. Lý do đầy đủ ở docstring đầu file.
 
 > ⚠️ `requirements.txt` có `openai`. Đo 12/11/2026: **`src/` không import nó**; chỉ `offline_training/` import gói đó, và chỉ **ba file** (`dgen_common.py`, `day1_test_batch.py`, `day2_full_batch.py` — gọi DeepSeek trên kịch bản hư cấu). `providers.py` (và `benchmark_v3.py` qua nó) gọi endpoint bằng `httpx`, không dùng gói `openai` — nên gỡ `openai` khỏi `requirements.txt` không làm bộ đo hỏng. Dùng nó để gọi API ngoài với dữ liệu khách là vi phạm R2 — riêng `providers.py` cho phép provider `anthropic:` nhận số tiền "đã ẩn danh", việc đó đang chờ chủ dự án ([#11](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/11) mục 19).
 
@@ -144,7 +144,7 @@ Bản trước của mục này bảo đồng bộ ba nơi — `prompts.py::DB_S
 
 - `Prompts.DB_SCHEMA` đã xoá. Nó không với tới được từ bất kỳ đường nào, và mô tả 10 bảng mà chỉ 3 còn tồn tại bên Body. Bảng `sales` không có — Body dùng `sales_invoices` / `sales_invoice_items` / `invoice_payments`. Lý do đầy đủ nằm ngay chỗ đã xoá trong [`prompts.py`](src/core/prompts.py).
 - Đồng bộ ba bản chép tay là giữ nguyên thứ R4 cấm, chỉ gọn hơn. Một nguồn nghĩa là **một**, và nguồn đó ở Body.
-- `offline_training/db_schema.txt` **đã xoá** (04/11/2026). Không file `.py` nào import nó, và nội dung đã lệch khỏi Body. Lấy lại bằng `git show f77096c:offline_training/db_schema.txt`.
+- `offline_training/db_schema.txt` **đã xoá** (04/11/2026). Không file `.py` nào import nó, và nội dung đã lệch khỏi Body. Lấy lại bằng `git show 813602e^:offline_training/db_schema.txt`.
 - `SCHEMA MAP` trong `saas_api.py` **đã sửa** theo lược đồ thật của Body (04/11/2026): 5 trong 10 định danh sai, trong đó `workspace_id` ánh xạ tới một khái niệm Body không có. Lý do đầy đủ nằm trong chính khối đó.
 - Còn một bản sao nữa chưa xử: khối `[LƯỢC ĐỒ]` trong `Prompts.INVOICE_SYSTEM`. **Bản trước của dòng này ghi "Prompt đó đang chạy" — SAI** (sửa 04/11/2026). Đo bằng cách tìm `INVOICE_SYSTEM` trong `src/`, `tests/`, `offline_training/`: **không một tham chiếu nào** ngoài chính dòng khai báo. 11 trong 12 hằng số của `Prompts` có người dùng; đây là cái duy nhất bằng 0. Nên xoá khối đó **không có rủi ro chạy nào** — cái chặn chỉ còn là câu hỏi S5 nên biểu diễn nhánh hoá đơn thế nào. Chỉ dẫn đầy đủ nằm ngay cạnh nó trong [`prompts.py`](src/core/prompts.py).
 
@@ -228,7 +228,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 ### 4.2. Chống mục ruỗng
 
 - Xoá code chết thay vì để lại. `RetailChatResponse`/`ProductExtraction` từng bị đánh dấu dead code — kiểm tra trước khi thêm schema mới.
-- `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 306a16c:src/archive/<file>` nếu cần đối chiếu.
+- `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 6c8b4f8^:src/archive/<file>` nếu cần đối chiếu.
 - Sửa code là sửa tài liệu. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4). **Từ 15/11/2026 tài liệu ở repo khác**, nên "cùng PR" không còn nghĩa đen. Thay vào đó: PR nào đổi route, module `src/core/`, biến môi trường hoặc một hành vi mà tài liệu mô tả phải **nêu điều đó trong mô tả PR** và mở PR tương ứng ở `anser-brain-docs`, nêu số PR bên kia. CI của repo tài liệu kéo mã về và bắt các lệch mà máy bắt được (route, module, biến môi trường, liên kết), chạy khi có commit và mỗi thứ Hai. Chỗ hở: không có gì ép việc mở PR bên kia, chỉ có người duyệt.
 
 ---
