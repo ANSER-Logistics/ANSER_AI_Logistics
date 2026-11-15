@@ -44,6 +44,34 @@ Nghĩa là **đồng bộ giá dầu đã chết nhiều ngày** — mở `logis
 chạy gần nhất (thường là regex bóc giá không còn khớp trang PVOIL). Không sửa bằng cách
 nâng ngưỡng.
 
+## Khi Brain báo lỗi ở `logistics_quote_request` (nhánh lỗi)
+
+Hai node gọi Brain ("Chọn hãng xe (Brain)", "Tính báo giá (Brain)") đặt
+`onError: continueErrorOutput`: lỗi đi ra **cổng lỗi** (đầu ra thứ hai) thay vì làm chết
+execution. Cổng lỗi nối tới ba node:
+
+```
+Dựng cảnh báo lỗi (code) → Báo chủ DN báo giá lỗi (Discord) → Trả lỗi cho Brain (respondToWebhook)
+```
+
+- Chủ DN nhận embed **❌** trên đúng kênh `DISCORD_WEBHOOK_URL`: tuyến, loại xe, khách, bước
+  nào lỗi, mã HTTP, và **nguyên văn lời của Brain** (ví dụ "giá dầu đã cũ …"), kèm mã lần
+  chạy n8n. Node này chỉ chép — **không có ngưỡng hay phân loại lỗi nào ở n8n** (R4: ngưỡng
+  giá dầu thuộc Brain).
+- Webhook gốc được trả lời **HTTP 200** với `{ok: false, status: "error", stage, error}` và
+  **không có `draft_id`**. Phía Brain (`chat.py::_handle_logistics_quote`) coi thiếu `draft_id`
+  là "chưa xác nhận" nên không bao giờ nói "đã tạo nháp". Cố ý KHÔNG trả 4xx/5xx: Brain gọi
+  `raise_for_status()` và sẽ nói "lỗi kết nối n8n" — sai, vì n8n vẫn sống.
+- **Không còn thử lại** (`retryOnFail` đã bỏ). n8n thử lại MỌI lỗi, không lọc được theo mã;
+  mà lỗi 4xx của Brain (giá dầu cũ, thiếu tuyến, sai trường) không tự khỏi — thử lại chỉ gửi
+  đúng yêu cầu đó thêm một lần và nhận đúng lỗi đó. Lỗi mạng/5xx thoáng qua thì chủ DN nhắn
+  lại là được; cảnh báo ❌ đã báo họ biết cần nhắn lại.
+- Chính node Discord không đặt `onError`: Discord cũng hỏng thì execution **đỏ** và webhook
+  trả 500 — để lỗi ồn ào còn hơn quay về im lặng.
+
+Chưa phủ: lỗi ném từ chính hai node `code` ("Ghép dữ liệu": thiếu tuyến/thiếu quy tắc giá;
+"Lấy hãng đầu bảng": không có hãng phù hợp) vẫn chỉ nằm trong lịch sử execution.
+
 ## Định dạng ngày trong Sheet
 
 Mọi cột ngày (`valid_from`, `valid_to`, `FuelIndex.date`) phải là **YYYY-MM-DD** (đặt cột
