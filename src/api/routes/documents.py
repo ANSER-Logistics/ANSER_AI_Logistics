@@ -17,6 +17,7 @@ from src.core.config import Config
 from src.core.freight_invoice import FreightInvoice
 from src.core.freight_invoice import verify as verify_freight
 from src.core.mcp_server import MCPServer
+from src.core.sanitize import lam_sach_cay, lam_sach_chuoi, lam_sach_raw
 from src.core.schemas import InvoicePayload
 
 logger = logging.getLogger("projecta.api.documents")
@@ -35,6 +36,37 @@ def _log_loi_luoc_do(ten: str, exc: Exception) -> None:
         "VLM trả dữ liệu không qua lược đồ %s (%s, %s lỗi)", ten, type(exc).__name__, dem
     )
 router = APIRouter()
+
+
+def _lam_sach_ket_qua_vlm(extracted: dict) -> tuple[dict, str, list[dict]]:
+    """
+    Làm sạch MỌI chuỗi mà model thị giác đọc ra từ ảnh, TRƯỚC khi nó chạm lược đồ, lớp kiểm số hay
+    Body (AGENTS §4.1 quy tắc 8; `src/core/sanitize.py`). Trả `(cây_sạch, raw_sạch, cờ)`.
+
+    `raw` (đầu ra thô ở đường lỗi) tách riêng vì nhiều dòng và có trần dài hơn các trường thường.
+    """
+    raw_sach, co_raw = lam_sach_raw(extracted.get("raw", ""))
+    sach, flags = lam_sach_cay({k: v for k, v in extracted.items() if k != "raw"})
+    if co_raw:
+        flags.append({"field": "raw", "reasons": list(co_raw)})
+    return sach, raw_sach, flags
+
+
+def _kem_co(resp: dict, flags: list[dict]) -> dict:
+    """
+    Chuỗi trông như chỉ dẫn cho model KHÔNG bị xoá (xoá là sửa dữ liệu của khách mà không báo): nó được
+    giữ và đi kèm cờ. Có cờ thì buộc `needs_manual_review`. Không có cờ thì phản hồi y nguyên như trước.
+    """
+    if flags:
+        resp["content_flags"] = flags
+        if resp.get("success") or resp.get("status") == "success":
+            resp["needs_manual_review"] = True
+    return resp
+
+
+def _loi_an_toan(exc: Exception) -> str:
+    """`str(exc)` có thể chép lại nội dung model sinh (lỗi JSON, lỗi pydantic): làm sạch trước khi trả Body."""
+    return lam_sach_chuoi(str(exc), nhieu_dong=True)[0]
 
 
 def _vision_backend() -> str:
@@ -94,12 +126,16 @@ async def upload_file(
     path = await _read_upload_to_tmp(request, file)
     try:
         caption = await runtime.vision.analyze_image(path, task_hint="caption")
-        return {"status": "success", "backend": _vision_backend(), "vision_analysis": caption}
+        caption, co = lam_sach_raw(caption)
+        flags = [{"field": "vision_analysis", "reasons": list(co)}] if co else []
+        return _kem_co(
+            {"status": "success", "backend": _vision_backend(), "vision_analysis": caption}, flags
+        )
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Upload endpoint failed: %s", exc)
-        return {"status": "error", "error": str(exc)}
+        return {"status": "error", "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
 
@@ -122,42 +158,43 @@ async def ocr_endpoint(
     path = await _read_upload_to_tmp(request, file)
     try:
         extracted = await runtime.vision.extract_invoice(path)
+        extracted, raw, flags = _lam_sach_ket_qua_vlm(extracted)
         if "error" in extracted:
-            return {
+            return _kem_co({
                 "success": False,
                 "backend": _vision_backend(),
                 "error": extracted["error"],
-                "raw": extracted.get("raw", ""),
-            }
+                "raw": raw,
+            }, flags)
 
         # 1) Ép schema (bắt JSON sai cấu trúc ngay)
         try:
             invoice = InvoicePayload(**extracted)
         except Exception as exc:
             _log_loi_luoc_do("InvoicePayload", exc)
-            return {
+            return _kem_co({
                 "success": False,
                 "backend": _vision_backend(),
-                "error": f"schema_invalid: {exc}",
+                "error": f"schema_invalid: {_loi_an_toan(exc)}",
                 "raw_json": extracted,
-            }
+            }, flags)
 
         # 2) DETERMINISTIC-FIRST: tính lại tổng bằng code thuần (MCPServer)
         items = [it.model_dump() for it in invoice.items]
         validation = MCPServer.validate_invoice_total(items, invoice.total)
 
-        return {
+        return _kem_co({
             "success": True,
             "backend": _vision_backend(),
             "invoice": invoice.model_dump(),
             "validation": validation,                 # is_valid / calculated_total / difference
             "needs_manual_review": not validation["is_valid"],
-        }
+        }, flags)
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("OCR endpoint failed: %s", exc)
-        return {"success": False, "error": str(exc)}
+        return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
 
@@ -191,21 +228,23 @@ async def ocr_freight_endpoint(
     path = await _read_upload_to_tmp(request, file)
     try:
         extracted = await runtime.vision.extract_freight_invoice(path)
+        extracted, raw, flags = _lam_sach_ket_qua_vlm(extracted)
         if "error" in extracted:
-            return {"success": False, "backend": _vision_backend(),
-                    "error": extracted["error"], "raw": extracted.get("raw", "")}
+            return _kem_co({"success": False, "backend": _vision_backend(),
+                            "error": extracted["error"], "raw": raw}, flags)
 
         try:
             invoice = FreightInvoice(**extracted)
         except Exception as exc:
             _log_loi_luoc_do("FreightInvoice", exc)
-            return {"success": False, "backend": _vision_backend(),
-                    "error": f"schema_invalid: {exc}", "raw_json": extracted}
+            return _kem_co({"success": False, "backend": _vision_backend(),
+                            "error": f"schema_invalid: {_loi_an_toan(exc)}",
+                            "raw_json": extracted}, flags)
 
         # TẤT ĐỊNH TRƯỚC: VLM chỉ đọc chữ, mọi phép cộng nhân tính lại bằng code.
         check = verify_freight(invoice)
 
-        return {
+        return _kem_co({
             "success": True,
             "backend": _vision_backend(),
             "invoice": invoice.model_dump(),
@@ -214,11 +253,11 @@ async def ocr_freight_endpoint(
             # lẫn "đã thật sự kiểm được" — ảnh mờ đọc ra rỗng KHÔNG được coi là
             # một tờ hoá đơn sạch.
             "needs_manual_review": not check["ok"],
-        }
+        }, flags)
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("OCR freight endpoint failed: %s", exc)
-        return {"success": False, "error": str(exc)}
+        return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
