@@ -16,6 +16,8 @@ THAY ĐỔI SO VỚI BẢN CŨ:
 """
 from textwrap import dedent
 
+from src.core.utils import hom_nay_vn
+
 # ---------------------------------------------------------------------------
 # Luật "KHÔNG TỰ TÍNH" cho hai nhánh trả lời tự do (GENERAL, RETRIEVAL)
 # ---------------------------------------------------------------------------
@@ -332,8 +334,7 @@ class Prompts:
         thể bịa). Dữ liệu fine-tune v3 dùng ĐÚNG hàm này để train/serve khớp
         nhau từng ký tự (P4) — sửa format ở đây là phải sinh lại dataset.
         """
-        from datetime import date as _date
-        d = today or _date.today()
+        d = today or hom_nay_vn()
         weekday = Prompts._VN_WEEKDAYS[d.weekday()]
         return f"Hôm nay là {weekday}, ngày {d.isoformat()}.\nTin nhắn: {message}"
 

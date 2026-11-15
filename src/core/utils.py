@@ -2,11 +2,35 @@ import json
 import logging
 import re
 import unicodedata
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
 
 logger = logging.getLogger("projecta.utils")
+
+_GIO_VN = timezone(timedelta(hours=7))   # UTC+7, Việt Nam không có giờ mùa hè
+
+
+def _bay_gio_utc() -> datetime:
+    """Đồng hồ của `hom_nay_vn`. Tách riêng để test đặt giờ giả MỘT chỗ cho mọi nơi gọi."""
+    return datetime.now(timezone.utc)
+
+
+def hom_nay_vn(bay_gio: Optional[datetime] = None) -> date:
+    """Ngày hôm nay theo GIỜ VIỆT NAM, không theo múi giờ máy chủ.
+
+    `date.today()` lấy múi giờ của máy: container thường chạy UTC, nên từ 00:00 đến 07:00
+    sáng ở Việt Nam nó còn là hôm qua. Luồng n8n đã chốt UTC+7 (brain#217); mọi chỗ trong
+    Brain cần "hôm nay" PHẢI gọi hàm này, không `date.today()`, không `CURRENT_DATE` của
+    DB (R4, một định nghĩa; `tests/test_gio_viet_nam.py` canh).
+
+    Nằm ở `utils.py` (tầng thấp) vì `prompts.py` cũng cần nó, mà `pricing.py` (tầng trên)
+    thì không import ngược xuống được (`tests/test_layering.py`). Dấu thời gian là một
+    THỜI ĐIỂM (`computed_at`, `ts` của metrics) không dùng hàm này: chúng ở UTC và không
+    có nghĩa "hôm nay".
+    """
+    return (bay_gio or _bay_gio_utc()).astimezone(_GIO_VN).date()
 
 
 def bo_dau(value: Any) -> str:

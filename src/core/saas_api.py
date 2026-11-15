@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.config import Config
+from src.core.utils import hom_nay_vn
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,18 @@ def _period_filter(period: str) -> str:
     SQLite (dev) không có date_trunc/INTERVAL; chỉ 'today' chạy được trên SQLite.
     """
     period = (period or "today").lower()
+    # "Hôm nay" tính ở ĐÂY theo giờ Việt Nam rồi đưa vào SQL như một hằng ngày, KHÔNG dùng
+    # `CURRENT_DATE`: nó tính theo múi giờ của phiên DB (thường UTC), nên 00:00-07:00 sáng giờ
+    # Việt Nam báo cáo "hôm nay" và "tuần này" còn là hôm qua. Hằng này là `date.isoformat()`
+    # do mã tự sinh, không có chữ nào của người dùng trong đó.
+    iso = hom_nay_vn().isoformat()
     if period == "week":
-        return f"{S_DATE} >= date_trunc('week', CURRENT_DATE)"
+        return f"{S_DATE} >= date_trunc('week', CAST('{iso}' AS date))"
     if period == "month":
-        return f"{S_DATE} >= date_trunc('month', CURRENT_DATE)"
-    # mặc định / 'today'
-    return f"date({S_DATE}) = CURRENT_DATE"
+        return f"{S_DATE} >= date_trunc('month', CAST('{iso}' AS date))"
+    # mặc định / 'today': chuỗi ISO trần, KHÔNG `CAST(... AS date)`: SQLite (dev) đọc CAST AS date
+    # thành số (ra 2026) nên phép so sánh hỏng; PostgreSQL tự ép chuỗi ISO về date.
+    return f"date({S_DATE}) = '{iso}'"
 
 
 # =====================================================================

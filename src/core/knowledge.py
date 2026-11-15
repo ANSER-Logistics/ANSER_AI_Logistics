@@ -54,6 +54,7 @@ from datetime import date
 from typing import Any, Optional, Protocol
 
 from src.core.chunking import chunk_document, looks_tabular
+from src.core.utils import hom_nay_vn
 
 logger = logging.getLogger("projecta.knowledge")
 
@@ -494,7 +495,7 @@ class KnowledgeBase:
         if not query.strip():
             return []
 
-        ngay = int((on_date or date.today()).strftime("%Y%m%d"))
+        ngay = int((on_date or hom_nay_vn()).strftime("%Y%m%d"))
         # Lọc hiệu lực NGAY TRONG TRUY VẤN, không lọc sau khi xếp hạng: tài liệu
         # hết hiệu lực không được chiếm chỗ trong danh sách ứng viên rồi mới bị
         # loại, vì như thế tài liệu còn hiệu lực bị đẩy ra ngoài top-N.
