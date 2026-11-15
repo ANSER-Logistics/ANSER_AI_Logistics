@@ -1,7 +1,7 @@
 """
 src/api/routes/documents.py — Upload (caption) & OCR (hóa đơn) endpoints.
 
-Vision = Qwen2-VL-2B duy nhất (qua ModelEngine). Đã bỏ Florence-2 và mọi
+Vision = một model thị giác duy nhất, VISION_MODEL_ID (qua ModelEngine). Đã bỏ Florence-2 và mọi
 tham chiếu liên quan. /ocr áp dụng nguyên tắc deterministic-first: số tiền
 do VLM trích xuất PHẢI được MCPServer tính lại bằng code thuần trước khi tin.
 """
