@@ -110,9 +110,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [860, 300],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -145,9 +143,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [1340, 300],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -205,6 +201,46 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [2300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dựng cảnh báo khi Brain TỪ CHỐI (4xx) hoặc hỏng (5xx) ở bước chọn hãng xe / tính báo giá.\n// Node này chỉ CHÉP lời của Brain và nói lỗi ở bước nào. Không tính toán, không phân loại lỗi,\n// không có ngưỡng nào ở đây — ngưỡng thuộc Brain (R4). Brain đổi ngưỡng thì chỉ lời nó chép đổi.\n// Hình dạng `error` mà n8n đưa vào cổng lỗi đổi theo phiên bản, nên thử lần lượt các chỗ đã gặp.\nconst e = $input.first().json.error;\n\nconst rutGon = (s, n) => { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; };\n\n// FastAPI trả `detail` là chuỗi (HTTPException) hoặc danh sách {loc, msg} (kiểm tra đầu vào).\n// `d` chặn đệ quy: lỗi có thể tham chiếu vòng (cause -> chính nó).\nconst bocChu = (x, d = 0) => {\n  if (x == null || d > 4) return '';\n  if (typeof x === 'string') {\n    const t = x.trim();\n    if (t[0] === '{' || t[0] === '[') {\n      try { return bocChu(JSON.parse(t), d + 1); } catch (_) { return t; }\n    }\n    return t;\n  }\n  if (Array.isArray(x)) return x.map(i => bocChu(i, d + 1)).filter(Boolean).join('; ');\n  if (typeof x === 'object') {\n    if ('detail' in x) { const c = bocChu(x.detail, d + 1); if (c) return c; }\n    if (x.msg) return (Array.isArray(x.loc) ? x.loc.join('.') + ': ' : '') + String(x.msg);\n    if (typeof x.message === 'string' && x.message.trim()) return x.message.trim();\n    try { return JSON.stringify(x); } catch (_) { return '[không đọc được chi tiết lỗi]'; }\n  }\n  return String(x);\n};\n\nconst laDoiTuong = e !== null && typeof e === 'object';\nconst nguon = laDoiTuong\n  ? [e.context && e.context.data,\n     e.cause && e.cause.response && (e.cause.response.body || e.cause.response.data),\n     e.description,\n     e.message]\n  : [e];\nconst chiTiet = rutGon(nguon.map(s => bocChu(s)).find(Boolean) || 'không có chi tiết từ Brain', 1000);\nconst ma = laDoiTuong\n  ? String(e.httpCode || (e.cause && e.cause.response && e.cause.response.status) || e.status || '')\n  : '';\n\nconst truoc = (typeof $prevNode !== 'undefined' && $prevNode && $prevNode.name) || '';\nconst buoc = truoc.indexOf('Chọn hãng xe') === 0 ? 'chọn hãng xe'\n  : truoc.indexOf('Tính báo giá') === 0 ? 'tính báo giá' : 'gọi Brain';\n\n// Yêu cầu gốc để chủ DN biết khách nào, tuyến nào đang bị kẹt. Không đọc được thì NÓI không đọc được.\nlet req = null;\ntry { req = $('Ghép dữ liệu').first().json.req || null; } catch (_) { req = null; }\nconst tuyen = req\n  ? rutGon(req.origin || '?', 80) + ' → ' + rutGon(req.destination || '?', 80) + ' | ' +\n    rutGon(req.vehicle_type || '?', 40) + (req.cargo_type ? ' | ' + rutGon(req.cargo_type, 80) : '')\n  : '(không đọc được yêu cầu gốc)';\nconst khach = req ? rutGon(req.customer_name || '?', 120) : '?';\nconst lanChay = (typeof $execution !== 'undefined' && $execution && $execution.id) || '?';\n\nconst moTa =\n  '**Tuyến:** ' + tuyen + '\\n' +\n  '**Khách:** ' + khach + '\\n\\n' +\n  'Bước **' + buoc + '** của Brain báo lỗi' + (ma ? ' (HTTP ' + ma + ')' : '') + '. ' +\n  'Báo giá này **CHƯA được tạo và CHƯA gửi khách**.\\n' +\n  // Chi tiết là lời của Brain (có thể chứa dấu rào mã) — bỏ rào để không vỡ khối mã của Discord.\n  '```\\n' + chiTiet.replace(/```/g, \"'''\") + '\\n```\\n' +\n  'Sửa nguyên nhân rồi nhắn báo giá lại. Mã lần chạy n8n: ' + lanChay;\n\nconst body = { embeds: [{\n  title: '❌ Báo giá KHÔNG tạo được — lỗi ở bước ' + buoc,\n  color: 15158332,\n  description: moTa,\n  footer: { text: 'ANSER Logistics • báo giá lỗi' },\n  timestamp: new Date(Date.now()).toISOString()\n}]};\n\n// `phan_hoi` KHÔNG có draft_id: Brain (chat.py) coi thiếu draft_id là \"chưa xác nhận\", không bao\n// giờ tuyên bố đã tạo nháp. Trả 200 chứ không 4xx/5xx vì 4xx/5xx làm Brain nói \"lỗi kết nối n8n\".\nreturn [{ json: {\n  phan_hoi: { ok: false, status: 'error', stage: buoc, error: chiTiet },\n  discord_body: JSON.stringify(body)\n}}];\n"
+      },
+      "id": "lq-err-build",
+      "name": "Dựng cảnh báo lỗi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Dựng cảnh báo lỗi').first().json.discord_body }}",
+        "options": {}
+      },
+      "id": "lq-err-notify",
+      "name": "Báo chủ DN báo giá lỗi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1820, 520]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Dựng cảnh báo lỗi').first().json.phan_hoi) }}"
+      },
+      "id": "lq-err-respond",
+      "name": "Trả lỗi cho Brain",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2060, 520]
     }
   ],
   "connections": {
@@ -230,13 +266,19 @@
       "main": [[{ "node": "Chọn hãng xe (Brain)", "type": "main", "index": 0 }]]
     },
     "Chọn hãng xe (Brain)": {
-      "main": [[{ "node": "Lấy hãng đầu bảng", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Lấy hãng đầu bảng", "type": "main", "index": 0 }],
+        [{ "node": "Dựng cảnh báo lỗi", "type": "main", "index": 0 }]
+      ]
     },
     "Lấy hãng đầu bảng": {
       "main": [[{ "node": "Tính báo giá (Brain)", "type": "main", "index": 0 }]]
     },
     "Tính báo giá (Brain)": {
-      "main": [[{ "node": "Dựng nháp + embed", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Dựng nháp + embed", "type": "main", "index": 0 }],
+        [{ "node": "Dựng cảnh báo lỗi", "type": "main", "index": 0 }]
+      ]
     },
     "Dựng nháp + embed": {
       "main": [[{ "node": "Lưu nháp vào Sheet", "type": "main", "index": 0 }]]
@@ -246,6 +288,12 @@
     },
     "Báo chủ DN duyệt": {
       "main": [[{ "node": "Trả kết quả cho Brain", "type": "main", "index": 0 }]]
+    },
+    "Dựng cảnh báo lỗi": {
+      "main": [[{ "node": "Báo chủ DN báo giá lỗi", "type": "main", "index": 0 }]]
+    },
+    "Báo chủ DN báo giá lỗi": {
+      "main": [[{ "node": "Trả lỗi cho Brain", "type": "main", "index": 0 }]]
     }
   }
 }
