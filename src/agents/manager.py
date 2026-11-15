@@ -535,7 +535,7 @@ class ManagerAgent(BaseAgent):
     # -- nhánh GENERAL -----------------------------------------------------
 
     async def answer_general(self, task: str, history: list[dict] | None = None):
-        """Hội thoại tự do, tính toán đơn giản, giải thích ngắn."""
+        """Hội thoại tự do, giải thích ngắn. KHÔNG tính toán — xem `_KHONG_TU_TINH`."""
         system = self._get_prompt("GENERAL_SYSTEM")
         return await self.generate_chat(
             system=system,
