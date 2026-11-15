@@ -215,6 +215,21 @@ runtime = RuntimeState()
 # Auth & Identity Helpers
 # ---------------------------------------------------------------------------
 
+def thieu_token_o_trien_khai() -> bool:
+    """
+    `True` khi Brain đang chạy như một BẢN TRIỂN KHAI mà không có `API_AUTH_TOKEN`: lúc đó mọi route
+    nghiệp vụ mở cho bất kỳ ai tới được địa chỉ của nó (`require_api_token` bỏ qua kiểm tra khi token rỗng).
+
+    "Triển khai" là mọi `ENV` khác `LOCAL`, kể cả rỗng hay gõ sai: cùng quy ước fail-closed với route tài liệu
+    tự sinh (BR-34, `main.py`). Gõ sai thì báo thừa một cảnh báo, không im lặng bỏ qua một cổng mở.
+
+    Đọc `ENV` và token LÚC GỌI để `/health` và test thấy đúng giá trị hiện tại.
+    Chỉ CẢNH BÁO (log CRITICAL + `/health.degraded`), KHÔNG chặn khởi động: chặn là việc để sau, khi mở tunnel
+    cho khách thật (compose đã có `${API_TOKEN:?}` cho đường triển khai chính).
+    """
+    return os.getenv("ENV", "").strip().upper() != "LOCAL" and not API_AUTH_TOKEN
+
+
 def require_api_token(x_api_token: Optional[str]) -> None:
     if not API_AUTH_TOKEN:
         return

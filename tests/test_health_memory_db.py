@@ -95,6 +95,10 @@ client = TestClient(app)
 
 @pytest.fixture
 def memory(monkeypatch):
+    # ENV=LOCAL tường minh: ngoài LOCAL mà không có token thì /health báo degraded (cảnh báo thiếu token),
+    # và các test này hỏi riêng về DB. Không để kết quả phụ thuộc vào biến ENV của máy chạy.
+    monkeypatch.setenv("ENV", "LOCAL")
+
     def dat(mm):
         monkeypatch.setattr(runtime, "memory", mm, raising=False)
     return dat
