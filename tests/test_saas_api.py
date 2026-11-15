@@ -58,6 +58,7 @@ from src.core.saas_api import (
     _period_filter,
     parse_period,
 )
+from src.core.utils import hom_nay_vn
 
 # ---------------------------------------------------------------------------
 # Đọc kỳ từ câu hỏi — cái bẫy "đúng số, sai câu hỏi"
@@ -153,12 +154,16 @@ def saas(monkeypatch):
                      f"VALUES (:i, :n, :g, :t, :w)"),
                 {"i": i, "n": ten, "g": gia, "t": ton, "w": ws},
             )
-        conn.execute(text(
-            f"INSERT INTO {SALES_TABLE} (id, {S_AMOUNT}, {S_DATE}, {S_WORKSPACE}) "
-            f"VALUES (1, 12000000, date('now'), 1), "
-            f"       (2,  8000000, date('now'), 1), "
-            f"       (3, 99000000, date('now'), 2)"
-        ))
+        # "Hôm nay" theo giờ VIỆT NAM, cùng hàm mã chạy dùng (BR-22). `date('now')` của SQLite
+        # là ngày UTC: từ 00:00 đến 07:00 sáng ở Việt Nam nó còn là hôm qua, nên test này đỏ
+        # (kể cả trên CI, chạy UTC) đúng trong bảy giờ đó mỗi ngày.
+        conn.execute(
+            text(
+                f"INSERT INTO {SALES_TABLE} (id, {S_AMOUNT}, {S_DATE}, {S_WORKSPACE}) "
+                f"VALUES (1, 12000000, :d, 1), (2, 8000000, :d, 1), (3, 99000000, :d, 2)"
+            ),
+            {"d": hom_nay_vn().isoformat()},
+        )
 
     api = SaasAPI.__new__(SaasAPI)
     api.engine = engine
