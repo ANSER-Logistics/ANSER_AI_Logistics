@@ -473,5 +473,47 @@ class Prompts:
         Trả lời bằng tiếng Việt, ngắn gọn.
     """)
 
+    # ------------------------------------------------------------------
+    # Prompt của MODEL THỊ GIÁC (`src/agents/vision.py`). Trước 16/11/2026 bốn prompt này nằm
+    # INLINE trong `vision.py`, vi phạm AGENTS §4.1 quy tắc 7 (prompt chỉ sống ở đây). Chuyển
+    # NGUYÊN VĂN, không đổi một chữ: đổi prompt đọc ảnh là đổi hành vi trích xuất và phải đo
+    # trên ảnh (Colab), không đi kèm một lần dọn chỗ.
+    #
+    # Còn một chuyện CỐ Ý chưa làm: ví dụ `"price": 0 … "total": 0` trong VLM_INVOICE dạy model
+    # điền 0 khi không đọc được, ngược R1. Sửa nó là phần 2b của BR-19, cần đo trước/sau.
+    # ------------------------------------------------------------------
+    VLM_CAPTION = "Mô tả chi tiết nội dung hình ảnh này bằng tiếng Việt."
+
+    VLM_OCR = (
+        "Trích xuất TOÀN BỘ văn bản xuất hiện trong ảnh. "
+        "Giữ nguyên thứ tự dòng và dấu tiếng Việt. "
+        "Chỉ trả về văn bản, không thêm giải thích."
+    )
+
+    VLM_INVOICE = (
+        "Bạn là hệ thống trích xuất hóa đơn. Đọc ảnh hóa đơn và trả về DUY NHẤT "
+        "một JSON hợp lệ, KHÔNG kèm giải thích, đúng schema:\n"
+        '{"items": [{"name": "string", "price": 0, "qty": 1}], "total": 0}\n'
+        "Quy tắc: 'price' là ĐƠN GIÁ trước thuế; 'total' là tổng tiền ghi trên hóa đơn "
+        "(đã gồm thuế). Mọi số tiền là số nguyên VND, không dùng dấu phân cách hàng nghìn. "
+        "Bỏ qua dòng nào không đọc được."
+    )
+
+    # Hoá đơn CƯỚC VẬN TẢI — hình dạng khác hẳn hoá đơn bán lẻ ở trên. Giữ cả hai: công ty vừa
+    # phân phối dầu nhớt (nhập hàng -> hoá đơn bán lẻ) vừa làm vận tải (thuê nhà xe -> hoá đơn cước).
+    VLM_FREIGHT = (
+        "Bạn là hệ thống đọc HOÁ ĐƠN CƯỚC VẬN TẢI của nhà xe. Đọc ảnh và trả về "
+        "DUY NHẤT một JSON hợp lệ, KHÔNG kèm giải thích.\n"
+        "Các trường: carrier_name, carrier_tax_code, invoice_no, invoice_date "
+        "(YYYY-MM-DD), origin (điểm đi), destination (điểm đến), vehicle_type, "
+        "plate_number (biển số), charges (danh sách khoản), vat_rate, subtotal, "
+        "vat_amount, total.\n"
+        "Mỗi khoản trong 'charges' gồm: kind (một trong: cước, bốc xếp, lưu ca, "
+        "cầu đường, quay đầu, khác), description, quantity (số chuyến/số lần), "
+        "unit_price (đơn giá CHƯA thuế).\n"
+        "QUAN TRỌNG: trường nào KHÔNG ĐỌC ĐƯỢC thì để null — TUYỆT ĐỐI không "
+        "đoán, không điền 0. Số tiền là số nguyên VND, không dấu phân cách."
+    )
+
     # Giữ tên cũ để code cũ không gãy khi import
     CONSULT_SYSTEM = RETRIEVAL_SYSTEM
