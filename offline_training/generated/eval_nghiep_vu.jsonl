@@ -1,0 +1,98 @@
+{"id":"NV001","nhom":"vat","cau":"Hóa đơn 12 triệu chưa gồm VAT, tính giúp tôi tổng thanh toán","tool":["vat"],"tap":"dev"}
+{"id":"NV002","nhom":"vat","cau":"cho em hỏi 5.500.000 đã bao gồm thuế 10% thì tiền thuế là bao nhiêu","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV003","nhom":"vat","cau":"Mua dầu nhớt 3tr5 thuế 8% thì tổng phải trả bao nhiêu?","tool":["vat"],"tap":"dev"}
+{"id":"NV004","nhom":"vat","cau":"Tính VAT cho đơn hàng 25.000.000đ giúp mình","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV005","nhom":"vat","cau":"500k mỗi thùng, mua 20 thùng, thuế 10%, tổng bao nhiêu","tool":["vat"],"tap":"dev"}
+{"id":"NV006","nhom":"vat","cau":"Giá 2 tỷ 5 chưa thuế thì thuế GTGT 10% là bao nhiêu tiền?","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV007","nhom":"vat","cau":"tinh thue 8% cho 2tr5","tool":["vat"],"tap":"dev"}
+{"id":"NV008","nhom":"vat","cau":"Hoá đơn ghi tổng 11.000.000, hàng 10 triệu, thuế 10% vậy có đúng không?","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV009","nhom":"vat","cau":"Giá đã gồm thuế là 8.640.000, vậy giá chưa thuế (thuế 8%) là bao nhiêu","tool":["vat"],"tap":"dev"}
+{"id":"NV010","nhom":"vat","cau":"Thuế phải nộp cho lô hàng 180 triệu là bao nhiêu nhỉ","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV011","nhom":"tra_luat","cau":"Thuế GTGT với dịch vụ vận tải hiện nay là bao nhiêu phần trăm?","tool":[],"tap":"dev"}
+{"id":"NV012","nhom":"tra_luat","cau":"Nghị định 72/2024 giảm thuế đến khi nào?","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV013","nhom":"tra_luat","cau":"Hóa đơn điện tử khi nào thì bắt buộc dùng?","tool":[],"tap":"dev"}
+{"id":"NV014","nhom":"tra_luat","cau":"Mặt hàng nào được giảm thuế GTGT xuống 8%?","tool":[],"tap":"dev","mo_ho":true,"ghi_chu":"16/11: mơ hồ. Hỏi luật (RETRIEVAL) hay đối chiếu danh mục hàng của khách (vat_catalog_audit)? Luật vat_catalog_audit cố ý bắt 'mặt hàng nào ... 8%'. Chưa quyết ai đúng; giữ là ca sai đã biết.","tap_goc":"holdout1"}
+{"id":"NV015","nhom":"tra_luat","cau":"Quy định về tải trọng xe tải trên đường quốc lộ như thế nào","tool":[],"tap":"dev"}
+{"id":"NV016","nhom":"tra_luat","cau":"Giờ cấm xe tải vào nội thành Hà Nội là mấy giờ?","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV017","nhom":"tra_luat","cau":"Thuế GTGT là gì?","tool":[],"tap":"dev"}
+{"id":"NV018","nhom":"tra_luat","cau":"Công ty nhỏ có bắt buộc phải xuất hóa đơn cho mọi lần bán không","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV019","nhom":"bao_cao","cau":"Tháng này doanh thu và lãi gộp thế nào?","tool":["report"],"tap":"dev"}
+{"id":"NV020","nhom":"bao_cao","cau":"Cho tôi báo cáo lãi lỗ quý 3","tool":["report"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV021","nhom":"bao_cao","cau":"So sánh doanh thu tháng 10 với tháng 9 giúp mình","tool":["report"],"tap":"dev"}
+{"id":"NV022","nhom":"bao_cao","cau":"Lãi ròng 6 tháng đầu năm là bao nhiêu","tool":["report"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV023","nhom":"bao_cao","cau":"bao cao doanh thu thang nay","tool":["report"],"tap":"dev"}
+{"id":"NV024","nhom":"bao_cao","cau":"Năm nay kinh doanh có lãi không, lãi bao nhiêu","tool":["report"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV025","nhom":"bao_cao","cau":"Doanh thu tuần trước so với tuần này tăng hay giảm?","tool":["report"],"tap":"dev"}
+{"id":"NV026","nhom":"bao_cao","cau":"Cho anh xem tổng chi phí và lợi nhuận của quý này","tool":["report"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV027","nhom":"ton_kho","cau":"Kiểm tra giúp tôi kho có mặt hàng nào tồn âm không","tool":["inventory_audit"],"tap":"dev"}
+{"id":"NV028","nhom":"ton_kho","cau":"Soát bảng tồn kho tháng này xem có gì bất thường","tool":["inventory_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV029","nhom":"ton_kho","cau":"Có mặt hàng nào giá vốn tồn kho cao bất thường không?","tool":["inventory_audit"],"tap":"dev"}
+{"id":"NV030","nhom":"ton_kho","cau":"Đối chiếu giá tồn kho theo bình quân và FIFO có lệch không","tool":["inventory_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV031","nhom":"ton_kho","cau":"kho co mat hang nao ton am ko","tool":["inventory_audit"],"tap":"dev"}
+{"id":"NV032","nhom":"ton_kho","cau":"Rà lỗi sổ kho giúp em, đặc biệt hàng tồn âm","tool":["inventory_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV033","nhom":"ton_kho","cau":"Tồn cuối kỳ có khớp với số nhập xuất không, kiểm tra hộ","tool":["inventory_audit"],"tap":"dev"}
+{"id":"NV034","nhom":"ton_kho","cau":"Kiểm kê kho phát hiện mặt hàng nào có vấn đề về giá vốn","tool":["inventory_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV035","nhom":"nhap_hang","cau":"Có nên nhập thêm dầu thủy lực không?","tool":["forecast_reorder"],"tap":"dev"}
+{"id":"NV036","nhom":"nhap_hang","cau":"Bao lâu nữa thì hết hàng mỡ bò EP2?","tool":["forecast_reorder"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV037","nhom":"nhap_hang","cau":"Gợi ý số lượng cần đặt thêm cho tháng sau","tool":["forecast_reorder"],"tap":"dev"}
+{"id":"NV038","nhom":"nhap_hang","cau":"Điểm đặt hàng lại của dầu hộp số là bao nhiêu","tool":["forecast_reorder"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV039","nhom":"nhap_hang","cau":"co nen nhap them hang ko","tool":["forecast_reorder"],"tap":"dev"}
+{"id":"NV040","nhom":"nhap_hang","cau":"Dự báo nhu cầu dầu động cơ 3 tháng tới giúp mình","tool":["forecast_reorder"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV041","nhom":"nhap_hang","cau":"Tồn an toàn của lọc nhớt nên để bao nhiêu","tool":["forecast_reorder"],"tap":"dev"}
+{"id":"NV042","nhom":"nhap_hang","cau":"Mặt hàng nào sắp hết, cần đặt gấp?","tool":["forecast_reorder"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV043","nhom":"cong_no","cau":"Khách nào đang nợ mình nhiều nhất?","tool":["partner_audit"],"tap":"dev"}
+{"id":"NV044","nhom":"cong_no","cau":"Công nợ phải thu có tập trung vào một khách nào không","tool":["partner_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV045","nhom":"cong_no","cau":"Rà soát công nợ nhà cung cấp giúp tôi","tool":["partner_audit"],"tap":"dev"}
+{"id":"NV046","nhom":"cong_no","cau":"Một khách chiếm bao nhiêu phần trăm tổng nợ phải thu","tool":["partner_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV047","nhom":"cong_no","cau":"khach nao no nhieu nhat","tool":["partner_audit"],"tap":"dev"}
+{"id":"NV048","nhom":"cong_no","cau":"Mình còn nợ nhà cung cấp nào nhiều nhất, có rủi ro gì không","tool":["partner_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV049","nhom":"cong_no","cau":"Soi giúp em số dư khách hàng, có ai nợ quá lớn không","tool":["partner_audit"],"tap":"dev"}
+{"id":"NV050","nhom":"cong_no","cau":"Tổng hợp công nợ phải trả cuối tháng","tool":["partner_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV051","nhom":"thue_suat_hang","cau":"Mặt hàng nào đang bị áp sai thuế suất 8% hay 10%?","tool":["vat_catalog_audit"],"tap":"dev"}
+{"id":"NV052","nhom":"thue_suat_hang","cau":"Đối chiếu danh mục hàng hóa với nghị quyết giảm thuế GTGT","tool":["vat_catalog_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV053","nhom":"thue_suat_hang","cau":"Kiểm tra cờ giảm 2% thuế của từng mã hàng","tool":["vat_catalog_audit"],"tap":"dev"}
+{"id":"NV054","nhom":"thue_suat_hang","cau":"Danh sách hàng trong kho mã nào được giảm thuế, mã nào không?","tool":["vat_catalog_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV055","nhom":"thue_suat_hang","cau":"Có hàng nào tôi đang tính thuế 8% mà thực ra không được giảm?","tool":["vat_catalog_audit"],"tap":"dev"}
+{"id":"NV056","nhom":"thue_suat_hang","cau":"Rà thuế suất của toàn bộ sản phẩm theo luật mới","tool":["vat_catalog_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV057","nhom":"bao_gia","cau":"Báo giá chuyến Hà Nội đi Đà Nẵng xe 15 tấn, nhà xe chào 18 triệu, biên 10%","tool":["quote"],"tap":"dev"}
+{"id":"NV058","nhom":"bao_gia","cau":"Tính giá bán cho khách: giá nhà xe 12 triệu, dầu tăng 10%, lợi nhuận 8%","tool":["quote"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV059","nhom":"bao_gia","cau":"Nhà xe báo 9tr5 cho tuyến Hải Phòng - Vinh, mình chào khách bao nhiêu cho có lãi 12%","tool":["quote"],"tap":"dev"}
+{"id":"NV060","nhom":"bao_gia","cau":"Giá cước nhà xe 25.000.000, phụ phí bốc xếp 500.000, biên 10%, báo giá giúp","tool":["quote"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV061","nhom":"bao_gia","cau":"bao gia chuyen HCM - Can Tho, nha xe 6 trieu, bien 15%","tool":["quote"],"tap":"dev"}
+{"id":"NV062","nhom":"bao_gia","cau":"Khách hỏi giá container 40ft đi Cát Lái, nhà xe chào 14 triệu, mình nên báo bao nhiêu","tool":[],"tap":"dev","nhanh":"LOGISTICS","ghi_chu":"16/11: sửa kỳ vọng. Có giá nhà xe nhưng KHÔNG có biên: `quote` không chạy được nếu thiếu biên, theo thiết kế câu này đi n8n/hỏi lại. Kỳ vọng ban đầu sai.","tap_goc":"holdout1"}
+{"id":"NV063","nhom":"chon_nha_xe","cau":"Chọn nhà xe nào cho tuyến Hải Phòng - Vinh trong các nhà xe sau","tool":["carrier_selection"],"tap":"dev"}
+{"id":"NV064","nhom":"chon_nha_xe","cau":"So sánh các nhà xe theo giá và độ đúng hẹn giúp tôi","tool":["carrier_selection"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV065","nhom":"chon_nha_xe","cau":"Nhà xe nào tốt nhất cho chuyến này?","tool":["carrier_selection"],"tap":"dev"}
+{"id":"NV066","nhom":"chon_nha_xe","cau":"Xếp hạng giúp em ba nhà xe đang chào giá cho chuyến Đà Nẵng","tool":["carrier_selection"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV067","nhom":"chon_nha_xe","cau":"nen thue nha xe nao, so sanh gia va uy tin","tool":["carrier_selection"],"tap":"dev"}
+{"id":"NV068","nhom":"chon_nha_xe","cau":"Trong các nhà xe quen, ưu tiên ai cho chuyến gấp ngày mai","tool":["carrier_selection"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV069","nhom":"ghep","cau":"Tháng này lãi bao nhiêu và có nên nhập thêm hàng không?","tool":["forecast_reorder","report"],"tap":"dev"}
+{"id":"NV070","nhom":"ghep","cau":"Kiểm tra tồn kho và công nợ khách giúp tôi","tool":["inventory_audit","partner_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV071","nhom":"ghep","cau":"Tháng này lãi lỗ thế nào, khách nào nợ nhiều nhất?","tool":["partner_audit","report"],"tap":"dev","ghi_chu":"16/11: sửa câu. Bản đầu 'Doanh thu tháng này thế nào' là MỘT con số theo thiết kế của luật report (DATA_INTERNAL), kỳ vọng ban đầu của người viết bộ đề sai."}
+{"id":"NV072","nhom":"ghep","cau":"Soát kho có tồn âm không, sau đó cho biết có nên đặt thêm hàng","tool":["forecast_reorder","inventory_audit"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV073","nhom":"soat_hoa_don","cau":"Kiểm tra hóa đơn sau có hợp lệ không: Dầu nhớt 10 thùng x 500.000, thuế 10%, tổng 5.500.000","tool":["vat"],"tap":"dev"}
+{"id":"NV074","nhom":"soat_hoa_don","cau":"Hóa đơn này tính đúng chưa? 3 món, cộng lại 4.200.000 + thuế 8% = 4.536.000","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV075","nhom":"soat_hoa_don","cau":"Xem giúp hoá đơn bán hàng: 2 thùng dầu x 1.480.000, tổng ghi 3.256.000 có khớp không","tool":["vat"],"tap":"dev"}
+{"id":"NV076","nhom":"soat_hoa_don","cau":"Đối chiếu hóa đơn nhà xe: cước 18.000.000, bốc xếp 500.000, VAT 8%, tổng 19.980.000","tool":["vat"],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV077","nhom":"khac","cau":"Xin chào","tool":[],"tap":"dev"}
+{"id":"NV078","nhom":"khac","cau":"Brain làm được những gì?","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV079","nhom":"khac","cau":"Cảm ơn bạn nhé","tool":[],"tap":"dev"}
+{"id":"NV080","nhom":"khac","cau":"Hôm nay thời tiết Hà Nội thế nào","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV081","nhom":"khac","cau":"Viết giúp email nhắc khách thanh toán chậm","tool":[],"tap":"dev"}
+{"id":"NV082","nhom":"khac","cau":"Tạo workflow tự động gửi tin nhắn Telegram mỗi sáng 8 giờ","tool":[],"nhanh":"TECHNICAL","tap":"dev","tap_goc":"holdout1"}
+{"id":"NV083","nhom":"khac","cau":"Giải thích giúp tôi khái niệm giá vốn hàng bán","tool":[],"tap":"dev"}
+{"id":"NV084","nhom":"khac","cau":"Gợi ý cách chăm sóc khách hàng cũ","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV085","nhom":"bay","cau":"Kho của tôi ở Bình Dương, gần khu công nghiệp","tool":[],"tap":"dev"}
+{"id":"NV086","nhom":"bay","cau":"Chị Hoa nói đã trả nợ rồi, cảm ơn","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV087","nhom":"bay","cau":"Báo cáo của tôi bị lỗi font chữ khi in","tool":[],"tap":"dev"}
+{"id":"NV088","nhom":"bay","cau":"Doanh thu là gì, khác lợi nhuận chỗ nào","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV089","nhom":"bay","cau":"Tôi muốn học kế toán thì bắt đầu từ đâu","tool":[],"tap":"dev"}
+{"id":"NV090","nhom":"bay","cau":"Lãi suất vay ngân hàng hiện nay khoảng bao nhiêu","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV091","nhom":"bay","cau":"Nhà xe của mình là Nhà xe Bình Minh, đã làm việc ba năm","tool":[],"tap":"dev"}
+{"id":"NV092","nhom":"bay","cau":"Tồn tại nhiều ý kiến về chính sách thuế mới","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV093","nhom":"bay","cau":"Kiểm tra giúp em xem email đã gửi chưa","tool":[],"tap":"dev"}
+{"id":"NV094","nhom":"bay","cau":"Hàng nhập về hôm qua đã xếp lên kệ chưa","tool":[],"tap":"dev","tap_goc":"holdout1"}
+{"id":"NV095","nhom":"bao_gia_n8n","cau":"Báo giá giúp tôi chuyến xe 5 tấn từ Hải Phòng đi Vinh ngày mai","tool":[],"nhanh":"LOGISTICS","tap":"dev"}
+{"id":"NV096","nhom":"bao_gia_n8n","cau":"Cho khách báo giá container 20ft từ Cát Lái đi Bình Dương thứ Hai tuần sau","tool":[],"nhanh":"LOGISTICS","tap":"dev","tap_goc":"holdout1"}
+{"id":"NV097","nhom":"workflow","cau":"Làm workflow n8n tự gửi báo cáo doanh thu qua email mỗi tuần","tool":[],"nhanh":"TECHNICAL","tap":"dev"}
+{"id":"NV098","nhom":"workflow","cau":"Tạo quy trình tự động nhắc công nợ qua Zalo","tool":[],"nhanh":"TECHNICAL","tap":"dev","tap_goc":"holdout1"}

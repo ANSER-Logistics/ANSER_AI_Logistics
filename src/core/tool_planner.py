@@ -27,14 +27,71 @@ liệu cho các tool này từ nguồn tất định, và KHÔNG chạy nếu ch
 from __future__ import annotations
 
 import re
+import unicodedata
 
-# Số tiền: "3 triệu", "3.500.000đ", "500k". Có nó thì câu hỏi thuế là câu TÍNH,
+# ---------------------------------------------------------------------------
+# KHỚP CẢ CÂU KHÔNG DẤU (16/11/2026)
+#
+# Người dùng thật hay gõ không dấu ("bao cao doanh thu thang nay", "khach nao no nhieu nhat"). Bảng luật
+# viết có dấu nên bỏ lọt cả loạt: đo trên bộ câu nghiệp vụ hư cấu (`offline_training/do_nghiep_vu.py`),
+# MỌI câu không dấu đều trượt.
+#
+# `_Mau` bọc một mẫu regex và có HAI dạng: dạng có dấu (nguyên bản) và dạng đã bỏ dấu. Câu CÓ dấu, dù chỉ một
+# chữ, dùng dạng có dấu, nên hành vi với câu có dấu KHÔNG ĐỔI (quan trọng: "thuê" khác "thuế", và bảng luật
+# được viết quanh khác biệt đó). Chỉ câu HOÀN TOÀN không dấu mới dùng dạng bỏ dấu.
+#
+# Giá của việc đó: khi bỏ dấu thì một số từ trùng nhau ("thuê"/"thuế", "vật"/"vat", "rà"/"ra"). Mỗi chỗ đã gặp
+# được xử riêng (xem `khong_dau=` ở luật `vat` và `_bo_dau_mau`). Chỗ chưa gặp thì sẽ sai, và bộ đo là nơi
+# phát hiện nó.
+# ---------------------------------------------------------------------------
+
+def _bo_dau(s: str) -> str:
+    d = unicodedata.normalize("NFD", s)
+    return "".join(c for c in d if unicodedata.category(c) != "Mn").replace("đ", "d").replace("Đ", "D")
+
+
+def _la_khong_dau(q: str) -> bool:
+    return _bo_dau(q) == q
+
+
+def _bo_dau_mau(pattern: str) -> str:
+    """Bỏ dấu trong NGUỒN regex; một nhánh trần "rà" thành "ra" (từ quá phổ biến: "ra kho lấy hàng") nên đổi
+    thành "ra soat"."""
+    return re.sub(r"(?<=[(|])ra(?=[|)])", "ra soat", _bo_dau(pattern))
+
+
+class _Mau:
+    """Mẫu regex có dạng có dấu và dạng bỏ dấu; chọn theo câu. Có đủ các phương thức mà module này dùng."""
+
+    __slots__ = ("_co_dau", "_khong_dau")
+
+    def __init__(self, pattern: str, flags: int = 0, *, khong_dau: str | None = None):
+        self._co_dau = re.compile(pattern, flags)
+        self._khong_dau = re.compile(khong_dau if khong_dau is not None else _bo_dau_mau(pattern), flags)
+
+    def _chon(self, q: str) -> re.Pattern[str]:
+        return self._khong_dau if _la_khong_dau(q) else self._co_dau
+
+    def search(self, q: str):
+        return self._chon(q).search(q)
+
+    def finditer(self, q: str):
+        return self._chon(q).finditer(q)
+
+    def findall(self, q: str):
+        return self._chon(q).findall(q)
+
+    def sub(self, repl: str, q: str) -> str:
+        return self._chon(q).sub(repl, q)
+
+
+# Số tiền: "3 triệu", "3.500.000đ", "500k", "3tr5". Có nó thì câu hỏi thuế là câu TÍNH,
 # không có thì là câu TRA LUẬT — hai đường đi khác hẳn nhau.
 # Ngưỡng 5 chữ số cho số trần có chủ đích: 4 chữ số là NĂM. "Báo cáo thuế năm
 # 2026" mà tính 2026 thành số tiền thì câu đó bị kéo vào tool `vat` với tham số
 # vô nghĩa, trong khi nó chỉ là một câu hỏi báo cáo.
-_SO_TIEN = re.compile(
-    r"\d[\d.,]*\s*(triệu|tri\.?|nghìn|ngàn|tỷ|ty\b|đồng|đ\b|vnd|k\b)"
+_SO_TIEN = _Mau(
+    r"\d[\d.,]*\s*(triệu|tr(?=\d|\b)|tri\.?|nghìn|ngàn|tỷ|ty\b|đồng|đ\b|vnd|k\b)"
     r"|\d{1,3}([.,]\d{3}){1,3}\b"
     r"|\b\d{5,}\b",
     re.IGNORECASE,
@@ -58,7 +115,7 @@ _SO_TIEN = re.compile(
 # soi KHO THẬT có nhắc hoá đơn bằng lời ("kiểm kê kho, đối chiếu với hóa đơn
 # nhập hàng"). Điều kiện đủ nằm ở `la_cau_soat_hoa_don`: phải kèm DẤU HIỆU
 # hoá đơn dán kèm — đúng đặc trưng của sự cố T4.
-_HOA_DON_KIEM = re.compile(
+_HOA_DON_KIEM = _Mau(
     r"(kiểm|soát|đối chiếu|xác minh|validate|verify)"
     r".{0,60}(hoá đơn|hóa đơn|invoice)"
     r"|(hoá đơn|hóa đơn|invoice).{0,60}"
@@ -69,7 +126,7 @@ _HOA_DON_KIEM = re.compile(
 # Dấu hiệu NỘI DUNG HOÁ ĐƠN DÁN KÈM (JSON do OCR/VLM đọc ra, hoặc bảng số
 # liệu chép vào): ngoặc nhọn, hoặc tên trường quen thuộc của payload hoá đơn.
 # Câu gõ tay bằng lời không chứa những thứ này.
-_TU_KHOA_DAN_KEM = re.compile(
+_TU_KHOA_DAN_KEM = _Mau(
     r"[{}]|\b(items|total_amount|unit_price|subtotal)\b",
     re.IGNORECASE,
 )
@@ -79,7 +136,7 @@ _TU_KHOA_DAN_KEM = re.compile(
 # '{' đầu đến '}' cuối, vì JSON hoá đơn lồng nhiều tầng ngoặc; nhánh hai vớt
 # JSON bị cắt cụt (có mở không có đóng). Thay bằng MỘT khoảng trắng chứ không
 # xoá trắng để hai vế câu không bị dính chữ vào nhau tạo match giả.
-_KHOI_NGOAC = re.compile(r"\{.*\}|\{.*$", re.DOTALL)
+_KHOI_NGOAC = _Mau(r"\{.*\}|\{.*$", re.DOTALL)
 
 
 def _co_dau_hieu_dan_kem(cau: str) -> bool:
@@ -143,30 +200,34 @@ def la_cau_soat_hoa_don(cau: str) -> bool:
 # Số tiền kèm đơn vị hoặc có dấu phân cách hàng nghìn. Hẹp hơn `_SO_TIEN` có chủ
 # đích: không nhận số trần 5 chữ số (mã, số lượng) làm giá chào.
 _TIEN = (
-    r"(\d[\d.,]*\s*(triệu|tr\b|nghìn|ngàn|đồng|đ\b|vnđ|vnd|k\b)"
+    r"(\d[\d.,]*\s*(triệu|tr(?=\d|\b)|nghìn|ngàn|đồng|đ\b|vnđ|vnd|k\b)"
     r"|\d{1,3}([.,]\d{3}){1,3}\b)"
 )
 
 # Giá NHÀ XE đưa ra: chủ thể là bên vận chuyển, động từ chào/báo/chốt, rồi một
 # số tiền — trong cùng một mệnh đề (không vượt dấu chấm câu). "nhà xe nào rẻ
 # nhất" không có số tiền nên không khớp: đó là câu chọn nhà xe chưa có giá.
-_GIA_NHA_XE = re.compile(
+_GIA_NHA_XE = _Mau(
     r"(nhà xe|nha xe|hãng xe|nhà thầu|bên xe|đơn vị vận chuyển|\bhọ\b)"
-    r"[^.;?!\n]{0,60}?\b(chào|chao|báo chốt|chốt|báo)\b[^.;?!\n]{0,60}?" + _TIEN,
+    r"[^.;?!\n]{0,60}?\b(chào|chao|báo chốt|chốt|báo)\b[^.;?!\n]{0,60}?" + _TIEN
+    # "giá (cước) nhà xe 12 triệu", "nhà xe 6 triệu": giá đứng liền sau chủ thể, không có động từ chào/báo.
+    + r"|(giá|cước)\s+(cước\s+)?(của\s+)?(nhà xe|nha xe|hãng xe)[^.;?!\n]{0,20}?" + _TIEN
+    + r"|(nhà xe|nha xe|hãng xe)\s*(là|:)?\s*" + _TIEN,
     re.IGNORECASE,
 )
 
 # Biên lợi nhuận là THAM SỐ của phép tính giá bán, không phải yêu cầu báo cáo.
-_BIEN = re.compile(r"biên\s+(lợi nhuận|lãi)|bien\s+(loi nhuan|lai)\b|\bmargin\b",
-                   re.IGNORECASE)
+# "biên 10%", "lãi 12%", "lợi nhuận 8%" cũng là biên: người ta hiếm khi nói đủ "biên lợi nhuận".
+_BIEN = _Mau(r"biên\s+(lợi nhuận|lãi)|biên\s*\d|(lãi|lời|lợi nhuận)\s*\d+([.,]\d+)?\s*%|\bmargin\b",
+             re.IGNORECASE)
 
 # Một LỜI CHÀO trong câu liệt kê nhiều nhà xe: số tiền đi kèm điều khoản
 # (chiết khấu / công nợ) trong cùng vế, hoặc "chào" + số tiền.
-_LOI_CHAO_KEM_DIEU_KHOAN = re.compile(
+_LOI_CHAO_KEM_DIEU_KHOAN = _Mau(
     _TIEN + r"[^;\n]{0,40}?(chiết khấu|chiet khau|công nợ|cong no)",
     re.IGNORECASE,
 )
-_CHAO_SO_TIEN = re.compile(r"\b(chào|chao)\s+(giá\s+)?" + _TIEN, re.IGNORECASE)
+_CHAO_SO_TIEN = _Mau(r"\b(chào|chao)\s+(giá\s+)?" + _TIEN, re.IGNORECASE)
 
 
 def la_cau_so_chao_gia(cau: str) -> bool:
@@ -194,14 +255,32 @@ def la_cau_tinh_gia_ban(cau: str) -> bool:
             and bool(_GIA_NHA_XE.search(q)) and bool(_BIEN.search(q)))
 
 
+# Yêu cầu RÕ về danh mục hàng / công nợ. Câu TÍNH thuế trên một số tiền ("mua dầu nhớt 3tr5 thuế 8%, tổng
+# phải trả bao nhiêu") chứa tên hàng gần "8%" và cụm "phải trả bao nhiêu", nên khớp luật danh mục và luật
+# công nợ dù không ai hỏi chuyện đó. Chỉ khi câu có số tiền VÀ tính thuế thì hai tool này bị gạt, trừ khi câu
+# nói rõ mình hỏi danh mục / công nợ bằng các cụm dưới đây.
+_MAU_DANH_MUC_RO = _Mau(
+    r"danh mục|mã hàng|mặt hàng nào|cờ thuế|cờ giảm|toàn bộ (sản phẩm|hàng)|từng (mã|mặt hàng)",
+    re.IGNORECASE,
+)
+_MAU_CONG_NO_RO = _Mau(r"công nợ|nhà cung cấp|khách (hàng )?(nợ|nào)|đối tác|dư nợ", re.IGNORECASE)
+
+
+# Câu hỏi ĐỊNH NGHĨA ("doanh thu là gì, khác lợi nhuận chỗ nào", "công nợ là gì"): chứa từ nghiệp vụ nhưng
+# người hỏi muốn được giải thích, không muốn chạy phân tích trên số liệu của họ.
+_MAU_DINH_NGHIA = _Mau(r"\blà gì\b|khác (nhau )?(chỗ nào|ở đâu|gì)|nghĩa là gì|khái niệm", re.IGNORECASE)
+
+
 # Mẫu SOI KHO tách ra thành hằng riêng vì được dùng ở HAI chỗ: trong `_RULES`
 # (chọn tool) và trong `plan_tools` (kiểm lại trên phần câu ĐÃ BỎ khối dán kèm
 # — xem chú thích phủ quyết ở đó). Hai chỗ phải cùng một mẫu, viết hai lần thì
 # trôi nhau (P4).
-_MAU_SOI_KHO = re.compile(
-    r"(soi|rà|rà soát|kiểm tra|kiểm|đối chiếu|audit)\s+.{0,12}(kho|tồn|sổ sách)"
+_MAU_SOI_KHO = _Mau(
+    r"(soi|rà|rà soát|soát|kiểm tra|kiểm|đối chiếu|audit)\s+.{0,12}(kho|tồn|sổ sách)"
     r"|tồn (kho )?âm|sai sổ sách|lệch sổ|hàng chết|hàng tồn lâu"
-    r"|giá vốn.{0,15}(sai|lệch|bất thường)",
+    r"|giá vốn.{0,15}(sai|lệch|bất thường)"
+    # "tồn cuối kỳ có khớp với số nhập xuất không": đối chiếu tồn với sổ.
+    r"|(tồn|kho).{0,30}(khớp|lệch).{0,20}(nhập xuất|sổ|thẻ kho)",
     re.IGNORECASE,
 )
 
@@ -210,7 +289,7 @@ _MAU_SOI_KHO = re.compile(
 # Viết CHẶT có chủ đích. Luật bắt hụt thì câu đó đi tiếp vào nhánh cũ — vẫn trả
 # lời được. Luật bắt thừa thì một câu chào hỏi bị kéo vào vòng gọi tool và trả
 # về thứ chẳng liên quan. Sai kiểu thứ hai đắt hơn nhiều.
-_RULES: list[tuple[str, re.Pattern[str], bool]] = [
+_RULES: list[tuple[str, _Mau, bool]] = [
     (
         "inventory_audit",
         _MAU_SOI_KHO,
@@ -225,35 +304,43 @@ _RULES: list[tuple[str, re.Pattern[str], bool]] = [
         #    "chưa nối được dữ liệu".
         # Ranh giới: DATA_INTERNAL lo một con số, `report` lo phân tích lãi/lỗ.
         "report",
-        re.compile(
+        _Mau(
             r"báo cáo\s+(tài chính|kinh doanh|lãi|lỗ|lợi nhuận|doanh thu chi phí)"
             # "BIÊN lợi nhuận" là tham số giá bán, không phải yêu cầu báo cáo
             # — xem khối "BA Ý ĐỊNH" ở trên.
             r"|lãi (gộp|ròng|hay lỗ)|lỗ hay lãi|(?<!biên )lợi nhuận"
             r"|tổng kết (kinh doanh|quý|năm|tháng)"
-            r"|(quý|tháng|năm|nửa năm) (này|trước|vừa rồi|qua).{0,20}(lãi|lỗ)"
+            r"|(quý|tháng|năm|nửa năm) (này|nay|trước|vừa rồi|qua).{0,30}(lãi|lỗ)"
             r"|mặt hàng nào (lãi|lời) nhất|tuyến nào (lỗ|lãi)"
-            r"|so sánh doanh (thu|số) (quý|tháng|năm)",
+            r"|so sánh doanh (thu|số) (quý|tháng|năm)"
+            # "báo cáo doanh thu" (có chữ báo cáo), và doanh thu đặt cạnh nhau hai kỳ: đó là phân tích,
+            # khác "doanh thu hôm nay bao nhiêu" (một con số, nhánh DATA_INTERNAL lo).
+            r"|báo cáo\s+doanh (thu|số)"
+            r"|doanh (thu|số)\s+[^.?!\n]{0,30}so với",
             re.IGNORECASE,
         ),
         False,
     ),
     (
         "forecast_reorder",
-        re.compile(
+        _Mau(
             r"nên nhập (thêm|hàng)|có nên nhập|cần nhập thêm|đặt hàng lại|đặt thêm hàng"
             r"|dự báo (nhu cầu|bán|tiêu thụ)|tồn an toàn|điểm đặt hàng"
-            r"|sắp hết hàng|bao giờ hết hàng|nhập bao nhiêu",
+            r"|sắp hết hàng|bao giờ hết hàng|nhập bao nhiêu"
+            r"|(cần|nên|gợi ý|đề xuất).{0,25}đặt (thêm|hàng)|số lượng (cần |nên )?(đặt|nhập)"
+            r"|bao lâu (nữa )?(thì )?(sẽ )?hết (hàng|tồn)?|(mặt hàng|hàng|sản phẩm)[^.?!\n]{0,20}sắp hết"
+            r"|sắp hết (hàng|tồn)|cần đặt gấp",
             re.IGNORECASE,
         ),
         False,
     ),
     (
         "carrier_selection",
-        re.compile(
+        _Mau(
             r"(nhà xe|hãng xe|đơn vị vận chuyển|nhà thầu) nào"
             r"|chọn (nhà xe|hãng xe|đơn vị vận chuyển)"
-            r"|so sánh (nhà xe|hãng xe)"
+            r"|so sánh (các )?(nhà xe|hãng xe)|xếp hạng.{0,15}(nhà xe|hãng xe)"
+            r"|ưu tiên (ai|nhà xe|hãng xe)|trong các (nhà xe|hãng xe)"
             r"|nên (thuê|dùng|giao cho) (nhà xe|hãng xe|ai)",
             re.IGNORECASE,
         ),
@@ -267,7 +354,7 @@ _RULES: list[tuple[str, re.Pattern[str], bool]] = [
         # bị thay bằng "tôi chưa có danh sách công nợ" — đổi một câu trả lời được
         # thành một câu từ chối.
         "partner_audit",
-        re.compile(
+        _Mau(
             r"(soi|rà soát|rà|kiểm tra|kiểm|đối chiếu|phân tích|thống kê|tổng hợp)"
             r"\s+\S{0,15}\s*(công nợ|phải thu|phải trả)"
             r"|tổng (công nợ|phải thu|phải trả)"
@@ -277,6 +364,10 @@ _RULES: list[tuple[str, re.Pattern[str], bool]] = [
             r"|nợ (quá hạn|khó đòi|lâu (chưa|không) trả)"
             r"|thu hồi (công )?nợ|đòi nợ|khách nào nợ nhiều"
             r"|dư nợ (của |khách)|vốn lưu động"
+            r"|số dư (của )?(khách|nhà cung cấp|đối tác)|có ai nợ|nợ quá (lớn|nhiều)"
+            r"|công nợ (của )?khách|(công nợ|phải thu|phải trả).{0,25}tập trung"
+            r"|chiếm bao nhiêu phần trăm.{0,20}(nợ|công nợ|phải thu|phải trả)"
+            r"|(còn )?nợ nhà cung cấp"
             r"|(mã số thuế|mst)\s+\S{0,10}\s*(sai|trùng|không hợp lệ|kiểm)",
             re.IGNORECASE,
         ),
@@ -292,21 +383,29 @@ _RULES: list[tuple[str, re.Pattern[str], bool]] = [
         # "doanh nghiệp nhỏ có được giảm thuế không" — một câu tra luật — bị kéo
         # vào tool đối chiếu danh mục.
         "vat_catalog_audit",
-        re.compile(
+        _Mau(
             r"(thuế suất|thuế gtgt|vat)"
             r".{0,25}(mặt hàng|hàng hoá|hàng hóa|danh mục|mã hàng|sản phẩm)"
             r"|(mặt hàng|hàng hoá|hàng hóa|dầu nhớt|dầu nhờn|mã hàng|sản phẩm)"
             r".{0,30}(được giảm|mấy phần trăm|bao nhiêu phần trăm|8%|10%)"
             r"|8% hay 10%|10% hay 8%"
             r"|gắn cờ thuế|cờ thuế|áp (sai |nhầm )?thuế suất"
-            r"|(soi|rà soát|rà|kiểm tra|đối chiếu).{0,15}(thuế suất|cờ thuế)",
+            r"|(soi|rà soát|rà|kiểm tra|đối chiếu).{0,15}(thuế suất|cờ thuế)"
+            r"|cờ giảm|giảm 2%|(đối chiếu|rà|soát).{0,15}danh mục"
+            r"|(danh mục|danh sách).{0,40}(giảm thuế|thuế suất)"
+            r"|hàng nào.{0,40}(thuế|vat).{0,30}(không được giảm|sai)"
+            r"|(thuế|vat) (8%|10%).{0,40}không được giảm",
             re.IGNORECASE,
         ),
         False,
     ),
     (
         "vat",
-        re.compile(r"thuế|vat|gtgt", re.IGNORECASE),
+        _Mau(
+            r"thuế|vat|gtgt", re.IGNORECASE,
+            khong_dau=r"thue(?!\s*(xe|nha|kho|mat bang|van chuyen|dat\b|dia diem|xuong|may))"
+                      r"|\bvat\b(?!\s*(tu|lieu|dung|nuoi|ly|chat))|gtgt",
+        ),
         True,   # phải có số tiền, nếu không thì là câu tra luật -> RETRIEVAL
     ),
 ]
@@ -360,6 +459,8 @@ def plan_tools(question: str, available: list[str] | None = None) -> list[str]:
         return []
 
     co_so_tien = bool(_SO_TIEN.search(q))
+    if not co_so_tien and _MAU_DINH_NGHIA.search(q):
+        return []
     khop = {
         tool
         for tool, mau, can_so in _RULES
@@ -389,6 +490,13 @@ def plan_tools(question: str, available: list[str] | None = None) -> list[str]:
         if not van_doi_soi_kho:
             khop.discard("inventory_audit")
 
+    # Câu TÍNH thuế trên số tiền: gạt danh mục và công nợ khớp nhờ từ chung chung (xem `_MAU_DANH_MUC_RO`).
+    if "vat" in khop and co_so_tien:
+        if not _MAU_DANH_MUC_RO.search(q):
+            khop.discard("vat_catalog_audit")
+        if not _MAU_CONG_NO_RO.search(q):
+            khop.discard("partner_audit")
+
     # Ba ý định "báo giá" — xem khối "BA Ý ĐỊNH". Ý định 3 xét TRƯỚC: câu so
     # nhiều nhà xe cũng có chữ "chào". Cả hai gạt `report`: "biên lợi nhuận"
     # trong câu là tham số, và một câu hỏi giá bán không được nhận về báo cáo
@@ -404,6 +512,48 @@ def plan_tools(question: str, available: list[str] | None = None) -> list[str]:
         khop &= set(available)
 
     return [t for t in _PIPELINE if t in khop][:MAX_PLAN]
+
+
+def vao_vong_agentic(cat: str, plan: list[str], cau: str) -> bool:
+    """
+    Câu này có vào VÒNG AGENTIC (tool do luật chọn) không, hay đi luồng riêng của nhánh `cat`?
+
+    `cat` là nhánh do `SemanticRouter` chọn, `plan` là kết quả `plan_tools(cau)`. Hàm thuần: cùng đầu vào
+    cho cùng kết quả. Tách khỏi `chat.py` (16/11/2026) để bộ đo nghiệp vụ dùng CHÍNH định nghĩa này.
+
+    Mặc định: có kế hoạch và nhánh không phải LOGISTICS hay TECHNICAL thì vào. LOGISTICS và TECHNICAL đã có
+    luồng struct riêng (trích xuất báo giá -> n8n; sinh workflow -> validate), đều tất định và đang chạy được.
+
+    Ba NGOẠI LỆ cho LOGISTICS, từng cái có sự cố đi kèm:
+
+    NGOẠI LỆ HẸP cho LOGISTICS (sự cố tái hiện 23/08/2026): câu DÁN KÈM
+    hoá đơn VẬN TẢI bị luật từ khoá của SemanticRouter bắt thành
+    LOGISTICS (method=keyword, score=1.0) chỉ vì TÊN DÒNG HÀNG trong
+    hoá đơn chứa chữ vận chuyển ("Cước vận chuyển HN-HP") — đó là DỮ
+    LIỆU nằm trong tờ hoá đơn, không phải Ý ĐỊNH của người hỏi. Đứng
+    ngoài vòng agentic khi ấy nghĩa là kế hoạch ["vat"] không bao giờ
+    chạy: người dùng đòi SOÁT hoá đơn lại nhận về luồng BÁO GIÁ.
+
+    Điều kiện mở cửa CỐ Ý gồm cả hai vế: kế hoạch phải chứa `vat` VÀ câu
+    phải là soát-hoá-đơn-có-nội-dung-dán-kèm (`la_cau_soat_hoa_don` —
+    cùng một hàm mà `plan_tools` dùng để cộng `vat`, hai nơi không lệch
+    nhau được). Câu báo giá thật ("báo giá xe 5 tấn đi Hải Phòng") không
+    thoả vế nào nên vẫn đi nguyên luồng n8n. TECHNICAL giữ nguyên.
+
+    Cùng hình dạng, hai ý định nữa (chủ dự án chốt 28/10/2026, sau
+    BR-05): câu TÍNH GIÁ BÁN từ giá nhà xe đã có ("nhà xe chào 12,5 triệu,
+    biên 8%") và câu SO NHIỀU LỜI CHÀO GIÁ. Cả hai hay chứa "báo giá" nên
+    router xếp LOGISTICS, nhưng luồng n8n chỉ nhận tuyến/xe/ngày — nó vứt
+    đúng con số người dùng vừa đưa. Mỗi ngoại lệ cần CẢ tool trong kế
+    hoạch LẪN hàm nhận diện của chính tool_planner, nên "nhà xe nào rẻ
+    nhất" (chưa có giá) và "báo giá xe 5 tấn đi HP" vẫn đi n8n.
+    """
+    y_dinh_trong_logistics = cat == "LOGISTICS" and (
+        ("vat" in plan and la_cau_soat_hoa_don(cau))
+        or ("quote" in plan and la_cau_tinh_gia_ban(cau))
+        or ("carrier_selection" in plan and la_cau_so_chao_gia(cau))
+    )
+    return bool(plan) and (cat not in ("LOGISTICS", "TECHNICAL") or y_dinh_trong_logistics)
 
 
 def needs_system_data(tool: str) -> bool:
