@@ -24,7 +24,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
-from src.api.chay_ngoai_loop import chay_ngoai_loop
+from src.api.chay_ngoai_loop import chay_ngoai_loop, chay_tren_kho
 from src.api.dependencies import (
     ChatRequest,
     clean_output,
@@ -852,7 +852,7 @@ async def chat_endpoint(
 
             if runtime.kb:
                 try:
-                    passages = runtime.kb.search(kb_ws, user_msg, top_k=2)
+                    passages = await chay_tren_kho(runtime.kb.search, kb_ws, user_msg, top_k=2)
                     if passages:
                         from src.core.knowledge import format_for_prompt
                         context_docs = f"[TÀI LIỆU NỘI BỘ]\n{format_for_prompt(passages)}"
@@ -862,7 +862,7 @@ async def chat_endpoint(
                             extra={"request_id": request_id},
                         )
                     else:
-                        _canh_bao_lech_pham_vi(kb_ws, request_id)
+                        await chay_tren_kho(_canh_bao_lech_pham_vi, kb_ws, request_id)
                 except Exception as exc:
                     logger.warning(
                         "KB search lỗi: %s", exc,
