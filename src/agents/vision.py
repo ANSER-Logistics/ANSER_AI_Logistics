@@ -14,41 +14,18 @@ import logging
 
 from json_repair import repair_json
 
+from src.core.prompts import Prompts
+
 logger = logging.getLogger("projecta.agents.vision")
 
 
 class VisionAgent:
+    # Nguyên văn nằm ở `Prompts` (AGENTS §4.1 quy tắc 7); đây chỉ là bảng tra theo tên tác vụ.
     PROMPTS = {
-        "caption": "Mô tả chi tiết nội dung hình ảnh này bằng tiếng Việt.",
-        "ocr": (
-            "Trích xuất TOÀN BỘ văn bản xuất hiện trong ảnh. "
-            "Giữ nguyên thứ tự dòng và dấu tiếng Việt. "
-            "Chỉ trả về văn bản, không thêm giải thích."
-        ),
-        "invoice": (
-            "Bạn là hệ thống trích xuất hóa đơn. Đọc ảnh hóa đơn và trả về DUY NHẤT "
-            "một JSON hợp lệ, KHÔNG kèm giải thích, đúng schema:\n"
-            '{"items": [{"name": "string", "price": 0, "qty": 1}], "total": 0}\n'
-            "Quy tắc: 'price' là ĐƠN GIÁ trước thuế; 'total' là tổng tiền ghi trên hóa đơn "
-            "(đã gồm thuế). Mọi số tiền là số nguyên VND, không dùng dấu phân cách hàng nghìn. "
-            "Bỏ qua dòng nào không đọc được."
-        ),
-        # Hoá đơn CƯỚC VẬN TẢI — hình dạng khác hẳn hoá đơn bán lẻ ở trên.
-        # Giữ cả hai: công ty vừa phân phối dầu nhớt (nhập hàng -> hoá đơn bán lẻ)
-        # vừa làm vận tải (thuê nhà xe -> hoá đơn cước).
-        "freight": (
-            "Bạn là hệ thống đọc HOÁ ĐƠN CƯỚC VẬN TẢI của nhà xe. Đọc ảnh và trả về "
-            "DUY NHẤT một JSON hợp lệ, KHÔNG kèm giải thích.\n"
-            "Các trường: carrier_name, carrier_tax_code, invoice_no, invoice_date "
-            "(YYYY-MM-DD), origin (điểm đi), destination (điểm đến), vehicle_type, "
-            "plate_number (biển số), charges (danh sách khoản), vat_rate, subtotal, "
-            "vat_amount, total.\n"
-            "Mỗi khoản trong 'charges' gồm: kind (một trong: cước, bốc xếp, lưu ca, "
-            "cầu đường, quay đầu, khác), description, quantity (số chuyến/số lần), "
-            "unit_price (đơn giá CHƯA thuế).\n"
-            "QUAN TRỌNG: trường nào KHÔNG ĐỌC ĐƯỢC thì để null — TUYỆT ĐỐI không "
-            "đoán, không điền 0. Số tiền là số nguyên VND, không dấu phân cách."
-        ),
+        "caption": Prompts.VLM_CAPTION,
+        "ocr": Prompts.VLM_OCR,
+        "invoice": Prompts.VLM_INVOICE,
+        "freight": Prompts.VLM_FREIGHT,
     }
 
     def __init__(self, engine):
