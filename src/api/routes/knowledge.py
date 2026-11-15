@@ -28,7 +28,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from src.api.chay_ngoai_loop import chay_ngoai_loop
+from src.api.chay_ngoai_loop import chay_ngoai_loop, chay_tren_kho
 from src.api.dependencies import MAX_UPLOAD_BYTES, require_api_token, runtime
 from src.core import doc_extract
 
@@ -96,7 +96,8 @@ async def upload_document(
 
     kb = await _kb()
     try:
-        res = kb.add_document(
+        res = await chay_tren_kho(
+            kb.add_document,
             workspace_id.strip(),
             boc.text,
             source=file.filename or "khong_ten",
@@ -128,7 +129,8 @@ async def list_documents(
     require_api_token(x_api_token)
     if not workspace_id.strip():
         raise HTTPException(status_code=422, detail="Thiếu workspace_id.")
-    return {"documents": (await _kb()).list_documents(workspace_id.strip())}
+    kb = await _kb()
+    return {"documents": await chay_tren_kho(kb.list_documents, workspace_id.strip())}
 
 
 @router.delete("/documents")
@@ -141,7 +143,8 @@ async def delete_document(
     require_api_token(x_api_token)
     if not workspace_id.strip() or not source.strip():
         raise HTTPException(status_code=422, detail="Thiếu workspace_id hoặc source.")
-    n = (await _kb()).delete_document(workspace_id.strip(), source.strip())
+    kb = await _kb()
+    n = await chay_tren_kho(kb.delete_document, workspace_id.strip(), source.strip())
     if n == 0:
         raise HTTPException(status_code=404, detail=f"Không có tài liệu tên {source!r}.")
     return {"source": source, "deleted_chunks": n}
@@ -176,7 +179,10 @@ async def search(req: SearchRequest, x_api_token: Optional[str] = Header(None)):
         except ValueError:
             raise HTTPException(status_code=422, detail="on_date phải dạng YYYY-MM-DD.")
 
-    passages = (await _kb()).search(req.workspace_id.strip(), req.query, req.top_k, on_date=on)
+    kb = await _kb()
+    passages = await chay_tren_kho(
+        kb.search, req.workspace_id.strip(), req.query, req.top_k, on_date=on
+    )
     return {
         "passages": [
             {
