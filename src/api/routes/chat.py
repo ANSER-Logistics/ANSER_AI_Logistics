@@ -612,7 +612,8 @@ async def chat_endpoint(
 
         # Lịch sử hội thoại — thiếu nó thì mọi tin nhắn là một phiên độc lập,
         # "thế xe 3 tấn thì sao?" không thể hiểu được.
-        history = _load_history(user_id)
+        # Đọc DB nằm ngoài event loop (§4.1-2): `/health` và việc poll tác vụ không chờ SQL.
+        history = await chay_ngoai_loop(_load_history, user_id)
         metric.history_turns = len(history)
 
         decision = await runtime.manager.analyze_task(user_msg)
@@ -803,9 +804,11 @@ async def chat_endpoint(
 
             ky = parse_period(user_msg)
             try:
-                products = saas.lookup_product(user_msg, workspace_id=store_id)
+                products = await chay_ngoai_loop(saas.lookup_product, user_msg, workspace_id=store_id)
                 if ky.ho_tro:
-                    sales = saas.get_sales_report(workspace_id=store_id, period=ky.period)
+                    sales = await chay_ngoai_loop(
+                        saas.get_sales_report, workspace_id=store_id, period=ky.period
+                    )
                     khoi_ban = (
                         f"[DOANH SỐ {ky.nhan.upper()}]\n"
                         f"{json.dumps(sales, ensure_ascii=False)}"
@@ -939,7 +942,10 @@ async def chat_endpoint(
 
 
         # Lưu lượt để câu sau có ngữ cảnh + ghi nhật ký đo lường
-        _save_turn(user_id, store_id, user_msg, cleaned)
+        # PHẢI `await`, không ném vào nền: lượt sau đọc lại lịch sử, nên việc ghi phải xong
+        # TRƯỚC khi tác vụ báo `completed` (ghi trước đọc). Chạy ngoài loop để SQL chậm không
+        # giữ chân cả server.
+        await chay_ngoai_loop(_save_turn, user_id, store_id, user_msg, cleaned)
 
         timer.__exit__(None, None, None)
         metric.latency_ms = timer.ms
