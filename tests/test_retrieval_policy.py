@@ -184,7 +184,7 @@ def test_duong_gui_that_dung_bo_loc():
     "cau, ten_phai_biet_mat",
     [
         ("hoá đơn điện tử cho công ty Minh Long có bắt buộc không", "Minh"),
-        ("thuế suất cho nhà xe Hoàng Phát Logistics", "Hoàng"),
+        ("thuế suất cho nhà xe Vạn Tín Logistics", "Vạn"),
         ("hợp đồng với đối tác Phúc Thịnh cần giấy tờ gì", "Phúc"),
         # Ca này bắt được một lỗi thật: bản đầu để "VIỆT"/"NAM" vào danh sách
         # từ chung (nghĩ tới "Việt Nam"), nên vòng lặp dừng ngay ở "Nam" và
@@ -276,7 +276,7 @@ def test_giu_hinh_thuc_phap_nhan_nhung_xoa_ten():
     "cau, ten_phai_biet_mat, phai_con",
     [
         ("công ty minh long có bắt buộc xuất hoá đơn không", ["minh", "long"], "công ty có bắt buộc"),
-        ("nhà xe hoàng phát thu cước thế nào", ["hoàng", "phát"], "nhà xe thu cước"),
+        ("nhà xe vạn tín thu cước thế nào", ["vạn", "tín"], "nhà xe thu cước"),
         ("thủ tục kiện khách trần văn nam đòi nợ", ["trần", "văn", "nam"], "khách đòi nợ"),
         # Chữ hoa vẫn được lo như cũ, kể cả khi từ đánh dấu gõ không dấu.
         ("cong ty Minh Long có bắt buộc không", ["Minh", "Long"], "cong ty có bắt buộc"),

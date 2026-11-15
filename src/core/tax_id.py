@@ -12,7 +12,7 @@ không bao giờ báo nhầm.
 nhánh, thường viết '0123456789-001'. Phần 10 số đầu vẫn phải đúng số kiểm tra.
 
 ĐỐI CHIẾU THỰC TẾ: chạy trên 109 mã số thuế thật trong danh sách khách hàng và
-nhà cung cấp của Hoàng Phát — 0 mã sai. Một công thức sai sẽ không cho kết quả
+nhà cung cấp của khách pilot — 0 mã sai. Một công thức sai sẽ không cho kết quả
 sạch như vậy trên dữ liệu thật.
 
 Hàm này KHÔNG nói mã số thuế có tồn tại hay không, cũng không nói doanh nghiệp
@@ -52,7 +52,7 @@ def chuan_hoa(ma: object) -> str:
     Bỏ khoảng trắng và dấu chấm; giữ nguyên dấu gạch ngang của chi nhánh.
 
     Ô Excel định dạng kiểu SỐ sẽ nuốt mất số 0 đứng đầu, mà rất nhiều mã số
-    thuế Việt Nam bắt đầu bằng 0 — '0109527605' về tay ta thành 109527605. Chỉ
+    thuế Việt Nam bắt đầu bằng 0 — '0991234566' về tay ta thành 991234566. Chỉ
     bù số 0 khi đầu vào ĐÚNG LÀ SỐ và độ dài đúng 9 hoặc 12; chuỗi 9 ký tự thì
     để nguyên, vì đó là dữ liệu sai chứ không phải bị Excel cắt.
     """
@@ -81,7 +81,7 @@ def kiem_ma_so_thue(ma: object) -> KetQuaMST:
         # do Bộ Công an cấp) thay cho mã số thuế của cá nhân, hộ kinh doanh và
         # người phụ thuộc.
         #
-        # Trên dữ liệu thật của Hoàng Phát có 5 khách như vậy — hộ kinh doanh và
+        # Trên dữ liệu thật của khách pilot có 5 khách như vậy — hộ kinh doanh và
         # cá nhân. Bản đầu của hàm này báo cả 5 là "không đúng khuôn", tức là
         # buộc tội năm dòng hoàn toàn hợp lệ, chỉ vì luật vừa đổi.
         #

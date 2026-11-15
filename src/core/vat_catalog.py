@@ -17,7 +17,7 @@ trừ**: than, sản phẩm dầu mỏ tinh chế (xăng, nhiên liệu dầu, *
 trơn**, khí dầu mỏ), sản phẩm hoá chất, kim loại đúc sẵn, hàng hoá dịch vụ
 công nghệ thông tin.
 
-Nghĩa là dầu nhớt — toàn bộ mặt hàng của Hoàng Phát — **được giảm còn 8%** kể
+Nghĩa là dầu nhớt — toàn bộ mặt hàng của khách pilot — **được giảm còn 8%** kể
 từ 01/7/2025, trong khi trước đó chịu 10%. Đây là thay đổi dễ bỏ sót nhất vì
 nó đi ngược thói quen nhiều năm.
 

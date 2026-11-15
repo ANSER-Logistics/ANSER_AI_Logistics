@@ -23,7 +23,7 @@ from tests.test_knowledge import FakeCollection, FakeEmbedder, FakeReranker
 docx = pytest.importorskip("docx")
 client = TestClient(app)
 
-HP = "hoang-phat"
+HP = "khach-mau"
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 """
 Kiểm thử src/core/receivables.py.
 
-Số liệu dùng ở đây lấy từ hồ sơ thật của Hoàng Phát (11/08/2026): phải thu
+Số liệu dùng ở đây lấy từ hồ sơ thật của khách pilot (11/08/2026): phải thu
 3,96 tỷ · phải trả 1,41 tỷ · tồn kho 2,87 tỷ · giá vốn xuất 7,83 tỷ trong 223
 ngày. Ba con số đó nói một điều mà không báo cáo kế toán nào nói thẳng: tiền
 nằm ở khách nhiều hơn nằm ở kho.
@@ -15,11 +15,11 @@ from src.core.partner_import import KHACH_HANG, NHA_CUNG_CAP, Partner
 from src.core.receivables import audit_partners, suc_khoe_von_luu_dong
 
 
-def kh(code, name="CÔNG TY TNHH THỬ", so_du=0.0, mst="0109527605") -> Partner:
+def kh(code, name="CÔNG TY TNHH THỬ", so_du=0.0, mst="0991234566") -> Partner:
     return Partner(code=code, name=name, balance=so_du, tax_id=mst, role=KHACH_HANG)
 
 
-def ncc(code, name="CÔNG TY TNHH NCC", so_du=0.0, mst="2900325124") -> Partner:
+def ncc(code, name="CÔNG TY TNHH NCC", so_du=0.0, mst="9902000029") -> Partner:
     return Partner(code=code, name=name, balance=so_du, tax_id=mst, role=NHA_CUNG_CAP)
 
 
@@ -36,14 +36,14 @@ def lay(kq, kind) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def test_phai_thu_am_duoc_bao_va_quy_ra_tien():
-    kq = audit_partners([kh("KH00053", "TRẦN ĐÌNH QUÂN", -1_296_000, "")])
+    kq = audit_partners([kh("KH00053", "NGUYỄN VĂN MẪU", -1_296_000, "")])
     f = lay(kq, "negative_receivable")[0]
     assert f["money_impact"] == 1_296_000
     assert f["code"] == "KH00053"
 
 
 def test_phai_tra_am_duoc_bao_rieng_khong_gop_voi_phai_thu():
-    kq = audit_partners([], [ncc("NCC00003", "HATEK", -3_000)])
+    kq = audit_partners([], [ncc("NCC00003", "NCC MẪU MỘT", -3_000)])
     assert kinds(kq) == ["negative_payable"]
     assert lay(kq, "negative_payable")[0]["money_impact"] == 3_000
 
@@ -55,7 +55,7 @@ def test_so_du_duong_khong_bi_bao():
 
 def test_so_du_None_khong_bi_coi_la_am():
     """`None` là CHƯA BIẾT. Coi nó là 0 hay số âm đều là bịa dữ liệu."""
-    p = Partner(code="A", name="CÔNG TY A", balance=None, tax_id="0109527605")
+    p = Partner(code="A", name="CÔNG TY A", balance=None, tax_id="0991234566")
     assert lay(audit_partners([p]), "negative_receivable") == []
 
 
@@ -111,8 +111,8 @@ def test_khong_co_khach_nao_thi_khong_no_ra_loi():
 # ---------------------------------------------------------------------------
 
 def test_ca_hai_chieu_cung_duong_thi_de_xuat_bu_tru():
-    a = kh("KH00021", "CÔNG TY PHƯƠNG", 50_000_000, "0106172584")
-    b = ncc("KH00021", "CÔNG TY PHƯƠNG", 30_000_000, "0106172584")
+    a = kh("KH00021", "CÔNG TY MẪU HAI", 50_000_000, "9906000069")
+    b = ncc("KH00021", "CÔNG TY MẪU HAI", 30_000_000, "9906000069")
     f = lay(audit_partners([a], [b]), "partner_both_roles")[0]
     assert f["money_impact"] == 30_000_000, "bù trừ được bằng số NHỎ HƠN"
     assert f["evidence"]["bù_trừ_được"] == 30_000_000
@@ -123,22 +123,22 @@ def test_khach_am_ma_cung_la_ncc_thi_bao_muc_cao():
     Trường hợp thật KH00021: số dư phải thu −28.962.041 trong khi cùng đối tác
     đó cũng là nhà cung cấp. Dấu hiệu nghiệp vụ mua bị ghi vào tài khoản phải thu.
     """
-    a = kh("KH00021", "CÔNG TY PHƯƠNG", -28_962_041, "0106172584")
-    b = ncc("KH00021", "CÔNG TY PHƯƠNG", 0, "0106172584")
+    a = kh("KH00021", "CÔNG TY MẪU HAI", -28_962_041, "9906000069")
+    b = ncc("KH00021", "CÔNG TY MẪU HAI", 0, "9906000069")
     f = lay(audit_partners([a], [b]), "partner_both_roles")[0]
     assert f["severity"] == "cao"
     assert f["money_impact"] == 28_962_041
 
 
 def test_ca_hai_chieu_bang_khong_thi_khong_bao():
-    a = kh("KH00022", "YÊN HƯNG", 0, "0101912588")
-    b = ncc("KH00022", "YÊN HƯNG", 0, "0101912588")
+    a = kh("KH00022", "CÔNG TY MẪU BA", 0, "9905000059")
+    b = ncc("KH00022", "CÔNG TY MẪU BA", 0, "9905000059")
     assert lay(audit_partners([a], [b]), "partner_both_roles") == []
 
 
 def test_gop_theo_ma_so_thue_ke_ca_khi_ma_doi_tac_khac_nhau():
-    a = kh("KH00099", "CÔNG TY X", 10_000_000, "0106172584")
-    b = ncc("NCC00099", "CÔNG TY X", 4_000_000, "0106172584")
+    a = kh("KH00099", "CÔNG TY X", 10_000_000, "9906000069")
+    b = ncc("NCC00099", "CÔNG TY X", 4_000_000, "9906000069")
     assert len(lay(audit_partners([a], [b]), "partner_both_roles")) == 1
 
 
@@ -153,7 +153,7 @@ def test_khong_co_mst_thi_gop_theo_ma_doi_tac():
 # ---------------------------------------------------------------------------
 
 def test_mst_sai_so_kiem_tra_bao_muc_cao():
-    kq = audit_partners([kh("A", "CÔNG TY A", 0, "0109527604")])
+    kq = audit_partners([kh("A", "CÔNG TY A", 0, "0991234562")])
     f = lay(kq, "invalid_tax_id")[0]
     assert f["severity"] == "cao"
     assert "khấu trừ" in f["suggestion"]
@@ -162,31 +162,31 @@ def test_mst_sai_so_kiem_tra_bao_muc_cao():
 def test_mst_sai_khuon_bao_muc_thap_hon_sai_so_kiem_tra():
     """Sai khuôn có thể chỉ là gõ thiếu; sai số kiểm tra thì chắc chắn sai."""
     khuon = lay(audit_partners([kh("A", "CÔNG TY A", 0, "12345")]), "invalid_tax_id")[0]
-    kiem = lay(audit_partners([kh("B", "CÔNG TY B", 0, "0109527604")]), "invalid_tax_id")[0]
+    kiem = lay(audit_partners([kh("B", "CÔNG TY B", 0, "0991234562")]), "invalid_tax_id")[0]
     assert khuon["severity"] == "trung bình"
     assert kiem["severity"] == "cao"
 
 
 def test_so_dinh_danh_ca_nhan_12_so_KHONG_bi_bao_la_sai():
     """
-    Năm khách thật của Hoàng Phát dùng số định danh cá nhân. Báo chúng là "mã số
+    Năm khách thật của khách pilot dùng số định danh cá nhân. Báo chúng là "mã số
     thuế không đúng khuôn" là năm phát hiện sai trên một báo cáo có hai mươi —
     đủ để người đọc thôi tin phần còn lại.
     """
-    ds = [kh("KH00071", "HỘ KINH DOANH NGÔ VĂN NGÂN 1983", 5_000_000, "001083006805"),
-          kh("KH00086", "HÀ ĐƯƠNG", 1_000_000, "034052005581")]
+    ds = [kh("KH00071", "HỘ KINH DOANH LÊ VĂN MẪU 1983", 5_000_000, "700000000001"),
+          kh("KH00086", "TRẦN THỊ MẪU", 1_000_000, "700000000002")]
     assert lay(audit_partners(ds), "invalid_tax_id") == []
 
 
 def test_hai_khach_dung_chung_mot_so_dinh_danh_thi_van_bao_trung():
-    ds = [kh("A", "NGÔ VĂN NGÂN", 1_000, "001083006805"),
-          kh("B", "NGO VAN NGAN", 2_000, "001083006805")]
+    ds = [kh("A", "LÊ VĂN MẪU", 1_000, "700000000001"),
+          kh("B", "LE VAN MAU", 2_000, "700000000001")]
     assert len(lay(audit_partners(ds), "duplicate_partner")) == 1
 
 
 def test_ca_nhan_khong_co_mst_thi_KHONG_bao():
-    """32/104 khách của Hoàng Phát là khách lẻ. Báo hết thì báo cáo thành rác."""
-    kq = audit_partners([kh("KH00023", "Nguyễn Trung Kiên", 500_000, "")])
+    """32/104 khách của khách pilot là khách lẻ. Báo hết thì báo cáo thành rác."""
+    kq = audit_partners([kh("KH00023", "Phạm Văn Mẫu", 500_000, "")])
     assert lay(kq, "missing_tax_id") == []
     assert lay(kq, "invalid_tax_id") == []
 
@@ -197,8 +197,8 @@ def test_to_chuc_khong_co_mst_thi_BAO():
 
 
 def test_mot_mst_dung_cho_hai_ma_khach_thi_bao_trung():
-    ds = [kh("KH00010", "CÔNG TY A", 5_000_000, "0109527605"),
-          kh("KH00088", "CTY A", 3_000_000, "0109527605")]
+    ds = [kh("KH00010", "CÔNG TY A", 5_000_000, "0991234566"),
+          kh("KH00088", "CTY A", 3_000_000, "0991234566")]
     f = lay(audit_partners(ds), "duplicate_partner")[0]
     assert f["evidence"]["các_mã"] == ["KH00010", "KH00088"]
     assert f["evidence"]["tổng_số_dư"] == 8_000_000
@@ -207,8 +207,8 @@ def test_mot_mst_dung_cho_hai_ma_khach_thi_bao_trung():
 
 def test_chi_nhanh_va_cong_ty_me_KHONG_bi_coi_la_trung():
     """13 số và 10 số là hai pháp nhân khác nhau khi xuất hoá đơn."""
-    ds = [kh("A", "CÔNG TY MẸ", 0, "0111322034"),
-          kh("B", "CHI NHÁNH", 0, "0111322034-001")]
+    ds = [kh("A", "CÔNG TY MẸ", 0, "0993000034"),
+          kh("B", "CHI NHÁNH", 0, "0993000034-001")]
     assert lay(audit_partners(ds), "duplicate_partner") == []
 
 
@@ -287,7 +287,7 @@ def test_phai_tra_lon_hon_thi_von_ket_am():
 # ---------------------------------------------------------------------------
 
 def test_moi_phat_hien_cung_hinh_dang_voi_cac_module_khac():
-    ds = [kh("A", "CÔNG TY A", -5_000, "0109527604"), kh("B", so_du=900_000)]
+    ds = [kh("A", "CÔNG TY A", -5_000, "0991234562"), kh("B", so_du=900_000)]
     for f in audit_partners(ds, [ncc("N", so_du=-100)])["findings"]:
         assert set(f) == {"kind", "severity", "code", "product", "unit",
                           "title", "evidence", "money_impact", "suggestion"}

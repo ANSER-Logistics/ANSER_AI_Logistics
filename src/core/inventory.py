@@ -469,7 +469,7 @@ def audit_inventory(
 
     `allow_zero_value` — KHO KHUYẾN MẠI và các kho tương tự
     -------------------------------------------------------
-    Chạy trên bản xuất MISA THẬT của Hoàng Phát (10/08/2026): kho KHUYẾN MẠI có
+    Chạy trên bản xuất MISA THẬT của khách pilot (10/08/2026): kho KHUYẾN MẠI có
     **29 trên 38 dòng** bị gắn cờ "có số lượng nhưng không ghi nhận giá trị".
     Với kho mà giá trị 0 là TRẠNG THÁI BÌNH THƯỜNG — hàng nhà cung cấp tặng kèm,
     không mua nên không có giá vốn — đó không phải phát hiện, đó là tiếng ồn.

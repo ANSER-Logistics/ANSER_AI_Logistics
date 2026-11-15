@@ -33,9 +33,9 @@ def _bang(tieu_de, *dong, tren=("Danh sách khách hàng",)):
 def test_doc_dung_bang_khach_hang_that():
     rows = _bang(
         TIEU_DE_KH,
-        [1, "KH00001", "CÔNG TY CỔ PHẦN 479 HOÀ BÌNH", "Số 54, Nguyễn Du",
-         1129540864, "2900325124", ""],
-        [2, "KH00023", "Nguyễn Trung Kiên", "Hà Nội", 0, "", "0912345678"],
+        [1, "KH00001", "CÔNG TY CỔ PHẦN MẪU MỘT", "Số 1, Phố Mẫu",
+         1129540864, "9902000029", ""],
+        [2, "KH00023", "Phạm Văn Mẫu", "Hà Nội", 0, "", "0912345678"],
         ["", "Tổng", "", "", "", "", ""],
     )
     res = parse_partner_table(rows)
@@ -43,7 +43,7 @@ def test_doc_dung_bang_khach_hang_that():
     assert len(res.partners) == 2
     a, b = res.partners
     assert a.code == "KH00001"
-    assert a.tax_id == "2900325124"
+    assert a.tax_id == "9902000029"
     assert a.balance == 1129540864
     assert b.code == "KH00023" and b.tax_id == ""
 
@@ -54,15 +54,15 @@ def test_cot_ma_so_thue_KHONG_bi_nhan_nham_la_cot_ma():
     đối tác trở thành mã số thuế — mọi dòng vẫn đọc được, chỉ là sai hết.
     """
     rows = _bang(TIEU_DE_KH,
-                 [1, "KH00001", "CÔNG TY A", "HN", 1000, "2900325124", ""])
+                 [1, "KH00001", "CÔNG TY A", "HN", 1000, "9902000029", ""])
     p = parse_partner_table(rows).partners[0]
     assert p.code == "KH00001"
-    assert p.tax_id == "2900325124"
+    assert p.tax_id == "9902000029"
 
 
 def test_dong_Tong_khong_thanh_mot_doi_tac():
     rows = _bang(TIEU_DE_KH,
-                 [1, "KH00001", "CÔNG TY A", "HN", 1000, "2900325124", ""],
+                 [1, "KH00001", "CÔNG TY A", "HN", 1000, "9902000029", ""],
                  ["", "Tổng", "", "", "", "", ""])
     assert [p.code for p in parse_partner_table(rows).partners] == ["KH00001"]
 
@@ -153,9 +153,9 @@ def test_cong_no_am_ghi_bang_ngoac_doc_dung():
 
 
 def test_ma_so_thue_dang_SO_khong_mat_so_0_dau():
-    """Ô định dạng kiểu số làm '0106733254' thành 106733254."""
-    rows = _bang(TIEU_DE_KH, [1, "KH1", "CÔNG TY A", "", 0, 106733254, ""])
-    assert parse_partner_table(rows).partners[0].tax_id == "0106733254"
+    """Ô định dạng kiểu số làm '0991000021' thành 991000021."""
+    rows = _bang(TIEU_DE_KH, [1, "KH1", "CÔNG TY A", "", 0, 991000021, ""])
+    assert parse_partner_table(rows).partners[0].tax_id == "0991000021"
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +166,6 @@ def test_nhan_ra_to_chuc_de_biet_khi_nao_thieu_mst_la_loi():
     assert Partner(code="1", name="CÔNG TY TNHH ABC").la_phap_nhan()
     assert Partner(code="2", name="Chi nhánh Công ty Cổ phần Mắt Bão").la_phap_nhan()
     assert Partner(code="3", name="HỢP TÁC XÃ VẬN TẢI").la_phap_nhan()
-    assert not Partner(code="4", name="Nguyễn Trung Kiên").la_phap_nhan()
+    assert not Partner(code="4", name="Phạm Văn Mẫu").la_phap_nhan()
     assert not Partner(code="5", name="ĐẶNG XUÂN TIẾN").la_phap_nhan()
     assert not Partner(code="6", name="").la_phap_nhan()

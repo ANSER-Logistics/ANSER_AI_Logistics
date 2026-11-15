@@ -191,7 +191,7 @@ _HINH_THUC_PHAP_NHAN = {"TNHH", "CP", "CTCP", "MTV", "TM", "DV", "XNK", "SX"}
 # nào tách "mình" khỏi "minh" khi đã mất dấu.
 #
 # KHÔNG đưa vào đây những từ có thể là tên: "minh", "long", "hà", "hải", "nam", "anh",
-# "chị", "em" (đại từ nhưng cũng là tên), "thịnh", "hưng", "phát" (Hoàng Phát, nhưng cũng
+# "chị", "em" (đại từ nhưng cũng là tên), "thịnh", "hưng", "phát" (tên riêng thường gặp, nhưng cũng
 # "phát hành": "công ty phát hành hoá đơn" thành "công ty hoá đơn", chấp nhận mất chữ đó).
 # Thêm một từ vào đây là nới lỏng một lớp R2: phải kèm một câu trong
 # `test_cau_cong_khai_that_co_tu_danh_dau_di_nguyen_van` cho thấy câu đó có thật và đang

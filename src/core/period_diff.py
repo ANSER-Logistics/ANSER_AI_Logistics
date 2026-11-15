@@ -8,7 +8,7 @@ Mọi phép kiểm trong `inventory.py` chỉ nhìn được MỘT bản báo c�
 sổ hôm nay hợp lệ, sổ tháng trước cũng hợp lệ, mà hai bản kể hai câu chuyện
 khác nhau về CÙNG một quãng thời gian.
 
-Ví dụ có thật (Hoàng Phát, cùng ngày bắt đầu 01/01/2026):
+Ví dụ có thật (khách pilot, cùng ngày bắt đầu 01/01/2026):
 
     VT00059   bản đến 24/07: xuất 4508 → tồn −21
               bản đến 11/08: xuất 4400 → tồn +87

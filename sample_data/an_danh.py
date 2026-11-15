@@ -7,7 +7,7 @@ Bộ eval kế toán cần chạy trên dữ liệu THẬT: những thứ đáng
 (sửa hồi tố 108 lít, 157 mã sai diện thuế, tập trung 66% phải thu) đều không
 dựng lại được bằng dữ liệu bịa. Nhưng bốn file gốc chứa **tên khách hàng, mã số
 thuế và số tiền từng người đang nợ** — đẩy lên GitHub là đưa danh sách khách của
-Hoàng Phát cho bên thứ ba giữ (P2).
+khách pilot cho bên thứ ba giữ (P2).
 
 Script này tách hai thứ đó ra: **giữ mọi thuộc tính phép kiểm dựa vào**, thay
 mọi thứ nhận dạng được người thật.
@@ -56,10 +56,12 @@ from typing import Any
 GOC_DU_AN = Path(__file__).resolve().parent.parent
 RA = GOC_DU_AN / "tests" / "du_lieu_eval"
 
+# Tên file gốc do MISA đặt và có chứa tên khách. Đổi tên file trên máy cho khớp các tên dưới
+# đây (KHACH = tên khách); KHÔNG ghi tên thật vào repo công khai (AGENTS.md R2).
 TEP = {
-    "ton_kho_24_07": "Tong_hop_ton_kho-Hoàng-Phát-Kho-HH-24-07.xlsx",
+    "ton_kho_24_07": "Tong_hop_ton_kho-KHACH-Kho-HH-24-07.xlsx",
     "ton_kho_11_08": "Tong_hop_ton_kho-37.xlsx",
-    "ton_kho_km_24_07": "Tong_hop_ton_kho-Hoàng-Phát-Kho-KM-24-07.xlsx",
+    "ton_kho_km_24_07": "Tong_hop_ton_kho-KHACH-Kho-KM-24-07.xlsx",
     "hang_hoa": "Danh_sach_hang_hoa_dich_vu.xlsx",
     "khach_hang": "Danh_sach_khach_hang.xlsx",
     "nha_cung_cap": "Danh_sach_nha_cung_cap.xlsx",

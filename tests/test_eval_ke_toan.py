@@ -10,7 +10,7 @@ Ba thứ file này canh, không thứ nào canh được bằng test đơn vị:
   2. GIEO LỖI — mười hai lỗi đặt vào chính sổ thật đó, đáp án biết trước. Đo bắt
      được bao nhiêu và báo oan bao nhiêu.
   3. RIÊNG TƯ — bộ dữ liệu trong repo phải luôn là bản ẩn danh. Một lần lỡ tay
-     chép file gốc vào đây là danh sách khách của Hoàng Phát nằm trên GitHub.
+     chép file gốc vào đây là danh sách khách của khách pilot nằm trên GitHub.
 
 Muốn đọc số đầy đủ kèm khoảng tin cậy:
 
