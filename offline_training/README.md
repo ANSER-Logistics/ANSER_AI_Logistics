@@ -52,9 +52,9 @@ Năm hàm `score_*` không đổi — chúng là hàm thuần `(rows, outputs) -
 do cơ chế, không thuần là năng lực model.
 
 ⚠️ **Dạng `anthropic:` gửi dữ liệu ra ngoài.** Theo R2 (AGENTS.md §2), chỉ được
-chạy trên bộ đề tổng hợp (`generated/*_eval.jsonl` — sinh ngược nên tên công ty,
-tuyến đường đều hư cấu) hoặc bộ đã ẩn danh qua `sample_data/an_danh.py`. Không
-bao giờ trên bản xuất MISA thật của khách.
+chạy trên bộ đề **hoàn toàn hư cấu** (`generated/eval_*.jsonl` — sinh ngược nên tên
+công ty, tuyến đường đều hư cấu; chủ dự án chốt 15/11/2026). Bộ đã ẩn danh qua
+`sample_data/an_danh.py` KHÔNG đủ. Không bao giờ trên bản xuất MISA thật của khách.
 
 Ba lần chạy rồi so từng cặp:
 

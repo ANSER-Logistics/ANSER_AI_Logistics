@@ -359,11 +359,11 @@ Theo [ARCHITECTURE.md §12](https://github.com/ANSER-Logistics/anser-brain-docs/
 
 **Chủ dự án chốt 12/11/2026: chu kỳ 02 chạy song song hai nghiệp vụ** — sổ sách/kế toán (phần đã chạy trên dữ liệu thật của khách pilot) và logistics/báo giá vận tải. Hai tài liệu từng nói ngược nhau: `ROADMAP.md` (13/08) ghi báo giá cước "tạm gác" vì khách pilot chuyên bán dầu, còn bản trước của đoạn này ghi báo giá vận tải là ưu tiên 1. Mỗi cái đúng ở thời điểm viết; từ nay theo quyết định này và [`docs/chu-ky-02/SRS_CHU_KY_02.md`](https://github.com/ANSER-Logistics/anser-brain-docs/blob/main/docs/chu-ky-02/SRS_CHU_KY_02.md). Bán lẻ giữ lại vì code đã có, nhưng không phải đích tối ưu hoá hiện tại.
 
-### S1b — cổng đo chất lượng chưa chạy đủ (soát 04/11/2026)
+### S1b — cổng đo chất lượng: ba tập đo không nằm trong repo (soát 04/11/2026, sửa 15/11/2026)
 
-[`benchmark_v3.py`](offline_training/benchmark_v3.py) là cổng chặn chất lượng của pipeline. Nó cần bốn tập đo; **ba tập không có**:
+[`benchmark_v3.py`](offline_training/benchmark_v3.py) là cổng chặn chất lượng của pipeline. Nó cần bốn tập đo; **ba tập không có trong repo**:
 
-| Tập | Có? | Sinh bằng | Cần gì |
+| Tập | Có trong repo? | Sinh bằng | Cần gì |
 |---|---|---|---|
 | `eval_n8n.jsonl` | ✅ 34 ca | `make_n8n_eval.py` | — |
 | `eval_extraction.jsonl` | ❌ | `reverse_generate.py` | `DEEPSEEK_API_KEY` |
@@ -371,6 +371,8 @@ Theo [ARCHITECTURE.md §12](https://github.com/ANSER-Logistics/anser-brain-docs/
 | `eval_agent.jsonl` | ❌ | `make_agent_traces.py` | `DEEPSEEK_API_KEY` |
 
 Tập duy nhất còn lại đúng là tập duy nhất sinh được không cần khoá.
+
+**Sửa 15/11/2026: ba tập đó có trên Colab.** Đo bằng tìm trong Google Drive của chủ dự án: thư mục `generated` có đủ bốn tập (`eval_extraction` 48 KB, `eval_narration` 37 KB, `eval_agent` 7,5 KB, tạo 29/07; `eval_n8n` 14 KB, sửa 15/08), và phiên đo 29/10 (`BAO_CAO_BR05.md` §6d, repo tài liệu) chạy trên chúng. Nên "thiếu tập đo" đúng cho CI và cho máy dev, sai cho Colab. `DEEPSEEK_API_KEY` đã nằm trong Colab Secrets của chủ dự án, nên chạy lại cổng đo trên Colab không cần xin gì thêm. Chưa kéo ba tập về repo: việc đó cần soát từng dòng để chắc chắn không có tên thật, và phải có người quyết (xem SRS BR-33 ở repo tài liệu).
 
 **Mã nguồn xử lý chuyện này trung thực** — đây không phải lỗi che giấu. `benchmark_v3` in `"KHÔNG ĐO ĐƯỢC (thiếu dữ liệu, không phải model đạt)"`, và câu kết luận của nó có điều kiện: *"Qua mọi ngưỡng ĐO ĐƯỢC — nhưng xem hai mục ⚠ ở trên trước khi kết luận là model đạt"*. `preflight_check.py` cũng cảnh báo.
 
