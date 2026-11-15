@@ -68,6 +68,8 @@ class MemoryManager:
         # Nhớ kết quả kiểm lược đồ — `/health` gọi mỗi lần, DB chỉ hỏi một lần.
         self._luoc_do_da_kiem: bool = False
         self._luoc_do_loi: str | None = None
+        # Một trong: "ok", "error", "not_configured", "unverified". Xem `trang_thai_db`.
+        self._trang_thai_db: str = "unverified"
 
     def get_conn(self):
         if not self.engine:
@@ -104,9 +106,11 @@ class MemoryManager:
         loi_cau_hinh = getattr(self.config, "DB_URL_LOI", None)
         if loi_cau_hinh:
             self._luoc_do_loi = loi_cau_hinh
+            self._trang_thai_db = "error"
             return self._luoc_do_loi
         if not self.engine:
             self._luoc_do_loi = "Chưa nối được DB (engine=None)"
+            self._trang_thai_db = "error"
             return self._luoc_do_loi
 
         # DB_URL lùi về sqlite in-memory khi thiếu DATABASE_URL. Lúc đó mọi bảng
@@ -115,6 +119,7 @@ class MemoryManager:
         # cũng bị bỏ qua.
         if self.config.DB_URL.startswith("sqlite"):
             self._luoc_do_loi = None
+            self._trang_thai_db = "not_configured"
             return None
 
         try:
@@ -123,6 +128,9 @@ class MemoryManager:
         except Exception:
             logger.warning("Không kiểm được lược đồ DB", exc_info=True)
             self._luoc_do_loi = None   # không kiểm được ≠ sai; đừng báo oan
+            # ... nhưng cũng KHÔNG ĐƯỢC báo "ok": không kiểm được thì không biết. `trang_thai_db`
+            # nói đúng điều đó, còn `degraded` vẫn không bị kéo lên (giữ hành vi cũ).
+            self._trang_thai_db = "unverified"
             return None
 
         if thieu:
@@ -132,9 +140,29 @@ class MemoryManager:
                 "Xem khối BANG_CAN_CO trong src/core/memory.py."
             )
             logger.error("Lược đồ DB không khớp: %s", self._luoc_do_loi)
+            self._trang_thai_db = "error"
         else:
             self._luoc_do_loi = None
+            self._trang_thai_db = "ok"
         return self._luoc_do_loi
+
+    @property
+    def trang_thai_db(self) -> str:
+        """
+        Tình trạng DB trong MỘT chữ, để `/health` không còn trả `memory_schema_error: null` cho cả
+        bốn hoàn cảnh rất khác nhau (BR-20):
+
+          "ok"             đã nối DB thật và đủ bảng cần có
+          "error"          URL sai, không dựng được engine, hoặc thiếu bảng
+          "not_configured" không đặt `DATABASE_URL` (chế độ dev có chủ ý; hoặc production theo
+                           hướng "Body gửi kèm history", khi Brain không giữ DB nào)
+          "unverified"     có DB nhưng chưa kiểm được lược đồ (kết nối hỏng khi hỏi)
+
+        Gọi sau `kiem_luoc_do()`; chưa gọi thì chỉ có "unverified". Không đổi `degraded`: chỉ "error"
+        vốn đã được `memory_schema_error` kéo lên.
+        """
+        self.kiem_luoc_do()
+        return self._trang_thai_db
 
     def _get_active_session(self, conn, user_id, workspace_id="1"):
         """

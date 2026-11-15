@@ -149,8 +149,10 @@ async def health():
     # đây biến lỗi câm thành lỗi nhìn ra ngay, cùng lý lẽ với `auth_enabled`.
     # Kết quả được MemoryManager nhớ lại nên không thêm truy vấn mỗi lần gọi.
     memory_schema_error = None
+    memory_db = "not_loaded"      # MemoryManager nạp lười cùng text runtime
     if (mem := getattr(runtime, "memory", None)) is not None:
         memory_schema_error = mem.kiem_luoc_do()
+        memory_db = mem.trang_thai_db
 
     server_down = False
     server = getattr(engine, "server", None)
@@ -185,6 +187,9 @@ async def health():
             "kb_error": runtime.kb_error,
             "vision_error": runtime.vision_error,
             "memory_schema_error": memory_schema_error,
+            # `memory_schema_error: null` từng là câu trả lời cho cả "đủ bảng", "chưa đặt DATABASE_URL"
+            # và "kết nối hỏng lúc kiểm". Trường này tách bốn trường hợp (BR-20); chỉ THÊM.
+            "memory_db": memory_db,
             # Trạng thái xác thực phải NHÌN THẤY ĐƯỢC từ ngoài.
             #
             # `require_api_token` bỏ qua mọi kiểm tra khi API_AUTH_TOKEN rỗng —
