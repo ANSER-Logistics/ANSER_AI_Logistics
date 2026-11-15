@@ -217,7 +217,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 | # | Quy tắc |
 |---|---|
 | 1 | **Constrained decoding thay cho retry.** Đầu ra JSON dùng `guided_json`. Đừng "hy vọng model làm đúng rồi retry" |
-| 2 | **Không chặn event loop.** Inference nặng qua `run_in_executor` hoặc HTTP tới vLLM server |
+| 2 | **Không chặn event loop.** Inference nặng qua `run_in_executor` hoặc HTTP tới vLLM server. Hàm đồng bộ tốn thời gian gọi trong `async def` (đọc xlsx, bóc PDF, tìm web, SQL) đi qua `chay_ngoai_loop`; mọi thao tác `KnowledgeBase` đi qua `chay_tren_kho` (MỘT worker, vì `add_document` mà chạy song song với `search` thì để lại đoạn giá cũ cạnh bản mới). Cả hai ở `src/api/chay_ngoai_loop.py`; `tests/test_khong_chan_event_loop*.py` đo độ trễ của loop và canh việc này. KHÔNG `asyncio.Lock` ở mức module, KHÔNG `wait_for` trên đường kho tri thức |
 | 3 | **Log có cấu trúc, không `print`.** `logger` + `extra={"request_id": ...}` |
 | 4 | **Không nuốt exception.** `except Exception: pass` bị cấm. Ít nhất phải `logger.warning` kèm ngữ cảnh |
 | 5 | **Tool tự validate đầu vào.** Không tin tham số model điền |
