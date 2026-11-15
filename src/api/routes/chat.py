@@ -43,12 +43,7 @@ from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
 from src.core.retrieval_policy import KHONG_CO_TAI_LIEU, decide_web_fallback
 from src.core.schemas import RetailChatResponse
 from src.core.serving import DemSinh
-from src.core.tool_planner import (
-    la_cau_so_chao_gia,
-    la_cau_soat_hoa_don,
-    la_cau_tinh_gia_ban,
-    plan_tools,
-)
+from src.core.tool_planner import plan_tools, vao_vong_agentic
 from src.core.utils import extract_json_block
 from src.core.workflow_schema import validate_workflow
 
@@ -736,32 +731,9 @@ async def chat_endpoint(
 
         plan = plan_tools(user_msg, [t["name"] for t in get_tool_defs()])
 
-        # NGOẠI LỆ HẸP cho LOGISTICS (sự cố tái hiện 23/08/2026): câu DÁN KÈM
-        # hoá đơn VẬN TẢI bị luật từ khoá của SemanticRouter bắt thành
-        # LOGISTICS (method=keyword, score=1.0) chỉ vì TÊN DÒNG HÀNG trong
-        # hoá đơn chứa chữ vận chuyển ("Cước vận chuyển HN-HP") — đó là DỮ
-        # LIỆU nằm trong tờ hoá đơn, không phải Ý ĐỊNH của người hỏi. Đứng
-        # ngoài vòng agentic khi ấy nghĩa là kế hoạch ["vat"] không bao giờ
-        # chạy: người dùng đòi SOÁT hoá đơn lại nhận về luồng BÁO GIÁ.
-        #
-        # Điều kiện mở cửa CỐ Ý gồm cả hai vế: kế hoạch phải chứa `vat` VÀ câu
-        # phải là soát-hoá-đơn-có-nội-dung-dán-kèm (`la_cau_soat_hoa_don` —
-        # cùng một hàm mà `plan_tools` dùng để cộng `vat`, hai nơi không lệch
-        # nhau được). Câu báo giá thật ("báo giá xe 5 tấn đi Hải Phòng") không
-        # thoả vế nào nên vẫn đi nguyên luồng n8n. TECHNICAL giữ nguyên.
-        #
-        # Cùng hình dạng, hai ý định nữa (chủ dự án chốt 28/10/2026, sau
-        # BR-05): câu TÍNH GIÁ BÁN từ giá nhà xe đã có ("nhà xe chào 12,5 triệu,
-        # biên 8%") và câu SO NHIỀU LỜI CHÀO GIÁ. Cả hai hay chứa "báo giá" nên
-        # router xếp LOGISTICS, nhưng luồng n8n chỉ nhận tuyến/xe/ngày — nó vứt
-        # đúng con số người dùng vừa đưa. Mỗi ngoại lệ cần CẢ tool trong kế
-        # hoạch LẪN hàm nhận diện của chính tool_planner, nên "nhà xe nào rẻ
-        # nhất" (chưa có giá) và "báo giá xe 5 tấn đi HP" vẫn đi n8n.
-        y_dinh_agentic_trong_logistics = cat == "LOGISTICS" and (
-            ("vat" in plan and la_cau_soat_hoa_don(user_msg))
-            or ("quote" in plan and la_cau_tinh_gia_ban(user_msg))
-            or ("carrier_selection" in plan and la_cau_so_chao_gia(user_msg))
-        )
+        # Câu nào được vào vòng agentic và câu nào đi luồng riêng (LOGISTICS, TECHNICAL) do MỘT hàm quyết:
+        # `tool_planner.vao_vong_agentic`, để bộ đo (`offline_training/do_nghiep_vu.py`) và chỗ này không
+        # bao giờ lệch nhau. Lý do của ba ngoại lệ cho LOGISTICS nằm ở docstring của hàm đó.
         # Lượt trước Brain hỏi "giá đã gồm VAT chưa", lượt này người dùng trả
         # lời: ghép với tin nhắn hoá đơn trước đó và chạy lại `vat` — câu trả
         # lời trơn "chưa gồm VAT" tự nó không có kế hoạch nào.
@@ -770,8 +742,7 @@ async def chat_endpoint(
             resp, grounding_ctx = await _run_agentic(
                 cau_noi_thue, ["vat"], store_id, history, request_id, metric, dem
             )
-        elif plan and (cat not in ("LOGISTICS", "TECHNICAL")
-                       or y_dinh_agentic_trong_logistics):
+        elif vao_vong_agentic(cat, plan, user_msg):
             resp, grounding_ctx = await _run_agentic(
                 user_msg, plan, store_id, history, request_id, metric, dem
             )
