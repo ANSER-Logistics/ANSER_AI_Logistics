@@ -1,13 +1,13 @@
 # src/agents/vision.py
 """
-VisionAgent — lớp mỏng bọc quanh ModelEngine.generate_vision (Qwen2-VL-2B).
+VisionAgent — lớp mỏng bọc quanh ModelEngine.generate_vision (model thị giác theo VISION_MODEL_ID, mặc định Qwen2.5-VL-3B).
 
 MỘT model VLM duy nhất cho cả 3 vai trò (đã LOẠI BỎ Florence-2):
   1. caption  — mô tả ảnh bằng tiếng Việt
   2. ocr      — trích xuất văn bản thô
   3. invoice  — trích xuất hóa đơn ra JSON có cấu trúc (cho luồng nhập kho)
 
-VisionAgent KHÔNG tự load model; nó dùng chung Qwen2-VL-2B do ModelEngine sở hữu,
+VisionAgent KHÔNG tự load model; nó dùng chung model thị giác do ModelEngine sở hữu,
 nên không còn cảnh nạp 2 model vision song song.
 """
 import logging
@@ -55,7 +55,7 @@ class VisionAgent:
         if engine is None:
             raise ValueError("VisionAgent cần một ModelEngine instance")
         self.engine = engine
-        logger.info("VisionAgent ready (dùng chung Qwen2-VL-2B của ModelEngine)")
+        logger.info("VisionAgent ready (dùng chung model thị giác của ModelEngine)")
 
     def _prompt_for(self, task_hint: str) -> str:
         task_hint = (task_hint or "").lower()

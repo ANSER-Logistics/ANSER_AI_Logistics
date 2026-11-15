@@ -152,7 +152,7 @@ class RuntimeState:
         """
         Async, lock-guarded vision initialization.
 
-        Vision model (Qwen2-VL-2B) nay nằm TRONG ModelEngine -> VisionAgent chỉ là
+        Vision model (VISION_MODEL_ID, mặc định Qwen2.5-VL-3B) nay nằm TRONG ModelEngine -> VisionAgent chỉ là
         lớp mỏng dùng chung engine đó. Vì vậy phải đảm bảo engine sẵn sàng trước,
         rồi mới tạo VisionAgent(self.engine). (Đã bỏ Florence-2 tự-load.)
         """

@@ -74,15 +74,11 @@ class Config:
         #  NGÂN SÁCH VRAM — GPU L4 22.5GB (Colab Pro)
         #  Đệm an toàn ~19.5GB (chừa ~3GB cho CUDA context/driver/allocator).
         # -----------------------------------------------------------------
-        #  Thành phần        Model                      Định dạng    VRAM
-        #  Text weights      anser-qwen-distill-awq     AWQ 4-bit    ~5.5GB  ┐ trong vLLM
-        #  KV-cache+activ.   —                          —            ~6.5GB  ┘ (~12.0GB)
-        #  Vision/VLM        Qwen2-VL-2B-Instruct       FP16(bf16)   ~4.5GB  ┐
-        #  Embedding         paraphrase-MiniLM-L12-v2   FP16         ~0.5GB  │ ngoài vLLM
-        #  Reranker          ms-marco-MiniLM-L-6-v2     FP16         ~0.3GB  │ (~6.3GB)
-        #  ChromaDB (hot)    —                          —            ~1.0GB  ┘
-        # -----------------------------------------------------------------
-        #  TỔNG ~18.3GB < 19.5GB ✓
+        #  Bảng ước lượng cũ (Qwen2-VL-2B, MiniLM) đã xoá 16/11/2026: các model
+        #  trong đó không còn là mặc định. Số ĐO thật, text + vision cùng máy:
+        #  VRAM đỉnh 21,1GB / 22,5GB ở TEXT_GPU_FRACTION=0.55 (BAO_CAO_BR04.md §6,
+        #  repo tài liệu). Vision mặc định Qwen2.5-VL-3B (~7,5GB bf16, engine.py);
+        #  embedder bge-m3 và reranker ViRanker chạy trên CPU mặc định (KB_DEVICE).
         # =================================================================
 
         # --- Brain: Text reasoning (chạy qua vLLM TRONG tiến trình) ---
