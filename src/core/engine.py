@@ -9,6 +9,7 @@ from src.core.config import Config
 from src.core.serving import (
     REPETITION_PENALTY_TU_DO,
     BackendUnavailable,
+    CauHinhSai,
     ChatRequest,
     CompletionRequest,
     KetQuaSinh,
@@ -36,10 +37,6 @@ def _ket_qua_trong_tien_trinh(out) -> tuple[str, int | None]:
 
 ENV_NAP_TRONG_TIEN_TRINH = frozenset({"GPU", "COLAB"})
 ENV_HOP_LE = frozenset({"LOCAL", "SERVER"}) | ENV_NAP_TRONG_TIEN_TRINH
-
-
-class CauHinhSai(ValueError):
-    """`ENV` / `VLLM_BASE_URL` không ghép thành một cấu hình chạy được."""
 
 
 def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
