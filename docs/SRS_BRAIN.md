@@ -4,7 +4,7 @@
 |---|---|
 | Ngày và commit đo | 15/11/2026, commit `f0464ed`, nhánh `feat/workflow-format-and-deterministic-core` |
 | Người soạn | Agent AI (Claude), từ mã nguồn và tài liệu có sẵn trong repo. Lịch sử soạn và kiểm: Phụ lục C |
-| Người chịu trách nhiệm | Chưa có. Một thành viên team Brain cần đọc, kiểm từng khẳng định mình ký, rồi ghi tên và ngày vào đây trước khi coi tài liệu là chính thức |
+| Người chịu trách nhiệm | Chủ dự án, đang kiểm định từ 15/11/2026; chưa ký. Khi kiểm xong, ghi ngày ký vào đây. Các chỗ chỉ chủ dự án biết hoặc quyết được nằm ở danh sách "Cần chủ dự án xác nhận" ngay dưới Phụ lục C |
 | Phạm vi | ANSER Brain. Body (ứng dụng nghiệp vụ của dự án) có repo tài liệu riêng; tài liệu này chỉ nêu phần Brain cần biết về Body |
 | Tình trạng | Bốn lỗ hở mức P0 chưa sửa (BR-23 đến BR-26), ba việc chờ Body, năm việc chờ chủ dự án (người quyết cuối của dự án), trong đó có chọn model chạy production. Viết tắt và thuật ngữ: §12 |
 
@@ -713,4 +713,19 @@ Con số nào lệch với kết quả lệnh dưới đây thì tài liệu nà
 
 | Ngày | Ai | Việc | Cách kiểm | Người duyệt |
 |---|---|---|---|---|
-| 15/11/2026 | Agent AI (Claude) | Soạn bản đầu từ mã nguồn và tài liệu có sẵn; đo các con số ở Phụ lục B bằng lệnh | Ba reviewer độc lập (cũng là agent AI): đọc lạnh không xem mã; kiểm từng khẳng định với mã và trạng thái GitHub; biên tập văn phong. Kết quả: sửa các số đo model (dùng phiên 29/10 thay phiên 15/08), thêm BR-34, đổi cách đặt tên T/P, thêm định nghĩa cho 20 thuật ngữ | Chưa có |
+| 15/11/2026 | Agent AI (Claude) | Soạn bản đầu từ mã nguồn và tài liệu có sẵn; đo các con số ở Phụ lục B bằng lệnh | Ba reviewer độc lập (cũng là agent AI): đọc lạnh không xem mã; kiểm từng khẳng định với mã và trạng thái GitHub; biên tập văn phong. Kết quả: sửa các số đo model (dùng phiên 29/10 thay phiên 15/08), thêm BR-34, đổi cách đặt tên T/P, thêm định nghĩa cho 20 thuật ngữ | Chủ dự án, đang kiểm định, chưa ký |
+
+### Cần chủ dự án xác nhận
+
+Ba reviewer không kiểm được các điểm dưới đây vì chúng nằm ngoài mã và ngoài GitHub. Chỉ chủ dự án biết hoặc quyết được.
+
+| Điểm | Chỗ trong tài liệu | Cần trả lời |
+|---|---|---|
+| Khách pilot có đang gọi một bản Brain thật nào không | §2.1 | Có hay không; nếu có thì chạy ở đâu |
+| Đã thuê GPU nào cho production chưa | §4.7 | Có hay không |
+| Chưa workflow n8n nào chạy trên n8n thật | §4.6 | Đúng hay sai |
+| Body đã có hoặc sẽ có repo tài liệu riêng | tiêu đề, §1.3, §9 | Tên và thời điểm |
+| `requirements-gpu.txt` không cài được trên Windows | §3 | Đúng hay sai (chưa ai thử) |
+| Model chạy production: giữ bản fine-tune hay đổi | §8.2 | Quyết định (BR-33 đo lại trước) |
+| Mỗi chữ "chủ dự án" trong §8.1 và §8.2 đúng là việc của một mình chủ dự án | §8 | Đúng hay có người khác quyết |
+
