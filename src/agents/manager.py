@@ -468,11 +468,10 @@ class ManagerAgent(BaseAgent):
 
     # -- định tuyến --------------------------------------------------------
 
-    async def analyze_task(self, clean_text: str) -> dict:
+    def phan_loai(self, clean_text: str) -> dict:
         """
-        Trả về {category, score, margin, method}.
-        `chat.py` chỉ đọc `category` nên vẫn tương thích ngược; các khoá còn lại
-        dùng để ghi log và đo chất lượng router.
+        Trả về {category, score, margin, method}. ĐỒNG BỘ: lớp embedding gọi `encode` của model (chặn).
+        Đừng gọi thẳng trong `async def` khi câu có thể cần embedding: xem `cach_chay`.
         """
         result = self.router.route_with_score((clean_text or "").strip())
         return {
@@ -481,6 +480,33 @@ class ManagerAgent(BaseAgent):
             "margin": result["margin"],
             "method": result["method"],
         }
+
+    def cach_chay(self, clean_text: str) -> str:
+        """
+        Câu này nên được phân loại ở đâu để KHÔNG chặn event loop (AGENTS §4.1 quy tắc 2):
+
+          "ngay"       lớp từ khoá tự quyết được, hoặc router không có embedder: chỉ là regex, vài micro giây,
+                       chạy thẳng trên loop.
+          "kho"        cần `encode` bằng đúng embedder mà kho tri thức đang dùng chung: PHẢI chạy trên worker
+                       duy nhất của kho, để hai luồng không gọi cùng một model một lúc (BR-27).
+          "ngoai_loop" cần `encode` bằng embedder RIÊNG của router: ra thread pool mặc định, không có gì để
+                       tranh với kho.
+
+        Đo 16/11/2026 (Thành, #85): gọi `encode` ngay trên loop thì khi kho bận, trễ router p95 230 đến 277 ms
+        và trong lúc đó `/health` và mọi request khác phải chờ. Chủ dự án chọn hướng "đẩy sang kho".
+        """
+        q = (clean_text or "").strip()
+        if self.router.embedder is None or self.router._keyword_route(q):
+            return "ngay"
+        kb = self.kb
+        chung = getattr(kb, "loaded_embedder", None)
+        if chung is not None and chung() is self.router.embedder:
+            return "kho"
+        return "ngoai_loop"
+
+    async def analyze_task(self, clean_text: str) -> dict:
+        """Giữ chữ ký cũ. Chỗ gọi trong `chat.py` dùng `phan_loai` + `cach_chay` để không chặn loop."""
+        return self.phan_loai(clean_text)
 
     # -- helper chọn prompt ------------------------------------------------
 

@@ -596,6 +596,24 @@ async def _gui_webhook(client, url: str, payload: dict, headers: dict, task_id: 
 
 
 
+async def _phan_loai(manager, user_msg: str) -> dict:
+    """
+    Phân loại câu hỏi mà KHÔNG chặn event loop. Lớp embedding của router gọi `encode` (chặn, 83 đến 277 ms), và
+    embedder đó dùng CHUNG với kho tri thức, nên chỗ chạy do `manager.cach_chay` quyết (lý do ở đó): ngay trên loop
+    nếu chỉ là từ khoá, trên worker của kho nếu dùng chung embedder, thread pool mặc định nếu embedder riêng.
+
+    Manager không có `phan_loai` (đồ giả trong test) thì giữ đường cũ `analyze_task`.
+    """
+    if not hasattr(manager, "phan_loai"):
+        return await manager.analyze_task(user_msg)
+    cach = manager.cach_chay(user_msg)
+    if cach == "kho":
+        return await chay_tren_kho(manager.phan_loai, user_msg)
+    if cach == "ngoai_loop":
+        return await chay_ngoai_loop(manager.phan_loai, user_msg)
+    return manager.phan_loai(user_msg)
+
+
 def _webhook_headers(task_id: str, request_id: str = "") -> dict[str, str]:
     """
     Header cho webhook gọi về Body. KHÔNG bịa token khi chưa cấu hình.
@@ -696,7 +714,7 @@ async def chat_endpoint(
         history = await chay_ngoai_loop(_load_history, user_id)
         metric.history_turns = len(history)
 
-        decision = await runtime.manager.analyze_task(user_msg)
+        decision = await _phan_loai(runtime.manager, user_msg)
         cat = decision.get("category", "GENERAL")
         metric.route = cat
         metric.router_score = decision.get("score")
