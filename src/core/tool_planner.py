@@ -316,7 +316,9 @@ _RULES: list[tuple[str, _Mau, bool]] = [
             # "báo cáo doanh thu" (có chữ báo cáo), và doanh thu đặt cạnh nhau hai kỳ: đó là phân tích,
             # khác "doanh thu hôm nay bao nhiêu" (một con số, nhánh DATA_INTERNAL lo).
             r"|báo cáo\s+doanh (thu|số)"
-            r"|doanh (thu|số)\s+[^.?!\n]{0,30}so với",
+            r"|doanh (thu|số)\s+[^.?!\n]{0,30}so với"
+            r"|\bso\s+doanh (thu|số)[^.?!\n]{0,40}\bvới\b"
+            r"|mặt hàng nào[^.?!\n]{0,30}(doanh (thu|số)|lãi|lỗ|lời)",
             re.IGNORECASE,
         ),
         False,
@@ -367,7 +369,7 @@ _RULES: list[tuple[str, _Mau, bool]] = [
             r"|số dư (của )?(khách|nhà cung cấp|đối tác)|có ai nợ|nợ quá (lớn|nhiều)"
             r"|công nợ (của )?khách|(công nợ|phải thu|phải trả).{0,25}tập trung"
             r"|chiếm bao nhiêu phần trăm.{0,20}(nợ|công nợ|phải thu|phải trả)"
-            r"|(còn )?nợ nhà cung cấp"
+            r"|(còn )?nợ nhà cung cấp|còn phải (trả|thu)"
             r"|(mã số thuế|mst)\s+\S{0,10}\s*(sai|trùng|không hợp lệ|kiểm)",
             re.IGNORECASE,
         ),
