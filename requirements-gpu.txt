@@ -11,8 +11,11 @@
 # khai thêm một ràng buộc torch thứ hai chỉ tạo chỗ để hai bên cãi nhau.
 -r requirements.txt
 
-accelerate>=1.0.0
-bitsandbytes>=0.44.1
+# Ghim 16/11/2026 (#13) theo bản đã chạy trong phiên Colab sạch (Python 3.13.16,
+# L4): vLLM server + guided_json, model ảnh, kho tri thức đều chạy. Bản đó ghi ở
+# cuối dòng. Hai gói đầu giữ sàn cũ, chỉ thêm trần.
+accelerate>=1.0.0,<2            # 1.15.0
+bitsandbytes>=0.44.1,<0.51      # 0.50.2
 # Ràng buộc giải mã JSON cho ĐƯỜNG ẢNH. Đường text đi qua vLLM nên đã có
 # `guided_json`; đường ảnh chạy qua transformers.generate() nên trước giờ không
 # có gì ràng buộc — JSON hỏng là chuyện thường, mà `json_repair` chỉ vá được cú
@@ -20,14 +23,15 @@ bitsandbytes>=0.44.1
 # Chọn lm-format-enforcer chứ không phải outlines: nó cắm thẳng vào
 # `prefix_allowed_tokens_fn` — cơ chế transformers đã có sẵn — nên không phải
 # bọc lại vòng sinh và không đụng gì tới đường vLLM.
-lm-format-enforcer
+lm-format-enforcer>=0.11.3,<0.12   # 0.11.3
 # Vision trong tiến trình (Qwen2.5-VL qua transformers). Không file nào trong
 # src/ import ba gói dưới trực tiếp — chúng là phụ thuộc phụ của model ảnh.
-# Chưa ai xác nhận gói nào thật sự cần; giữ nguyên như trước khi tách.
-decord
-einops
-qwen_vl_utils
-timm
+# Chưa ai xác nhận gói nào thật sự cần; giữ nguyên như trước khi tách. Phiên
+# #13 chỉ xác nhận bộ bốn gói này cùng nhau CHẠY ĐƯỢC, không xác nhận cần cả bốn.
+decord>=0.6.0,<0.7              # 0.6.0
+einops>=0.8.2,<0.9              # 0.8.2
+qwen_vl_utils>=0.0.14,<0.1      # 0.0.14
+timm>=1.0.31,<2                 # 1.0.31
 # TRẦN TRÊN LÀ BẮT BUỘC, không phải cho gọn.
 #
 # vLLM 0.12.0 GỠ `GuidedDecodingParams` (đổi sang `StructuredOutputsParams`).
@@ -38,4 +42,4 @@ timm
 #
 # Sàn 0.10.2: bản sớm nhất cài được trên Python 3.13 (Colab đã lên 3.13, các
 # bản <= 0.10.1 khai `Requires-Python <3.13` nên pip bỏ qua hết).
-vllm>=0.10.2,<0.12
+vllm>=0.10.2,<0.12              # 0.11.2 (phiên #13: torch 2.9.0, xgrammar 0.1.25)

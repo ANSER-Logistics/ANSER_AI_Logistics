@@ -51,10 +51,8 @@ def _runtime_va_gpu() -> dict[str, str]:
 # ĐƯỢC KHAI, không phải danh sách miễn trừ: mỗi lần ghim được một gói thì xoá
 # khỏi đây, và test ở dưới đỏ nếu còn sót tên đã ghim.
 CHUA_GHIM: frozenset[str] = frozenset({
-    # Nhóm AI — cần một phiên có GPU thật để xác nhận (issue #6, phần cuối).
-    "chromadb", "decord", "einops", "lm-format-enforcer", "numpy", "openai",
-    "qwen_vl_utils", "scikit-learn", "sentence-transformers", "sentencepiece",
-    "timm",
+    # Nhóm AI (11 gói) đã ghim 16/11/2026 (#13) theo một phiên Colab GPU sạch — xem đầu
+    # requirements.txt. Không còn gói nào của nhóm đó ở đây.
     # Chưa cài trên máy soát nên không có bản nào làm căn cứ.
     "nest_asyncio", "pyngrok",
     # Cố ý không ghim — lý do ngay trên dòng của nó trong requirements.txt.
