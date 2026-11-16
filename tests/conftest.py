@@ -28,3 +28,6 @@ os.environ.pop("REDIS_URL", None)
 def _khong_mang_vllm_tu_may_chay_vao_test(monkeypatch):
     monkeypatch.delenv("VLLM_BASE_URL", raising=False)
     monkeypatch.delenv("VLLM_MODEL", raising=False)
+    # Cùng lý do cho đường vision qua HTTP (#14).
+    monkeypatch.delenv("VLLM_VISION_BASE_URL", raising=False)
+    monkeypatch.delenv("VLLM_VISION_MODEL", raising=False)
