@@ -32,13 +32,8 @@ ENV_MAU = GOC / "deploy" / ".env.example"
 # chạy. Nối xong thì xoá khỏi đây.
 CHUA_NOI: dict[str, str] = {
     # REDIS_URL đã nối 09/11/2026 (#15): engine.tao_task_registry() đọc nó.
-    "VLLM_VISION_BASE_URL": (
-        "Chưa có client HTTP cho vision — serving.py mới chỉ có đường text. "
-        "Từ BR-03, ENV=SERVER nghĩa là vision TẮT CÓ TUYÊN BỐ (vision_backend "
-        "= 'none', generate_vision ném BackendUnavailable), thay vì nạp CUDA "
-        "trong container Brain. Nối qua HTTP thuộc chu kỳ 02."
-    ),
-    "VLLM_VISION_MODEL": "Cùng lý do với VLLM_VISION_BASE_URL.",
+    # VLLM_VISION_BASE_URL, VLLM_VISION_MODEL đã nối 09/11/2026 (#14):
+    # VLLMServerClient.cho_vision() đọc cả hai.
 }
 
 # Biến đọc qua f-string nên quét bằng regex không thấy:
@@ -432,6 +427,11 @@ DOI_HANH_VI: dict[str, str] = {
     "BODY_CALLBACK_URL": (
         "Đặt URL là BẬT một lời gọi ra ngoài mang theo câu trả lời của AI. Rỗng "
         "là tắt. Phải tài liệu hoá vì hậu quả của việc điền nó không hiển nhiên."
+    ),
+    "VLLM_VISION_BASE_URL": (
+        "Rỗng thì vision tắt ở ENV=SERVER (đọc ảnh hoá đơn trả 503). Phải đặt "
+        "CÙNG LÚC với `--profile vision`: đặt mà container không chạy thì /health "
+        "báo degraded vĩnh viễn (#14)."
     ),
 }
 

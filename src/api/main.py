@@ -178,6 +178,13 @@ async def health():
     # `degraded`, để người vận hành thấy trước khi khách thấy "Task not found".
     task_registry = TASK_REGISTRY.mo_ta()
 
+    # vllm-vision qua HTTP (#14). Chết thì `degraded`, cùng lý lẽ với text: đọc
+    # ảnh hoá đơn hỏng mà /health vẫn xanh là hỏng không triệu chứng.
+    vision_server = getattr(engine, "vision_server", None)
+    if vision_server is not None:
+        backend["vllm_vision_server"] = await vision_server.health()
+        server_down = server_down or not backend["vllm_vision_server"].get("ok", False)
+
     return JSONResponse(
         {
             "status": "ok",

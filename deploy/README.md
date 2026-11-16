@@ -141,7 +141,6 @@ ngoài nên **không cổng nào mở vào**.
 
 | Việc | Vì sao chưa làm | Chặn cái gì |
 |---|---|---|
-| Vision tắt ở `ENV: SERVER` | Chưa có client HTTP cho `vllm-vision` (chu kỳ 02) | Đọc ảnh hoá đơn qua compose. `/health` khai `vision_backend: "none"` |
 
 Đã sửa ngày 10/11/2026 (issue #17), bỏ khỏi bảng: Dockerfile cài cả `vllm` +
 torch CUDA. Nay `requirements.txt` chỉ còn phần CPU, phần GPU tách sang
@@ -158,3 +157,9 @@ trong tiến trình là báo lỗi ngay. Bằng chứng trên GPU thật thuộc
 Dockerfile được, với điều kiện `/health` báo `task_registry.backend: "redis"` và
 `redis_loi: false`. Redis lỗi thì registry lùi về RAM và `/health` báo `degraded`
 — đúng với một worker, sai với nhiều worker.
+
+Đã sửa ngày 09/11/2026 (#14), bỏ khỏi bảng: Brain có client HTTP cho
+`vllm-vision`. Bật vision: đặt `VLLM_VISION_BASE_URL=http://vllm-vision:8002`
+trong `.env` VÀ chạy `docker compose --profile vision up -d`; `/health` phải báo
+`vision_backend: "server"` và `vllm_vision_server.ok: true`. Để trống biến đó
+(mặc định) thì vision tắt có tuyên bố như trước.
