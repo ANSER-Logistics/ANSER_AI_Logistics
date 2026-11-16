@@ -123,3 +123,13 @@ chết (soát #21, 10/11/2026).
 - `do_hinh_dang_tien.py` — đo hai luật phân loại con số của chốt neo số liệu
   (brain#42). Chỉ đọc. Còn sống cho tới khi `la_hinh_dang_tien` được bật hoặc
   bỏ hẳn.
+- `do_router_dung_chung_embedder.py` — đo #85: router trên event loop và kho tri
+  thức trên worker dùng chung một embedder, có ngoại lệ (`Already borrowed`) hay
+  kết quả lệch không. Cần embedder thật (Colab). Mã thoát 0/1/2 = không thấy vấn
+  đề / có vấn đề / không đo được. Logic của nó có test ở
+  `tests/test_do_router_dung_chung_embedder.py`.
+- `do_lai_br33_colab.ipynb` — một phiên Colab cho #84 (BR-33: `Qwen3-8B-AWQ` so
+  với `anser-v3-awq`, ctx 32768) và #85. Không train, không sinh dữ liệu.
+
+`benchmark_v3.py` qua `providers.py` đọc `BENCH_MAX_MODEL_LEN` (mặc định 8192,
+giữ số đo cũ). Đo ở ngữ cảnh production thì đặt `BENCH_MAX_MODEL_LEN=32768`.

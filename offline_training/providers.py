@@ -341,11 +341,17 @@ class VLLMTrongTienTrinh:
         if forced:
             print(f"  ép quantization={forced}, dtype={dtype} (BENCH_QUANT)")
 
+        # Mặc định 8192 giữ nguyên số đo cũ. BR-33 (#84) đo ở ngữ cảnh 32768 như production
+        # (TEXT_MAX_MODEL_LEN): đặt BENCH_MAX_MODEL_LEN=32768. Trước đây số này ghim cứng nên
+        # không đo được ở cấu hình production mà không sửa mã (R5).
+        max_len = int(os.getenv("BENCH_MAX_MODEL_LEN", "8192"))
+        print(f"  max_model_len={max_len} (BENCH_MAX_MODEL_LEN)")
+
         self.llm = LLM(
             model=model_path,
             quantization=forced,
             dtype=dtype,
-            max_model_len=8192,
+            max_model_len=max_len,
             gpu_memory_utilization=float(os.getenv("BENCH_GPU_UTIL", "0.85")),
             enforce_eager=os.getenv("BENCH_ENFORCE_EAGER", "1") == "1",
             trust_remote_code=True,
