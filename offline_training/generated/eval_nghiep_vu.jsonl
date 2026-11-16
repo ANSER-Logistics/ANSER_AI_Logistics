@@ -96,3 +96,33 @@
 {"id":"NV096","nhom":"bao_gia_n8n","cau":"Cho khách báo giá container 20ft từ Cát Lái đi Bình Dương thứ Hai tuần sau","tool":[],"nhanh":"LOGISTICS","tap":"dev","tap_goc":"holdout1"}
 {"id":"NV097","nhom":"workflow","cau":"Làm workflow n8n tự gửi báo cáo doanh thu qua email mỗi tuần","tool":[],"nhanh":"TECHNICAL","tap":"dev"}
 {"id":"NV098","nhom":"workflow","cau":"Tạo quy trình tự động nhắc công nợ qua Zalo","tool":[],"nhanh":"TECHNICAL","tap":"dev","tap_goc":"holdout1"}
+{"id":"NV101","nhom":"vat","cau":"hoá đơn 3tr5 chưa VAT, tính thuế 8% rồi tính cho em tổng tiền phải thu của khách","tool":["vat"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV102","nhom":"vat","cau":"2 tỷ 4 là doanh thu chưa thuế của quý này rồi, tính riêng vat 8% ra giúp chị","tool":["vat"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV103","nhom":"vat","cau":"gia 500k da gom vat 10%, tach giup em tien truoc thue voi tien thue","tool":["vat"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV104","nhom":"bao_cao","cau":"thang nay lai hay lo vay","tool":["report"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV105","nhom":"bao_cao","cau":"so doanh thu thang 10 voi thang 9 cung nam xem tang giam bao nhieu tien va bao nhieu %","tool":["report"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV106","nhom":"bao_cao","cau":"tháng trước, mặt hàng nào doanh thu cao nhất mà lãi lại âm","tool":["report"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV107","nhom":"tra_cuu_so","cau":"còn bao nhiêu thùng nước suối 500ml trong kho","tool":[],"tap":"dev","nguon":"minh#103","ghi_chu":"Tra một con số tồn: không có công cụ phân tích; theo thiết kế đi nhánh DATA_INTERNAL","tap_goc":"holdout2-minh#103"}
+{"id":"NV108","nhom":"nhap_hang","cau":"sp nao sap het hang k","tool":["forecast_reorder"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV109","nhom":"ton_kho","cau":"trên sổ kho mì gói đang còn bao nhiêu thùng, hôm qua em đếm thực tế chỉ có 18","tool":["inventory_audit"],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Vừa tra tồn vừa đối chiếu số đếm: không chắc thuộc inventory_audit hay tra cứu","tap_goc":"holdout2-minh#103"}
+{"id":"NV110","nhom":"tra_cuu_so","cau":"anh Tư bên xe Mây Tím còn nợ mình bao nhiêu","tool":[],"tap":"dev","nguon":"minh#103","ghi_chu":"Tra nợ MỘT đối tác: partner_audit là soát toàn bộ, không phải tra một người","tap_goc":"holdout2-minh#103"}
+{"id":"NV111","nhom":"cong_no","cau":"kh nao no qua han tren 30 ngay roi","tool":["partner_audit"],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Tuổi nợ cần sổ chi tiết công nợ mà chưa có; công cụ gần nhất là partner_audit","tap_goc":"holdout2-minh#103"}
+{"id":"NV112","nhom":"nhap_hang","cau":"tuần sau cần nhập thêm bao nhiêu thùng sữa để không bị đứt hàng","tool":["forecast_reorder"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV113","nhom":"nhap_hang","cau":"tết này nên nhập thêm hàng gì, mỗi thứ nhập tầm bao nhiêu thì vừa","tool":["forecast_reorder"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV114","nhom":"bao_gia_n8n","cau":"chở 12 tấn gạo từ Cần Thơ lên Bình Dương vào thứ 6 này giá sao","tool":[],"tap":"dev","nguon":"minh#103","nhanh":"LOGISTICS","ghi_chu":"Xin báo giá chưa có giá nhà xe: nhánh LOGISTICS/n8n","tap_goc":"holdout2-minh#103"}
+{"id":"NV115","nhom":"bao_gia_n8n","cau":"bao gia keo 1 cont 40 tu hcm di da nang","tool":[],"tap":"dev","nguon":"minh#103","nhanh":"LOGISTICS","tap_goc":"holdout2-minh#103"}
+{"id":"NV116","nhom":"bao_gia_n8n","cau":"3 khối hàng nhẹ đi Hà Nội, hàng dễ vỡ, báo giá giùm","tool":[],"tap":"dev","nguon":"minh#103","nhanh":"LOGISTICS","ghi_chu":"Thiếu điểm lấy hàng: n8n hỏi lại","tap_goc":"holdout2-minh#103"}
+{"id":"NV117","nhom":"chon_nha_xe","cau":"đi tuyến Long An – Tây Ninh nhà xe nào rẻ mà chạy đúng giờ","tool":["carrier_selection"],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Thiết kế: 'nhà xe nào rẻ' chưa có giá thì đi n8n, không chạy carrier_selection","tap_goc":"holdout2-minh#103"}
+{"id":"NV118","nhom":"chon_nha_xe","cau":"chuyến 8 tấn Long An đi Tây Ninh sáng mai, giao xe nhà hay thuê ngoài thì rẻ hơn mà vẫn kịp giao trong ngày","tool":["carrier_selection"],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"So xe nhà với thuê ngoài: không phải xếp hạng nhà xe","tap_goc":"holdout2-minh#103"}
+{"id":"NV119","nhom":"bay","cau":"kho ngoại quan là gì vậy","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV120","nhom":"bay","cau":"thuế đầu vào với thuế đầu ra khác nhau chỗ nào, giải thích dễ hiểu thôi","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV121","nhom":"bay","cau":"ông khách hôm qua nói chuyện như mình nợ tiền ổng vậy, mệt ghê","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV122","nhom":"bay","cau":"mẫu báo cáo gửi ngân hàng thường gồm những mục gì, chỉ cần dàn ý thôi","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV123","nhom":"bay","cau":"dịch câu “báo giá này chưa gồm thuế” sang tiếng Anh giúp em","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV124","nhom":"khac","cau":"cảm ơn nha, hôm nay vậy được rồi","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV125","nhom":"khong_chac","cau":"giá dầu tăng thì cước mình có nên tăng không","tool":[],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Minh: không chắc; mong Brain hỏi lại, không tự chọn công cụ","tap_goc":"holdout2-minh#103"}
+{"id":"NV126","nhom":"khong_chac","cau":"khách đòi giảm 5% cho đơn tháng này, liệu mình còn lời không","tool":[],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Minh: không chắc; mong hỏi lại","tap_goc":"holdout2-minh#103"}
+{"id":"NV127","nhom":"khong_chac","cau":"hàng tồn lâu quá, có nên xả không","tool":[],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Minh: không chắc; mong hỏi lại","tap_goc":"holdout2-minh#103"}
+{"id":"NV128","nhom":"khong_chac","cau":"tính giùm tiền cước + VAT 8% cho chuyến đi Vũng Tàu hôm trước","tool":[],"tap":"dev","nguon":"minh#103","mo_ho":true,"ghi_chu":"Thiếu số tiền và chuyến: phải hỏi lại, không có gì để tính","tap_goc":"holdout2-minh#103"}
+{"id":"NV129","nhom":"khac","cau":"ê","tool":[],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
+{"id":"NV130","nhom":"cong_no","cau":"tổng tiền khách còn phải trả mình trừ tiền mình còn phải trả nhà xe, tính đến cuối tháng này còn dương hay âm","tool":["partner_audit"],"tap":"dev","nguon":"minh#103","tap_goc":"holdout2-minh#103"}
