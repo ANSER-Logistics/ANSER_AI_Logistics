@@ -19,9 +19,15 @@ import pytest
 # Sự cố 29/10/2026: ô Colab đo repetition_penalty để lại `=1.0` trong phiên,
 # pytest sau đó trượt 4 ca kiểm mặc định 1,25.
 os.environ.pop("TEXT_REPETITION_PENALTY", None)
+# Cùng lý do: `engine.TASK_REGISTRY` chọn Redis hay RAM LÚC IMPORT (#15). Bộ
+# test chạy với RAM như ENV=LOCAL; test Redis tự dựng registry từ REDIS_TEST_URL.
+os.environ.pop("REDIS_URL", None)
 
 
 @pytest.fixture(autouse=True)
 def _khong_mang_vllm_tu_may_chay_vao_test(monkeypatch):
     monkeypatch.delenv("VLLM_BASE_URL", raising=False)
     monkeypatch.delenv("VLLM_MODEL", raising=False)
+    # Cùng lý do cho đường vision qua HTTP (#14).
+    monkeypatch.delenv("VLLM_VISION_BASE_URL", raising=False)
+    monkeypatch.delenv("VLLM_VISION_MODEL", raising=False)

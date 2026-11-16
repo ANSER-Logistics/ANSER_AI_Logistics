@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Optional, Union
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
+from src.core.config import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
+
 if TYPE_CHECKING:
     # Chỉ import lúc KIỂM KIỂU, không import lúc chạy.
     #
@@ -34,7 +36,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger("projecta.api")
 
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "").strip()
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+# Khai ở `core/config.py` (#14: client vision ở tầng engine cũng cần). Giữ tên ở
+# đây để `routes/documents.py`, `routes/knowledge.py` import như cũ.
+MAX_UPLOAD_BYTES = _MAX_UPLOAD_BYTES
 RUNTIME_PROFILE = os.getenv("RUNTIME_PROFILE", "full").strip().lower()
 
 
@@ -194,7 +198,8 @@ class RuntimeState:
         # tưởng vision chạy được (QA 26/10).
         if getattr(self.engine, "vision_backend", None) == "none":
             self.vision_error = (
-                "Vision tắt ở ENV=SERVER: vllm-vision qua HTTP chưa nối (chu kỳ 02)."
+                "Vision tắt ở ENV=SERVER: chưa đặt VLLM_VISION_BASE_URL "
+                "(compose trỏ vào container vllm-vision)."
             )
             return
 

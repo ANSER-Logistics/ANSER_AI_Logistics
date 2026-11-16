@@ -105,6 +105,38 @@ def _dong_cuoc(gt: dict[str, Any]) -> tuple[list[str], list[list[str]], list[str
     return tieu_de, bang, chan
 
 
+# Khoảng trắng tối thiểu giữa hai cột, tính bằng pixel. ~1,5 bề rộng một chữ số ở cỡ 26.
+KHE_TOI_THIEU = 24
+_COT_MAC_DINH = [60, 150, 600, 850, 1140]
+
+
+def vi_tri_cot(bang: list[list[str]], f_thuong, f_dam) -> list[int]:
+    """
+    Toạ độ x của năm cột: STT, tên căn TRÁI tại x; SL, đơn giá, thành tiền căn PHẢI tại x.
+
+    VÌ SAO ĐO CHỮ THẬT (#98, 16/11/2026). Bản trước ghim [60, 150, 600, 850, 1140]. Đơn giá dài tới 10
+    ký tự nên khe SL / đơn giá được nới đủ, nhưng khe tên / SL thì không: "Dầu động cơ CF-4 15W40 thùng
+    18L" chạm sát cột SL ngay với Arial, và đè lên nó với DejaVu Sans (font trên Colab, rộng hơn). Phiên
+    đo đầu tiên có 6/7 ca chứa dòng đó đọc sai số lượng ("10" thành "108", "17" thành "1"): lỗi của
+    ẢNH chứ không phải của model, và chính người đọc cũng không tách được "18L10".
+
+    Nay mỗi cột lùi sang phải cho tới khi cách cột trước ít nhất `KHE_TOI_THIEU` theo bề rộng đo bằng
+    đúng font sẽ vẽ. Ảnh rộng ra nếu cần. Mặc định cũ giữ làm mức tối thiểu, nên ảnh vốn đã thoáng
+    không đổi.
+    """
+    def rong(s: str, r: int) -> float:
+        return (f_dam if r == 0 else f_thuong).getlength(s)
+
+    max_rong = [max(rong(h[c], r) for r, h in enumerate(bang)) for c in range(5)]
+    x = list(_COT_MAC_DINH)
+    # Cột tên căn trái: mép phải của nó là x[1] + bề rộng tên dài nhất.
+    mep_phai_truoc = x[1] + max_rong[1]
+    for c in (2, 3, 4):                      # căn phải: mép trái = x[c] - bề rộng dài nhất của cột
+        x[c] = int(max(x[c], mep_phai_truoc + KHE_TOI_THIEU + max_rong[c]))
+        mep_phai_truoc = x[c]
+    return x
+
+
 def ve(ca: dict[str, Any], rng: random.Random):
     from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
@@ -115,7 +147,9 @@ def ve(ca: dict[str, Any], rng: random.Random):
     gt = ca["gt"]
     tieu_de, bang, chan = _dong_ban_le(gt) if ca["kind"] == "retail" else _dong_cuoc(gt)
 
-    rong, cao = 1200, 160 + 44 * (len(tieu_de) + len(bang) + len(chan)) + 90
+    cot_x = vi_tri_cot(bang, f_thuong, f_dam)
+    rong = max(1200, cot_x[-1] + 60)
+    cao = 160 + 44 * (len(tieu_de) + len(bang) + len(chan)) + 90
     img = Image.new("RGB", (rong, cao), "white")
     d = ImageDraw.Draw(img)
     y = 40
@@ -125,9 +159,7 @@ def ve(ca: dict[str, Any], rng: random.Random):
         y += 54 if i == 0 else 40
     y += 18
 
-    # STT, tên (trái); SL, đơn giá, thành tiền (phải). Đơn giá dài tới 10 ký tự: cột SL phải cách đủ xa,
-    # nếu không "6" và "10.628.000" dính thành "610.628.000" và chính người đọc cũng không phân biệt được.
-    cot_x = [60, 150, 600, 850, 1140]
+    # STT, tên (trái); SL, đơn giá, thành tiền (phải). Vị trí cột đo theo chữ thật: xem `vi_tri_cot`.
     for r, hang in enumerate(bang):
         font = f_dam if r == 0 else f_thuong
         d.text((cot_x[0], y), hang[0], font=font, fill="black")
@@ -136,11 +168,12 @@ def ve(ca: dict[str, Any], rng: random.Random):
             d.text((cot_x[c], y), hang[c], font=font, fill="black", anchor="ra")
         y += 42
         if r == 0:
-            d.line([(60, y - 6), (1140, y - 6)], fill="black", width=2)
-    d.line([(60, y), (1140, y)], fill="black", width=1)
+            d.line([(60, y - 6), (cot_x[-1], y - 6)], fill="black", width=2)
+    d.line([(60, y), (cot_x[-1], y)], fill="black", width=1)
     y += 18
     for dong in chan:
-        d.text((1140, y), dong, font=f_dam if dong.startswith("TỔNG") else f_thuong, fill="black", anchor="ra")
+        d.text((cot_x[-1], y), dong, font=f_dam if dong.startswith("TỔNG") else f_thuong, fill="black",
+               anchor="ra")
         y += 42
     if ca["co_cau_nhieu_loan"]:
         d.text((60, y + 20), f"Ghi chú: {CAU_NHIEU_LOAN}", font=f_nho, fill="black")

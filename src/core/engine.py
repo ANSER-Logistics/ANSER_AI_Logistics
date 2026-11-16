@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 import os
 import threading
 import time
 from collections import OrderedDict
+from typing import Any
 
 from src.core.config import Config
 from src.core.serving import (
@@ -31,6 +33,28 @@ def _ket_qua_trong_tien_trinh(out) -> tuple[str, int | None]:
     return out.text.strip(), (len(ids) if ids is not None else None)
 
 
+def _doc_anh(duong_dan: str) -> tuple[bytes, str]:
+    """
+    (bytes, mime) của ảnh gửi cho vllm-vision (#14). Ảnh đi trong JSON dưới dạng
+    data URI base64 — to thêm ~1/3 — nên giữ đúng trần `MAX_UPLOAD_BYTES` của
+    route nhận file: ảnh nào lọt được tới đây mà vượt trần là lỗi gọi, báo rõ.
+    """
+    import mimetypes
+
+    from src.core.config import MAX_UPLOAD_BYTES
+
+    with open(duong_dan, "rb") as f:
+        du_lieu = f.read(MAX_UPLOAD_BYTES + 1)
+    if len(du_lieu) > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"Ảnh {duong_dan} vượt MAX_UPLOAD_BYTES={MAX_UPLOAD_BYTES} — không gửi cho vllm-vision"
+        )
+    mime = mimetypes.guess_type(duong_dan)[0] or "image/jpeg"
+    if not mime.startswith("image/"):
+        raise ValueError(f"{duong_dan} không phải ảnh ({mime}) — vllm-vision chỉ nhận ảnh")
+    return du_lieu, mime
+
+
 # ---------------------------------------------------------------------------
 # Chọn backend — MỘT chỗ quyết định (SRS chu kỳ 01, BR-03 yêu cầu 1, 2, 7)
 # ---------------------------------------------------------------------------
@@ -39,11 +63,12 @@ ENV_NAP_TRONG_TIEN_TRINH = frozenset({"GPU", "COLAB"})
 ENV_HOP_LE = frozenset({"LOCAL", "SERVER"}) | ENV_NAP_TRONG_TIEN_TRINH
 
 
-def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
+def chon_backend(env: str, vllm_base_url: str,
+                 vllm_vision_base_url: str = "") -> tuple[str, str]:
     """
     -> (text_backend, vision_backend). Hàm thuần, không đọc env, không nạp gì.
 
-    | ENV        | VLLM_BASE_URL | text       | vision     |
+    | ENV        | VLLM_BASE_URL | text       | vision (không có VLLM_VISION_BASE_URL) |
     |------------|---------------|------------|------------|
     | LOCAL      | rỗng          | mock       | mock       |
     | LOCAL      | có            | server     | mock       |
@@ -53,6 +78,10 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
     | SERVER     | rỗng          | lỗi        |            |
     | khác       |               | lỗi        |            |
 
+    Có `VLLM_VISION_BASE_URL` thì vision = `server` ở MỌI môi trường (#14,
+    09/11/2026) — cùng nguyên tắc với text. Compose đặt sẵn biến đó trỏ vào
+    container `vllm-vision`, nên ENV=SERVER không còn vision tắt.
+
     Rẽ theo BACKEND, không theo tên môi trường: có `VLLM_BASE_URL` thì text đi
     server ở MỌI môi trường. Nhờ vậy phép thử server giả chạy được dưới
     `ENV=LOCAL` mà không phải import torch/vllm, và máy dev gọi được vLLM ở xa.
@@ -61,8 +90,8 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
     vision nạp trong tiến trình (chủ dự án chốt 24/10: thiếu chỗ thì hạ ctx,
     không tách vision sang tiến trình riêng).
 
-    `SERVER` nghĩa là "Brain không nạp model nào": text qua HTTP, vision tắt có
-    tuyên bố, vì `vllm-vision` qua HTTP thuộc chu kỳ 02. Trước đây `SERVER` rơi
+    `SERVER` nghĩa là "Brain không nạp model nào": text qua HTTP, vision qua
+    HTTP nếu có `VLLM_VISION_BASE_URL`, không thì tắt có tuyên bố. Trước đây `SERVER` rơi
     vào nhánh nạp CUDA ngay trong container Brain (`env == "LOCAL"` là phép rẽ
     duy nhất). Giá trị lạ ném lỗi luôn: gõ nhầm `LCOAL` mà lặng lẽ nạp CUDA là
     đúng loại hỏng im lặng SRS §3.3 cảnh báo.
@@ -81,7 +110,9 @@ def chon_backend(env: str, vllm_base_url: str) -> tuple[str, str]:
         )
 
     text = "server" if co_server else ("mock" if env == "LOCAL" else "in_process")
-    if env == "LOCAL":
+    if (vllm_vision_base_url or "").strip():
+        vision = "server"
+    elif env == "LOCAL":
         vision = "mock"
     elif env == "SERVER":
         vision = "none"
@@ -128,8 +159,117 @@ class TaskRegistry:
         with self._lock:
             return task_id in self._store
 
+    def mo_ta(self) -> dict[str, Any]:
+        """Cho /health: đang giữ trạng thái tác vụ ở đâu."""
+        return {"backend": "ram", "redis_loi": False}
 
-TASK_REGISTRY = TaskRegistry(max_size=1000)
+
+# ---------------------------------------------------------------------------
+# TASK_REGISTRY trên Redis (#15, 09/11/2026)
+# ---------------------------------------------------------------------------
+# RAM thì mỗi worker một bản: worker A ghi task, lượt hỏi kết quả rơi vào worker
+# B -> "Task not found". Nên Brain buộc chạy `--workers 1`, và restart là mất
+# sạch task đang chạy. Có `REDIS_URL` thì mọi worker dùng chung một chỗ.
+#
+# Ba quyết định, ghi lại vì issue đòi quyết TRƯỚC:
+#
+# 1. Redis không truy cập được -> LÙI VỀ RAM cho đúng lời gọi đó, ghi log lỗi
+#    kèm task_id, và `redis_loi` bật lên để /health báo `degraded`. Không ném
+#    lỗi ra: /chat không được sập vì một kho trạng thái phụ. Lùi về RAM chỉ sai
+#    khi chạy nhiều worker — và `degraded` cho người vận hành thấy ngay lúc đó.
+#    `get` đọc Redis trước rồi tới RAM, để task lỡ ghi vào RAM lúc Redis chập
+#    chờn vẫn tìm thấy được trên chính worker đó.
+#
+# 2. TTL mặc định 24 giờ (`TASK_TTL_S`). Body hỏi kết quả trong vài phút sau
+#    khi gửi; 24 giờ dư cho việc thử lại, hoặc đọc lại sau khi restart Brain.
+#    Không có TTL thì Redis không quên như RAM (RAM tự đuổi khi quá 1000), và
+#    task_id tích mãi.
+#
+# 3. Lưu JSON, không pickle. Mọi thứ ghi vào đây đã là JSON được (kết quả là
+#    `RetailChatResponse.model_dump()`). Thứ không JSON được thì `json.dumps`
+#    ném TypeError — không lặng lẽ biến nó thành chuỗi (`default=str` sẽ làm
+#    hỏng dữ liệu mà không ai biết).
+#
+# `_owner` (kiểm quyền đọc ở chat.get_task_status) và `_created_at` mang theo
+# qua mọi lần ghi, đúng như bản RAM.
+
+TASK_TTL_S = int(os.getenv("TASK_TTL_S", str(24 * 3600)))
+_KHOA_REDIS = "anser:task:"
+
+
+class RedisTaskRegistry:
+    """Cùng giao diện với `TaskRegistry`, giữ trạng thái trên Redis."""
+
+    def __init__(self, url: str, ttl_s: int = TASK_TTL_S):
+        import redis  # nạp lười: ENV=LOCAL không cần gói này
+
+        # Timeout ngắn: Redis treo thì /chat chờ tối đa ~1s rồi lùi về RAM,
+        # không đứng chờ theo mặc định của thư viện.
+        self._r = redis.Redis.from_url(
+            url, socket_timeout=0.5, socket_connect_timeout=0.5, decode_responses=True,
+        )
+        self._loi_redis = redis.RedisError
+        self._ttl = ttl_s
+        self._ram = TaskRegistry(max_size=1000)
+        self._url_an = url.split("@")[-1]          # không ghi mật khẩu vào log
+        self.redis_loi = False
+
+    def _loi(self, viec: str, task_id: str, exc: Exception) -> None:
+        self.redis_loi = True
+        logger.error("TASK_REGISTRY: Redis lỗi khi %s task %s (%s) — lùi về RAM: %s",
+                     viec, task_id, self._url_an, exc)
+
+    def get(self, task_id: str):
+        try:
+            # `Any`: redis-py khai kiểu trả về là `Awaitable | Any` cho cả bản
+            # sync lẫn async; client ở đây là bản sync nên luôn là chuỗi/None.
+            raw: Any = self._r.get(_KHOA_REDIS + task_id)
+            self.redis_loi = False
+            if raw is not None:
+                return json.loads(raw)
+        except self._loi_redis as exc:
+            self._loi("đọc", task_id, exc)
+        return self._ram.get(task_id)
+
+    def set(self, task_id: str, data: dict):
+        try:
+            raw: Any = self._r.get(_KHOA_REDIS + task_id)
+            cu = json.loads(raw) if raw else (self._ram.get(task_id) or {})
+            data["_created_at"] = data.get("_created_at", cu.get("_created_at", time.time()))
+            if "_owner" not in data and "_owner" in cu:
+                data["_owner"] = cu["_owner"]
+            self._r.set(_KHOA_REDIS + task_id, json.dumps(data, ensure_ascii=False),
+                        ex=self._ttl)
+            self.redis_loi = False
+        except self._loi_redis as exc:
+            self._loi("ghi", task_id, exc)
+            self._ram.set(task_id, data)
+
+    def __contains__(self, task_id: str):
+        return self.get(task_id) is not None
+
+    def mo_ta(self) -> dict[str, Any]:
+        return {"backend": "redis", "redis_loi": self.redis_loi, "ttl_s": self._ttl}
+
+
+def tao_task_registry() -> "TaskRegistry | RedisTaskRegistry":
+    """
+    `REDIS_URL` có -> Redis; không có -> RAM (ENV=LOCAL chạy đủ bộ test không
+    cần hạ tầng nào, AGENTS §3.1). Thiếu gói `redis` dù đã đặt URL thì cũng lùi
+    về RAM, nhưng ghi lỗi to: đó là triển khai sai, không phải chủ ý.
+    """
+    url = os.getenv("REDIS_URL", "").strip()
+    if not url:
+        return TaskRegistry(max_size=1000)
+    try:
+        return RedisTaskRegistry(url)
+    except ImportError as exc:
+        logger.error("REDIS_URL đã đặt nhưng thiếu gói `redis` (%s) — TASK_REGISTRY "
+                     "lùi về RAM, chỉ đúng khi chạy --workers 1", exc)
+        return TaskRegistry(max_size=1000)
+
+
+TASK_REGISTRY = tao_task_registry()
 
 # Số lượt hội thoại tối đa đưa lại vào prompt. 6 lượt (3 cặp hỏi-đáp) đủ cho
 # các câu nối tiếp thực tế ("thế xe 3 tấn thì sao?") mà không ăn hết ngân sách
@@ -254,7 +394,7 @@ class ModelEngine:
         # Quyết định MỘT lần ở đây. Các phương thức bên dưới chỉ đọc hai thuộc
         # tính này, không đọc lại ENV hay VLLM_BASE_URL (BR-03 yêu cầu 2).
         self.text_backend, self.vision_backend = chon_backend(
-            self.env, os.getenv("VLLM_BASE_URL", "")
+            self.env, os.getenv("VLLM_BASE_URL", ""), os.getenv("VLLM_VISION_BASE_URL", "")
         )
         self.config = Config()
 
@@ -270,6 +410,7 @@ class ModelEngine:
 
         self.llm = None
         self.server: VLLMServerClient | None = None
+        self.vision_server: VLLMServerClient | None = None
         self.vision_model = None
         self.vision_processor = None
 
@@ -288,6 +429,13 @@ class ModelEngine:
 
         if self.vision_backend == "in_process":
             self._nap_vision_trong_tien_trinh()
+        elif self.vision_backend == "server":
+            self.vision_server = VLLMServerClient.cho_vision()
+            logger.info(
+                "Vision qua vLLM server %s (model=%s)",
+                self.vision_server.base_url,
+                self.vision_server.model or "<mặc định của server>",
+            )
 
         logger.info("Engine online")
 
@@ -542,9 +690,26 @@ class ModelEngine:
             return '{"mock_vision": "LOCAL mock OCR/caption result."}'
         if self.vision_backend == "none":
             raise BackendUnavailable(
-                "Vision chưa có ở cấu hình ENV=SERVER: vllm-vision qua HTTP thuộc "
-                "chu kỳ 02. Cần vision thì đặt ENV=GPU để nạp trong tiến trình."
+                "Vision tắt ở ENV=SERVER: chưa đặt VLLM_VISION_BASE_URL. Trỏ biến "
+                "đó vào vllm-vision (compose đặt sẵn), hoặc đặt ENV=GPU để nạp "
+                "trong tiến trình."
             )
+        if self.vision_backend == "server":
+            # Trả CHỮ như đường trong tiến trình: VisionAgent làm sạch đầu ra
+            # (repair_json, lược đồ ở documents.py) y như cũ — client này không
+            # đi vòng qua lớp đó (AGENTS §4.1 quy tắc 8: hoá đơn là dữ liệu ngoài).
+            #
+            # Số token (`usage`) CỐ Ý không trả lên ở đây: đường vision hôm nay chỉ
+            # đi qua /documents, không qua lượt chat, nên không có `TurnMetric` nào
+            # để nó thiếu. Khi vision vào lượt chat thì phải trả `KetQuaSinh` như
+            # đường text (#16) — nếu không, một ảnh làm ms/token cả lượt thành
+            # KHÔNG BIẾT và #9 bỏ qua lượt đó.
+            assert self.vision_server is not None
+            anh, mime = _doc_anh(image_path)
+            async with self.vision_guard.slot():
+                return await self.vision_server.vision(
+                    anh, mime, prompt, max_tokens=max_new_tokens, json_schema=json_schema,
+                )
 
         loop = asyncio.get_running_loop()
 

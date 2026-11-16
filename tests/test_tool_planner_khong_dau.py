@@ -80,3 +80,14 @@ def test_yeu_cau_ro_ve_danh_muc_hoac_cong_no_van_duoc_giu():
 ])
 def test_cau_dinh_nghia_khong_chay_cong_cu(cau):
     assert plan_tools(cau) == []
+
+
+# --- lớp lỗi từ tập ngoài mẫu của Minh (#103), viết lại bằng câu mới -----------
+
+@pytest.mark.parametrize("cau, mong", [
+    ("so doanh thu quý 3 với quý 2 xem hơn bao nhiêu", ["report"]),
+    ("mặt hàng nào bán nhiều nhất mà lỗ", ["report"]),
+    ("tính xem khách còn phải trả mình bao nhiêu trừ phần mình còn phải trả nhà cung cấp", ["partner_audit"]),
+])
+def test_lop_loi_ngoai_mau_cua_minh(cau, mong):
+    assert plan_tools(cau) == mong

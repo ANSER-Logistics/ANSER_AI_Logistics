@@ -73,6 +73,7 @@ def cham_mot(ca: dict[str, Any], cat: str, chay: list[str]) -> dict[str, Any]:
     sai_nhanh = bool(ca.get("nhanh")) and cat != ca["nhanh"]
     return {
         "id": ca["id"], "nhom": ca["nhom"], "tap": ca["tap"], "cau": ca["cau"],
+        "mo_ho": bool(ca.get("mo_ho")), "nguon": ca.get("nguon", ""),
         "mong": sorted(mong), "co": sorted(co), "nhanh": cat, "nhanh_mong": ca.get("nhanh"),
         "dung": mong == co and not sai_nhanh,
         "thieu": sorted(mong - co),           # cần công cụ mà không chọn: người dùng nhận câu "không làm được"
@@ -90,7 +91,10 @@ def tong_hop(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
     """Gom theo `tap/nhom`, `tap/all` và `all`. Mỗi ô là SỐ ĐẾM: n, đúng, thiếu, thừa."""
     out: dict[str, dict[str, int]] = {}
     for r in rows:
-        for khoa in (f"{r['tap']}/{r['nhom']}", f"{r['tap']}/all", "all"):
+        # Ca MƠ HỒ (nhãn của người viết không ánh xạ 1-1 sang công cụ của Brain) không tính vào con số chính;
+        # báo riêng ở nhóm "mo_ho/<tập>" để không ai đọc nhầm một ca tranh cãi thành lỗi của Brain.
+        khoa_nhom = (f"mo_ho/{r['tap']}",) if r.get("mo_ho") else (f"{r['tap']}/{r['nhom']}", f"{r['tap']}/all", "all")
+        for khoa in khoa_nhom:
             g = out.setdefault(khoa, {"n": 0, "dung": 0, "thieu": 0, "thua": 0})
             g["n"] += 1
             g["dung"] += r["dung"]
@@ -101,13 +105,13 @@ def tong_hop(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
 
 def in_bang(nhom: dict[str, dict[str, int]]) -> None:
     print(f"\n{'nhóm':<26}{'n':>4}{'đúng':>8}{'thiếu':>8}{'thừa':>7}")
-    for tap in ("holdout", "dev"):
+    for tap in ("holdout", "dev", "mo_ho"):
         for khoa in sorted(k for k in nhom if k.startswith(tap + "/")):
             g = nhom[khoa]
             print(f"{khoa:<26}{g['n']:>4}{g['dung']:>5}/{g['n']:<2}{g['thieu']:>8}{g['thua']:>7}")
         print()
-    g = nhom["all"]
-    print(f"{'TẤT CẢ':<26}{g['n']:>4}{g['dung']:>5}/{g['n']:<2}{g['thieu']:>8}{g['thua']:>7}")
+    g = nhom.get("all", {"n": 0, "dung": 0, "thieu": 0, "thua": 0})
+    print(f"{'TẤT CẢ (không tính mơ hồ)':<26}{g['n']:>4}{g['dung']:>5}/{g['n']:<2}{g['thieu']:>8}{g['thua']:>7}")
     print("\n'thiếu' = số câu cần công cụ mà không chọn; 'thừa' = số câu bị chọn công cụ không ai hỏi."
           "\nCon số trên tập holdout là con số thật. Câu do AI viết nên đây là CẬN TRÊN so với câu của khách.")
 

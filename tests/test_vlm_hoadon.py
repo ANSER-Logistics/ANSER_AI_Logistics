@@ -182,6 +182,76 @@ def test_hoa_don_ban_le_in_dung_tong_va_thue_10_phan_tram():
     assert chan[1].startswith("Thuế GTGT 10%")
 
 
+class _FontGia:
+    """Bề rộng tỷ lệ với số ký tự — đủ để kiểm logic xếp cột mà không cần PIL hay file font."""
+
+    def __init__(self, px_moi_ky_tu: float):
+        self.px = px_moi_ky_tu
+
+    def getlength(self, s: str) -> float:
+        return len(s) * self.px
+
+
+def _khe_cot(bang, x, f):
+    """Khe nhỏ nhất giữa mép phải một cột và mép trái cột kế tiếp, trên mọi hàng."""
+    khe = []
+    for h in bang:
+        mep_phai = x[1] + f.getlength(h[1])
+        for c in (2, 3, 4):
+            mep_trai = x[c] - f.getlength(h[c])
+            khe.append(mep_trai - mep_phai)
+            mep_phai = x[c]
+    return min(khe)
+
+
+def test_cot_ten_dai_khong_de_len_cot_so_luong():
+    """#98: "…thùng 18L" chạm cột SL với toạ độ ghim cứng, model đọc "10" thành "108"."""
+    from offline_training import make_vlm_invoice_eval as mk
+
+    f = _FontGia(16)       # ~ DejaVu Sans cỡ 26: rộng hơn Arial, đúng font trên Colab
+    bang = [["STT", "Tên hàng", "SL", "Đơn giá", "Thành tiền"],
+            ["1", "Dầu động cơ CF-4 15W40 thùng 18L", "10", "1.513.000", "15.130.000"]]
+    # Toạ độ cũ: khe tên/SL âm, tức chữ đè lên nhau. Giữ khẳng định này để biết test đo đúng chỗ.
+    assert _khe_cot(bang, [60, 150, 600, 850, 1140], f) < 0
+    x = mk.vi_tri_cot(bang, f, f)
+    assert _khe_cot(bang, x, f) >= mk.KHE_TOI_THIEU
+
+
+def test_moi_ca_cua_bo_de_deu_du_khe_giua_cac_cot():
+    from offline_training import make_vlm_invoice_eval as mk
+
+    f = _FontGia(16)
+    for ca in v.sinh_ca(28):
+        _, bang, _ = mk._dong_ban_le(ca["gt"]) if ca["kind"] == "retail" else mk._dong_cuoc(ca["gt"])
+        assert _khe_cot(bang, mk.vi_tri_cot(bang, f, f), f) >= mk.KHE_TOI_THIEU, ca["id"]
+
+
+def test_bang_hep_giu_nguyen_toa_do_cu():
+    """Ảnh vốn đã thoáng không được đổi bố cục — để số đo cũ vẫn so được với số đo mới."""
+    from offline_training import make_vlm_invoice_eval as mk
+
+    f = _FontGia(8)
+    bang = [["STT", "Tên hàng", "SL", "Đơn giá", "Thành tiền"], ["1", "Lọc nhớt", "2", "96.000", "192.000"]]
+    assert mk.vi_tri_cot(bang, f, f) == [60, 150, 600, 850, 1140]
+
+
+def test_vi_tri_dau_thanh_cu_moi_khong_phai_loi():
+    """#98: giấy in "thuỷ", model viết "thủy" — cùng một chữ, phiên đầu chấm sai 2/14 ca vì nó."""
+    ca = _lay("retail")
+    out = copy.deepcopy(ca["gt"])
+    ca = {**ca, "gt": {**ca["gt"], "items": [{**ca["gt"]["items"][0], "name": "Dầu thuỷ lực hoà khoẻ"}]}}
+    out["items"] = [{**out["items"][0], "name": "Dầu thủy lực hòa khỏe"}]
+    ca["gt"]["total"] = out["total"] = round(out["items"][0]["price"] * out["items"][0]["qty"] * 1.1)
+    assert v.cham(ca, out)["dong_dung"] is True
+
+
+def test_doi_dau_thanh_van_la_sai():
+    """Chuẩn hoá VỊ TRÍ dấu không được nuốt lỗi đọc sai DẤU: thủy/thùy, thử/thứ vẫn khác nhau."""
+    assert v._chuan("thủy") != v._chuan("thùy")
+    assert v._chuan("Thử") != v._chuan("Thứ")
+    assert v._chuan("hoàng") != v._chuan("hoang")
+
+
 def test_runner_di_qua_vision_cua_runtime_va_cham_diem(tmp_path, monkeypatch):
     """Giả VisionAgent trả đáp án (trừ một ca điền 0): chứng minh runner nối đúng chấm điểm và tổng hợp."""
     import asyncio

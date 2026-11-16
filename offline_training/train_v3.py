@@ -186,6 +186,11 @@ print(f"Batch {BATCH} x accum {ACCUM} = lô hiệu dụng {BATCH * ACCUM}\n")
 _BASE_ARGS = dict(
     output_dir=OUT_DIR,
     per_device_train_batch_size=BATCH,
+    # PHẢI khai cùng cỡ với train (#91, 16/11/2026). Không khai thì transformers dùng mặc định 8:
+    # bước đánh giá cuối epoch 1 dồn 8 chuỗi (dài tới 3.364 token) vào một lô, và khi Liger không bật
+    # thì `logits.float()` cần thêm 10,13 GiB -> OOM trên L4 sau 44 phút train, trước khi kịp lưu
+    # checkpoint epoch 1. Train vẫn chạy được ở lô 1, nên eval ở lô 1 chắc chắn vừa.
+    per_device_eval_batch_size=BATCH,
     gradient_accumulation_steps=ACCUM,
     num_train_epochs=EPOCHS,
     learning_rate=LR,

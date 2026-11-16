@@ -228,6 +228,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 ### 4.2. Chống mục ruỗng
 
 - Xoá code chết thay vì để lại. `RetailChatResponse`/`ProductExtraction` từng bị đánh dấu dead code — kiểm tra trước khi thêm schema mới.
+- [`.agents/`](.agents/) là thiết lập v1 (team Gemini, `ENV=COLAB`, A100, Qwen2-VL-7B) — **lỗi thời**, giữ lại nhưng không làm theo. File này thay thế nó; chỗ nào hai bên nói khác nhau thì theo file này.
 - `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 6c8b4f8^:src/archive/<file>` nếu cần đối chiếu.
 - Sửa code là sửa tài liệu. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4). **Từ 15/11/2026 tài liệu ở repo khác**, nên "cùng PR" không còn nghĩa đen. Thay vào đó: PR nào đổi route, module `src/core/`, biến môi trường hoặc một hành vi mà tài liệu mô tả phải **nêu điều đó trong mô tả PR** và mở PR tương ứng ở `anser-brain-docs`, nêu số PR bên kia. CI của repo tài liệu kéo mã về và bắt các lệch mà máy bắt được (route, module, biến môi trường, liên kết), chạy khi có commit và mỗi thứ Hai. Chỗ hở: không có gì ép việc mở PR bên kia, chỉ có người duyệt.
 
@@ -248,15 +249,22 @@ Hai đầu của một việc, mỗi đầu một nơi bắt buộc:
 
 **Vì sao hai đầu chứ không phải một.** Giao việc qua bảng thì ai cũng thấy việc đang ở đâu mà không phải hỏi. Trả việc qua PR thì có một chỗ cụ thể để đọc thay đổi, và có một người khác nhìn trước khi nó thành thật. Thiếu đầu nào thì đầu kia mất tác dụng: giao trên bảng rồi nhận kết quả qua chat thì bảng nói dối; bắt PR mà việc không nằm trên bảng thì không ai biết PR đó thuộc việc nào.
 
-**Điều kiện kỹ thuật, đã kiểm 07/11/2026.** Người được giao phải có quyền `write` trên repo thì mới đẩy nhánh lên được để mở PR:
+**Điều kiện kỹ thuật, kiểm lại 16/11/2026.** Người được giao phải có quyền `write` trên repo thì mới đẩy nhánh lên được để mở PR. Hiện **cả năm thành viên đều đủ quyền** — không ai cần fork:
 
 | Thành viên | Quyền trên repo Brain |
 |---|---|
-| `Dgsonn`, `tranthanh-riu` | `write` ✅ |
+| `Dgsonn`, `tranthanh-riu`, `wikiepeidia` | `write` ✅ |
 | `SiPhung953`, `PCBoiz` | `admin` ✅ |
-| `wikiepeidia` | `read` ❌ — phải fork mới mở PR được |
 
-Giao việc cho người chỉ có `read` mà không nói trước chuyện fork là giao một việc họ không làm được, và họ sẽ mất thời gian mới hiểu vì sao.
+*(Bản 07/11 ghi `wikiepeidia` chỉ có `read`, "phải fork mới mở PR được". Sai từ khi quyền được nâng: đo 16/11 bằng lệnh dưới ra `write`, và nhánh của PR #110 đẩy thẳng lên repo được.)*
+
+**Đối chiếu bằng lệnh, đừng nhớ** — bảng này lệch ngay khi ai đó đổi quyền:
+
+```bash
+gh api repos/ANSER-Logistics/ANSER_AI_Logistics/collaborators/<tên>/permission -q .role_name
+```
+
+Thành viên mới chỉ có `read` thì nâng lên `write` trước khi giao việc, thay vì bắt họ fork.
 
 **Team `brain` là bên duyệt**, và CODEOWNERS tự gắn họ vào mỗi PR — nhưng chỉ sau khi [PR #5](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/pull/5) gộp và ruleset được bật. Trước đó phải gắn người duyệt bằng tay.
 
@@ -383,3 +391,20 @@ Dùng DeepSeek ở ba generator trên **không phạm R2**: chúng sinh trên k�
 > **Hệ quả của việc xoá:** `DEEPSEEK_API_KEY` không còn chỗ dùng nào trong `src/`. Mọi chỗ cần nó giờ nằm trong `offline_training/`, và chúng sinh trên kịch bản hư cấu. Bản trước của câu này kết luận `openai` "chỉ dùng làm client cho vLLM nội bộ" — **sai** (đo 12/11/2026): `src/` không import `openai` chút nào; trong `offline_training/` chỉ `dgen_common.py`, `day1_test_batch.py`, `day2_full_batch.py` import nó. Một gói chỉ script offline dùng mà vẫn nằm trong `requirements.txt` của service là việc dọn cho sau khi #17 (tách `requirements-gpu.txt`) gộp.
 
 Chi tiết và các hướng xử: xem việc trên bảng kanzo.
+
+---
+
+## 9. Cấu hình cho trợ lý AI (Claude Code, Copilot) — thêm 16/11/2026
+
+File này là nguồn sự thật cho **mọi** agent. Các file dưới chỉ bổ sung theo từng công cụ; mâu thuẫn thì AGENTS.md thắng.
+
+| File | Cho ai | Nội dung |
+|---|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Claude Code | Import AGENTS.md + cách dùng skill và graph |
+| [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
+| [`.claude/skills/anser-map`](.claude/skills/anser-map/SKILL.md) | Claude (tự nạp) | Bản đồ module, chỗ nào lỗi thời, cách hỏi graph |
+| [`.claude/skills/anser-verify`](.claude/skills/anser-verify/SKILL.md) | Claude (`/anser-verify`) | Đúng các bước CI + pre-commit, 4 câu hỏi R1–R4, quét bí mật toàn lịch sử bằng chính `scan_secrets` |
+
+**Graph tri thức (graphify):** `graphify-out/` sinh cục bộ, **không commit** (đã gitignore). Dựng bằng `/graphify .`, cập nhật bằng `graphify update .` (chỉ AST, không gọi LLM). [`.graphifyignore`](.graphifyignore) **có commit**: nó loại `src/data/` (file upload, có thể là dữ liệu khách) để không bao giờ bị gửi cho bộ trích xuất LLM (R2).
+
+Đổi `ci.yml`, `.pre-commit-config.yaml`, đường dẫn module hay quy tắc ở file này ⇒ cập nhật các file trên **trong cùng PR**. Chúng là bản sao mô tả, lệch được như mọi bản sao khác.
