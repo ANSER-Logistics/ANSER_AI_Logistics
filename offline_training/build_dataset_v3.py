@@ -18,7 +18,8 @@ LỌC (theo quyết định 27/07/2026: dataset v3 KHÔNG có <think>)
   - loại mẫu Make.com / action query_db (hợp đồng cũ đã bỏ)
   - mẫu workflow cũ chỉ giữ nếu qua validate_workflow() hiện hành
   - đổi system prompt cũ ("Project A...") về Prompts.GENERAL_SYSTEM (P4);
-    câu trả lời dài quá chuẩn "tối đa 5-6 câu" -> đẩy sang compress_queue
+    câu trả lời dài quá chuẩn "tối đa 5-6 câu" -> nhánh REPORT, tối đa MAX_REPORT_CHARS (2.500)
+  - loại văn xuôi v2 bị cắt dở hoặc tự lặp; văn xuôi v3 thì chỉ cảnh báo (#91)
   - QUÉT SECRET toàn bộ input — dính là DỪNG, không ghi file (AGENTS R2b)
 
 CHẠY:  python offline_training/build_dataset_v3.py
@@ -53,8 +54,53 @@ REPO_V2_FILES = [
 FORBIDDEN_INPUTS = {"training_dataset.jsonl"}     # Make.com — cấm nạp
 
 MAX_CONSULT_CHARS = 1_400   # dài hơn là lệch hẳn chuẩn "tối đa 5-6 câu" của runtime
-MAX_REPORT_CHARS = 12_000   # trần nhánh REPORT; dài hơn nữa là bài viết, không phải báo cáo
+# Trần nhánh REPORT cho mẫu v2. Bản trước là 12.000 — và đó là nguyên nhân chính khiến anser-v3 không
+# biết dừng ở nhánh diễn giải (#91, đo 16/11/2026 trên train_v3.jsonl thật): 380/1.499 mẫu (25%) là bài
+# luận v2 gắn REPORT_SYSTEM, p50 5.777 ký tự, trong khi mẫu REPORT của v3 chỉ có 36, p50 1.911, max
+# 2.288. Model học theo số đông: gặp prompt báo cáo thì viết luận dài, không bám số liệu. 2.500 là
+# ngang mẫu v3 dài nhất — mẫu v2 dài hơn nữa là bài viết, không phải báo cáo.
+MAX_REPORT_CHARS = 2_500
 V2_MAX_SHARE = 0.55         # data cũ không được lấn át tín hiệu logistics mới
+
+# ---------------------------------------------------------------------------
+# Văn xuôi hỏng: bị cắt dở hoặc tự lặp (#91)
+# ---------------------------------------------------------------------------
+# Cũng trong 380 mẫu đó: 80 mẫu kết thúc GIỮA CHỮ ("…Nếu có th", "…Hộ kinh do") vì thầy chạm trần token
+# lúc sinh, 33 mẫu có một cụm từ lặp đi lặp lại. Lúc train mỗi mẫu được nối `<|im_end|>`, tức là model
+# được dạy rằng một câu cụt hay một vòng lặp vẫn là câu trả lời xong. Không lớp lọc nào bắt chúng.
+LAP_CUM_TU = 8              # độ dài cụm từ dùng để dò lặp
+LAP_TOI_DA = 3              # một cụm xuất hiện quá số lần này là tự lặp
+
+
+def ket_thuc_do_dang(text: str) -> bool:
+    """
+    Câu trả lời bị cắt giữa chừng: kết thúc bằng một CHỮ CÁI (giữa từ hoặc thiếu dấu kết câu), hoặc còn
+    khối code chưa đóng. Kết thúc bằng dấu câu, số, ký hiệu, emoji, dấu bảng `|` thì không tính.
+    """
+    t = text.rstrip()
+    if not t:
+        return False
+    if t.count("```") % 2 == 1:
+        return True
+    return t[-1].isalpha()
+
+
+def tu_lap(text: str) -> bool:
+    """Có một cụm `LAP_CUM_TU` từ liên tiếp xuất hiện hơn `LAP_TOI_DA` lần."""
+    tu = text.split()
+    if len(tu) < LAP_CUM_TU * (LAP_TOI_DA + 1):
+        return False
+    dem = Counter(tuple(tu[i:i + LAP_CUM_TU]) for i in range(len(tu) - LAP_CUM_TU + 1))
+    return max(dem.values()) > LAP_TOI_DA
+
+
+def loi_van_xuoi(text: str) -> str | None:
+    """Lý do loại một câu trả lời VĂN XUÔI, hoặc None nếu sạch. Không dùng cho JSON (JSON lặp là bình thường)."""
+    if ket_thuc_do_dang(text):
+        return "van_xuoi_do_dang"
+    if tu_lap(text):
+        return "van_xuoi_tu_lap"
+    return None
 
 SECRET_PATTERNS = [
     re.compile(r"postgres(?:ql)?://[^\s\"'\\]+"),
@@ -242,6 +288,14 @@ def convert_v2_entry(obj: dict):
     if isinstance(payload, dict) and answer.strip().startswith(("{", "```")):
         return None, "malformed"
 
+    # Từ đây chỉ còn văn xuôi (báo cáo, tư vấn). Kiểm độ dài TRƯỚC: rẻ hơn, và lý do rõ hơn.
+    if len(answer) > MAX_REPORT_CHARS:
+        return None, "too_long"            # dài quá cả nhánh báo cáo
+    # Rồi loại bản bị cắt dở hoặc tự lặp.
+    loi = loi_van_xuoi(answer)
+    if loi:
+        return None, loi
+
     # Bài dài -> nhánh REPORT (văn dài), KHÔNG vứt.
     #
     # 436/1000 mẫu v2 dài trung bình ~5.800 ký tự vì distill từ R1. Chúng lệch
@@ -249,8 +303,6 @@ def convert_v2_entry(obj: dict):
     # ra chính vì chat ngắn và báo cáo dài là hai nhu cầu trái ngược không thể
     # dùng chung một cap độ dài (quyết định 27/07/2026).
     if len(answer) > MAX_CONSULT_CHARS:
-        if len(answer) > MAX_REPORT_CHARS:
-            return None, "too_long"        # dài quá cả nhánh báo cáo
         return {
             "_source": "v2_report",
             "messages": [
@@ -301,12 +353,25 @@ def main() -> None:
         if not rows:
             print(f"  ⚠ Thiếu {path} — chạy các bước sinh dữ liệu trước")
             continue
+        nghi: list[tuple[str, str]] = []
         for row in rows:
             hits = scan_secrets(json.dumps(row, ensure_ascii=False))
             if hits:
                 secret_hits.extend((name, h) for h in hits)
             merged.append({"_source": row.get("_source", name), "messages": row["messages"]})
+            tra_loi = row["messages"][-1].get("content", "")
+            if not tra_loi.lstrip().startswith(("{", "[")):
+                loi = loi_van_xuoi(tra_loi)
+                if loi:
+                    nghi.append((loi, tra_loi))
         print(f"  ✓ {name:28s} {len(rows):5d}")
+        # Dữ liệu v3 CHỈ CẢNH BÁO, không tự loại: bộ dò đếm 8/36 mẫu REPORT và 6/46 mẫu EXPLAIN của v3
+        # là "dở dang" (16/11/2026) nhưng chưa ai xem tận mắt — có thể là câu kết thúc hợp lệ mà bộ dò
+        # thô bắt nhầm. In đuôi để người dựng dataset tự quyết.
+        if nghi:
+            print(f"    ⚠ {len(nghi)} câu trả lời văn xuôi trông dở dang/tự lặp — XEM TAY trước khi train:")
+            for loi, t in nghi[:5]:
+                print(f"      [{loi}] …{t[-90:]!r}")
 
     # ---- 2. Nguồn v2 (convert + lọc) ---------------------------------------
     drive_files = sorted(V2_SOURCES_DIR.glob("*.jsonl")) if V2_SOURCES_DIR.is_dir() else []

@@ -11,7 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from offline_training.build_dataset_v3 import convert_v2_entry, scan_secrets, strip_think
+from offline_training.build_dataset_v3 import (
+    MAX_REPORT_CHARS,
+    convert_v2_entry,
+    ket_thuc_do_dang,
+    scan_secrets,
+    strip_think,
+    tu_lap,
+)
 from offline_training.dgen_common import (
     customer_leak,
     fuzzy_contains,
@@ -279,9 +286,30 @@ def test_benchmark_scores_followup_separately():
 # ===========================================================================
 
 
+def _van_da_dang(toi_thieu: int) -> str:
+    """
+    Văn xuôi dài ít nhất `toi_thieu` ký tự, KHÔNG lặp cụm 8 từ nào, kết thúc bằng dấu chấm. Văn mẫu sinh
+    bằng một khuôn câu ("Mục {i}: … với kỳ trước …") tự nó đã lặp — `tu_lap` bắt đúng, nên test dùng khuôn
+    đó là test sai.
+    """
+    chu = ["cước", "dầu", "cầu đường", "bốc xếp", "lương", "khấu hao", "bảo hiểm", "lãi vay"]
+    cau, i = [], 0
+    while len(" ".join(cau)) < toi_thieu:
+        cau.append(f"Tháng {i}, khoản {chu[i % 8]} tăng {i}% vì {chu[(i * 3) % 8]} đổi.")
+        i += 1
+    return " ".join(cau)
+
+
 def test_long_consult_goes_to_report_branch():
-    """436 mẫu distill R1 dài ~5.800 ký tự: đúng hợp đồng REPORT, không phải rác."""
-    long_answer = "Phân tích chi tiết. " * 200          # ~4.000 ký tự
+    """
+    Bài tư vấn v2 dài vừa phải (1.400 < n ≤ MAX_REPORT_CHARS) vẫn thành mẫu REPORT.
+
+    Bản trước của test này dùng ~4.000 ký tự và ghi "436 mẫu distill R1 dài ~5.800 ký tự: đúng hợp đồng
+    REPORT". Đo 16/11/2026 (#91) cho thấy chính 380 mẫu đó dạy anser-v3 viết luận không dừng ở nhánh
+    diễn giải; trần nay là 2.500.
+    """
+    long_answer = _van_da_dang(1_800)
+    assert 1_400 < len(long_answer) <= MAX_REPORT_CHARS
     obj = {"messages": [
         {"role": "system", "content": "You are Project A."},
         {"role": "user", "content": "Phân tích thị trường bán lẻ 2026"},
@@ -462,6 +490,68 @@ def test_convert_v2_prose_mentioning_nodes_is_not_treated_as_json():
     ]}
     entry, reason = convert_v2_entry(obj)
     assert reason == "ok" and entry["_source"] == "v2_consult"
+
+
+# ---------------------------------------------------------------------------
+# #91: văn xuôi bị cắt dở / tự lặp, và bài luận v2 dài gắn nhãn báo cáo
+# ---------------------------------------------------------------------------
+# Đuôi THẬT lấy từ train_v3.jsonl (16/11/2026): 80/98 mẫu dở dang và 33/35 mẫu tự lặp của tập train nằm
+# trong 380 bài luận v2 gắn REPORT_SYSTEM — nguyên nhân anser-v3 không biết dừng ở nhánh diễn giải.
+
+def _v2(answer: str) -> dict:
+    return {"messages": [
+        {"role": "system", "content": "You are Project A."},
+        {"role": "user", "content": "Hỏi gì đó"},
+        {"role": "assistant", "content": "<think>x</think>\n" + answer},
+    ]}
+
+
+@pytest.mark.parametrize("duoi", [
+    "Khi đăng ký với Bộ Công Thương, bên nhượng quyền phải nộp **hợp đồng mẫu**. Nếu có th",
+    "### 4. Mất ưu đãi về đơn giản hóa thủ tục kế toán\n- **Hộ kinh do",
+    "Năm 2024 chính sách giảm thuế vẫn có hiệu lực. Hãy theo dõi",
+    'Ví dụ:\n```json\n{"method": "POST",\n "url',
+])
+def test_cau_cut_do_bi_nhan_ra(duoi):
+    assert ket_thuc_do_dang(duoi)
+
+
+@pytest.mark.parametrize("duoi", [
+    "Kiểm tra kỹ trước khi gửi khách hàng!",
+    "Chi phí tăng khoảng 20%",
+    "| Q2 | 154.000.000 | 21.701.826 |",
+    "Hỏi tôi nếu cần thêm nhé 🚀",
+    "Mẫu:\n```json\n{}\n```",
+    "(theo Nghị định 125/2020)",
+])
+def test_cau_ket_thuc_hop_le_khong_bi_bat_nham(duoi):
+    assert not ket_thuc_do_dang(duoi)
+
+
+def test_vong_lap_bi_nhan_ra_van_dai_khong_lap_thi_khong():
+    lap = "Mở đầu. " + "lợi nhuận ròng thấp hơn doanh thu kỳ trước theo bảng " * 6
+    assert tu_lap(lap)
+    assert tu_lap("response " * 60)
+    # Văn dài mà KHÔNG lặp cụm 8 từ: mỗi câu khác nhau ở vài từ giữa câu.
+    chu = ["cước", "dầu", "cầu đường", "bốc xếp", "lương", "khấu hao", "bảo hiểm", "lãi vay"]
+    binh_thuong = " ".join(f"Tháng {i}, khoản {chu[i % 8]} tăng {i}% vì {chu[(i * 3) % 8]} đổi."
+                           for i in range(40))
+    assert not tu_lap(binh_thuong)
+
+
+def test_v2_cut_do_hoac_tu_lap_bi_loai():
+    assert convert_v2_entry(_v2("Nên nhập hàng sớm. Nếu có th")) == (None, "van_xuoi_do_dang")
+    assert convert_v2_entry(_v2("Nên nhập. " + "response " * 60 + "."))[1] == "van_xuoi_tu_lap"
+
+
+def test_bai_luan_v2_dai_khong_con_thanh_mau_bao_cao():
+    """Bản trước giữ tới 12.000 ký tự: 430 mẫu v2 thành 'báo cáo', p50 5.753 ký tự."""
+    vua = _van_da_dang(2_000)
+    assert 1_400 < len(vua) <= MAX_REPORT_CHARS
+    entry, reason = convert_v2_entry(_v2(vua))
+    assert reason == "report_ok" and entry["_source"] == "v2_report"
+    qua = _van_da_dang(4_000)
+    assert convert_v2_entry(_v2(qua)) == (None, "too_long")
 
 
 # ===========================================================================
