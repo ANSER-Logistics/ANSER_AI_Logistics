@@ -1,0 +1,4 @@
+# src/data holds uploaded invoices/images and reference PDFs: may be customer data (AGENTS.md R2), never send to an LLM extractor
+src/data/
+graphify-out/
+_backups/

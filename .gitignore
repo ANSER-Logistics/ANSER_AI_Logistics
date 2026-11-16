@@ -75,3 +75,7 @@ sample_data/*.xlsx
 
 # Bộ đo model thị giác (ảnh hoá đơn hư cấu): nhị phân, sinh lại được bằng make_vlm_invoice_eval.py.
 offline_training/generated/vlm_hoadon/
+
+# graphify — đồ thị tri thức sinh cục bộ (graph.json, html, cache, cost). Dựng lại bằng
+# `graphify update .` (AST, không LLM). .graphifyignore VẪN track: nó chặn src/data (R2).
+graphify-out/

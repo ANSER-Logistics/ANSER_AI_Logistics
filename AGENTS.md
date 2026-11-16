@@ -228,6 +228,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 ### 4.2. Chống mục ruỗng
 
 - Xoá code chết thay vì để lại. `RetailChatResponse`/`ProductExtraction` từng bị đánh dấu dead code — kiểm tra trước khi thêm schema mới.
+- [`.agents/`](.agents/) là thiết lập v1 (team Gemini, `ENV=COLAB`, A100, Qwen2-VL-7B) — **lỗi thời**, giữ lại nhưng không làm theo. File này thay thế nó; chỗ nào hai bên nói khác nhau thì theo file này.
 - `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 6c8b4f8^:src/archive/<file>` nếu cần đối chiếu.
 - Sửa code là sửa tài liệu. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4). **Từ 15/11/2026 tài liệu ở repo khác**, nên "cùng PR" không còn nghĩa đen. Thay vào đó: PR nào đổi route, module `src/core/`, biến môi trường hoặc một hành vi mà tài liệu mô tả phải **nêu điều đó trong mô tả PR** và mở PR tương ứng ở `anser-brain-docs`, nêu số PR bên kia. CI của repo tài liệu kéo mã về và bắt các lệch mà máy bắt được (route, module, biến môi trường, liên kết), chạy khi có commit và mỗi thứ Hai. Chỗ hở: không có gì ép việc mở PR bên kia, chỉ có người duyệt.
 
@@ -383,3 +384,20 @@ Dùng DeepSeek ở ba generator trên **không phạm R2**: chúng sinh trên k�
 > **Hệ quả của việc xoá:** `DEEPSEEK_API_KEY` không còn chỗ dùng nào trong `src/`. Mọi chỗ cần nó giờ nằm trong `offline_training/`, và chúng sinh trên kịch bản hư cấu. Bản trước của câu này kết luận `openai` "chỉ dùng làm client cho vLLM nội bộ" — **sai** (đo 12/11/2026): `src/` không import `openai` chút nào; trong `offline_training/` chỉ `dgen_common.py`, `day1_test_batch.py`, `day2_full_batch.py` import nó. Một gói chỉ script offline dùng mà vẫn nằm trong `requirements.txt` của service là việc dọn cho sau khi #17 (tách `requirements-gpu.txt`) gộp.
 
 Chi tiết và các hướng xử: xem việc trên bảng kanzo.
+
+---
+
+## 9. Cấu hình cho trợ lý AI (Claude Code, Copilot) — thêm 16/11/2026
+
+File này là nguồn sự thật cho **mọi** agent. Các file dưới chỉ bổ sung theo từng công cụ; mâu thuẫn thì AGENTS.md thắng.
+
+| File | Cho ai | Nội dung |
+|---|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Claude Code | Import AGENTS.md + cách dùng skill và graph |
+| [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
+| [`.claude/skills/anser-map`](.claude/skills/anser-map/SKILL.md) | Claude (tự nạp) | Bản đồ module, chỗ nào lỗi thời, cách hỏi graph |
+| [`.claude/skills/anser-verify`](.claude/skills/anser-verify/SKILL.md) | Claude (`/anser-verify`) | Đúng các bước CI + pre-commit, 4 câu hỏi R1–R4, quét bí mật toàn lịch sử bằng chính `scan_secrets` |
+
+**Graph tri thức (graphify):** `graphify-out/` sinh cục bộ, **không commit** (đã gitignore). Dựng bằng `/graphify .`, cập nhật bằng `graphify update .` (chỉ AST, không gọi LLM). [`.graphifyignore`](.graphifyignore) **có commit**: nó loại `src/data/` (file upload, có thể là dữ liệu khách) để không bao giờ bị gửi cho bộ trích xuất LLM (R2).
+
+Đổi `ci.yml`, `.pre-commit-config.yaml`, đường dẫn module hay quy tắc ở file này ⇒ cập nhật các file trên **trong cùng PR**. Chúng là bản sao mô tả, lệch được như mọi bản sao khác.
