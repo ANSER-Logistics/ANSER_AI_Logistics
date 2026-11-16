@@ -168,7 +168,7 @@ async def do(args) -> tuple[int, dict[str, Any]]:
     # ---- 1. Tuần tự: kết quả chuẩn -----------------------------------------------------
     ung_vien = sorted({c for vd in manager.router.routes.values() for c in vd})
     chuan_router: dict[str, dict] = {}
-    phan_bo = Counter()
+    phan_bo: Counter[str] = Counter()
     for c in ung_vien:
         kq = manager.router.route_with_score(c)
         phan_bo[kq["method"]] += 1
