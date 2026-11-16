@@ -204,6 +204,27 @@ def test_payload_openai_trung_production_tung_byte(luoc_do, rp):
     assert p["repetition_penalty"] == rp
 
 
+@pytest.mark.parametrize("luoc_do,rp", [(LUOC_DO, 1.0), (None, 1.25)], ids=["grammar", "tu-do"])
+def test_vllm_offline_phat_lap_trung_production(luoc_do, rp):
+    """
+    #91, 16/11/2026: bản dựng vLLM trong tiến trình không đặt `repetition_penalty`, nên narration (sinh tự
+    do) được đo ở 1,0 trong khi khách nhận 1,25. Hai đường đo phải cho CÙNG một con số.
+    """
+    from offline_training.providers import tham_so_lay_mau_offline
+
+    k = tham_so_lay_mau_offline(luoc_do, 2048, 0.2)
+    assert k["repetition_penalty"] == rp
+    assert k["repetition_penalty"] == payload_openai("m", CHAT, luoc_do, 2048, 0.2)["repetition_penalty"]
+    assert k["max_tokens"] == 2048 and k["temperature"] == 0.2
+
+
+def test_vllm_offline_dung_ham_tham_so_chung():
+    """Chặn việc ai đó dựng lại `SamplingParams` bằng tay trong `sinh` và làm rơi phạt lặp lần nữa."""
+    import inspect
+
+    assert "tham_so_lay_mau_offline(" in inspect.getsource(VLLMTrongTienTrinh.sinh)
+
+
 # ---------------------------------------------------------------------------
 # Lý do dừng
 # ---------------------------------------------------------------------------

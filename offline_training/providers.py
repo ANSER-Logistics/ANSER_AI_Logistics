@@ -298,8 +298,31 @@ def _bao_cat_cut(finishes: list[str], max_tokens: int) -> None:
               f"(stop_reason=refusal) — KHÔNG phải JSON hỏng.")
 
 
+def tham_so_lay_mau_offline(json_schema: dict | None, max_tokens: int,
+                            temperature: float) -> dict[str, Any]:
+    """
+    Tham số lấy mẫu cho bản dựng vLLM trong tiến trình — PHẠT LẶP THEO ĐÚNG LUẬT CỦA PRODUCTION.
+
+    Đường HTTP (`payload_openai`) đã đi qua `ChatRequest` từ 27/10/2026; đường này thì chưa (soát
+    16/11/2026, #91). Thiếu `repetition_penalty` thì vLLM dùng 1,0, trong khi production sinh TỰ DO ở
+    `TEXT_REPETITION_PENALTY` (mặc định 1,25). Nên nhánh narration — nhánh duy nhất không có grammar —
+    của phiên đo #84 ngày 16/11 thật ra chạy ở 1,0, không phải thứ khách nhận. Có grammar thì cả hai bên
+    đều 1,0, nên bốn nhánh kia không bị ảnh hưởng.
+
+    Lấy con số từ chính `ChatRequest.repetition_penalty_hieu_luc` (một nguồn, R4): đổi luật ở production
+    là bộ đo đi theo. Muốn đo ở mức khác thì đặt `TEXT_REPETITION_PENALTY`, như production.
+    """
+    from src.core.serving import ChatRequest
+
+    rp = ChatRequest(
+        messages=[{"role": "user", "content": "-"}], max_tokens=max_tokens,
+        temperature=temperature, guided_json=json_schema,
+    ).repetition_penalty_hieu_luc()
+    return {"temperature": temperature, "max_tokens": max_tokens, "repetition_penalty": rp}
+
+
 # ---------------------------------------------------------------------------
-# Bản dựng 1 — vLLM trong tiến trình (hành vi cũ, không đổi)
+# Bản dựng 1 — vLLM trong tiến trình
 # ---------------------------------------------------------------------------
 
 class VLLMTrongTienTrinh:
@@ -341,11 +364,17 @@ class VLLMTrongTienTrinh:
         if forced:
             print(f"  ép quantization={forced}, dtype={dtype} (BENCH_QUANT)")
 
+        # Mặc định 8192 giữ nguyên số đo cũ. BR-33 (#84) đo ở ngữ cảnh 32768 như production
+        # (TEXT_MAX_MODEL_LEN): đặt BENCH_MAX_MODEL_LEN=32768. Trước đây số này ghim cứng nên
+        # không đo được ở cấu hình production mà không sửa mã (R5).
+        max_len = int(os.getenv("BENCH_MAX_MODEL_LEN", "8192"))
+        print(f"  max_model_len={max_len} (BENCH_MAX_MODEL_LEN)")
+
         self.llm = LLM(
             model=model_path,
             quantization=forced,
             dtype=dtype,
-            max_model_len=8192,
+            max_model_len=max_len,
             gpu_memory_utilization=float(os.getenv("BENCH_GPU_UTIL", "0.85")),
             enforce_eager=os.getenv("BENCH_ENFORCE_EAGER", "1") == "1",
             trust_remote_code=True,
@@ -360,7 +389,7 @@ class VLLMTrongTienTrinh:
              max_tokens: int, temperature: float) -> tuple[list[str], list[str]]:
         from vllm import SamplingParams
 
-        kwargs: dict[str, Any] = dict(temperature=temperature, max_tokens=max_tokens)
+        kwargs = tham_so_lay_mau_offline(json_schema, max_tokens, temperature)
         if json_schema is not None:
             try:
                 from vllm.sampling_params import GuidedDecodingParams
