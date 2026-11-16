@@ -249,15 +249,22 @@ Hai đầu của một việc, mỗi đầu một nơi bắt buộc:
 
 **Vì sao hai đầu chứ không phải một.** Giao việc qua bảng thì ai cũng thấy việc đang ở đâu mà không phải hỏi. Trả việc qua PR thì có một chỗ cụ thể để đọc thay đổi, và có một người khác nhìn trước khi nó thành thật. Thiếu đầu nào thì đầu kia mất tác dụng: giao trên bảng rồi nhận kết quả qua chat thì bảng nói dối; bắt PR mà việc không nằm trên bảng thì không ai biết PR đó thuộc việc nào.
 
-**Điều kiện kỹ thuật, đã kiểm 07/11/2026.** Người được giao phải có quyền `write` trên repo thì mới đẩy nhánh lên được để mở PR:
+**Điều kiện kỹ thuật, kiểm lại 16/11/2026.** Người được giao phải có quyền `write` trên repo thì mới đẩy nhánh lên được để mở PR. Hiện **cả năm thành viên đều đủ quyền** — không ai cần fork:
 
 | Thành viên | Quyền trên repo Brain |
 |---|---|
-| `Dgsonn`, `tranthanh-riu` | `write` ✅ |
+| `Dgsonn`, `tranthanh-riu`, `wikiepeidia` | `write` ✅ |
 | `SiPhung953`, `PCBoiz` | `admin` ✅ |
-| `wikiepeidia` | `read` ❌ — phải fork mới mở PR được |
 
-Giao việc cho người chỉ có `read` mà không nói trước chuyện fork là giao một việc họ không làm được, và họ sẽ mất thời gian mới hiểu vì sao.
+*(Bản 07/11 ghi `wikiepeidia` chỉ có `read`, "phải fork mới mở PR được". Sai từ khi quyền được nâng: đo 16/11 bằng lệnh dưới ra `write`, và nhánh của PR #110 đẩy thẳng lên repo được.)*
+
+**Đối chiếu bằng lệnh, đừng nhớ** — bảng này lệch ngay khi ai đó đổi quyền:
+
+```bash
+gh api repos/ANSER-Logistics/ANSER_AI_Logistics/collaborators/<tên>/permission -q .role_name
+```
+
+Thành viên mới chỉ có `read` thì nâng lên `write` trước khi giao việc, thay vì bắt họ fork.
 
 **Team `brain` là bên duyệt**, và CODEOWNERS tự gắn họ vào mỗi PR — nhưng chỉ sau khi [PR #5](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/pull/5) gộp và ruleset được bật. Trước đó phải gắn người duyệt bằng tay.
 
