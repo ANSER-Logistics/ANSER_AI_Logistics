@@ -135,11 +135,33 @@ def sinh_ca(n: int, seed: int = 20261116) -> list[dict[str, Any]]:
 # Chấm điểm
 # ---------------------------------------------------------------------------
 
+# Dấu thanh kiểu cũ và kiểu mới (#98, 16/11/2026): "thủy"/"thuỷ", "hòa"/"hoà", "khỏe"/"khoẻ" là CÙNG một
+# chữ, hai cách đặt dấu đều được dùng chính thức. Phiên đo đầu tiên chấm sai 2/14 ca bán lẻ chỉ vì model
+# viết "thủy" khi giấy in "thuỷ". Chỉ xảy ra ở vần MỞ oa, oe, uy (không có phụ âm cuối); "hoàng", "khuyến"
+# thì cả hai kiểu đặt dấu như nhau. Đưa về kiểu mới (dấu trên nguyên âm thứ hai) rồi mới so.
+_DAU_THANH = "̣̀́̃̉"          # huyền, sắc, ngã, hỏi, nặng (dạng NFD)
+_VAN_MO_KIEU_CU = re.compile(
+    rf"([oO])([{_DAU_THANH}])([aAeE])(?![^\W\d_]|[̀-ͯ])"
+    rf"|([uU])([{_DAU_THANH}])([yY])(?![^\W\d_]|[̀-ͯ])"
+)
+
+
+def _dau_kieu_moi(s: str) -> str:
+    def doi(m: re.Match) -> str:
+        if m.group(1):
+            return m.group(1) + m.group(3) + m.group(2)
+        return m.group(4) + m.group(6) + m.group(5)
+    return unicodedata.normalize("NFC", _VAN_MO_KIEU_CU.sub(doi, unicodedata.normalize("NFD", s)))
+
+
 def _chuan(s: Any) -> str:
-    """So tên KHÔNG bỏ dấu: đọc sai dấu tiếng Việt là lỗi thật, không phải lỗi hình thức."""
+    """
+    So tên KHÔNG bỏ dấu: đọc sai dấu tiếng Việt là lỗi thật, không phải lỗi hình thức. Riêng VỊ TRÍ đặt
+    dấu thanh (thủy/thuỷ) thì không phải đọc sai, nên được chuẩn hoá trước khi so (xem `_dau_kieu_moi`).
+    """
     if not isinstance(s, str):
         return ""
-    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", s)).strip().casefold()
+    return re.sub(r"\s+", " ", _dau_kieu_moi(s)).strip().casefold()
 
 
 def _so(x: Any) -> float | None:
