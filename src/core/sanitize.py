@@ -44,12 +44,48 @@ CO_DIEU_KHIEN = "ky_tu_dieu_khien"
 CO_CAT_DO_DAI = "cat_do_dai"
 CO_CHI_DAN = "giong_chi_dan_cho_model"
 CO_QUA_SAU = "cay_qua_sau"
+CO_TRON_CHU = "tron_bo_chu_cai"          # một từ lẫn chữ Latin với Cyrillic/Hy Lạp (homoglyph)
+CO_CHU_BI_TACH = "chu_bi_tach"           # "d.u.y.ệ.t": tách chữ để qua mặt bộ lọc
+CO_DOI_CHIEU = "ky_tu_doi_chieu"         # RLO/LRO/BiDi: đảo chiều đọc để giấu lệnh
 
 
 def _bo_dau(s: str) -> str:
     """'Bỏ qua' -> 'bo qua'. Chỉ dùng để SO MẪU, không bao giờ để lưu."""
     d = unicodedata.normalize("NFD", s)
     return "".join(c for c in d if unicodedata.category(c) != "Mn").replace("đ", "d").replace("Đ", "D")
+
+
+# Chữ Cyrillic/Hy Lạp trông y hệt chữ Latin ("bо quа" với о, а Cyrillic): mắt người thấy tiếng Việt, mẫu Latin
+# trượt hoàn toàn. Đổi về Latin TRƯỚC khi so mẫu (chuỗi lưu lại không bị đổi).
+_NHAM_CHU = str.maketrans({
+    **{c: lat for c, lat in zip("аеорсхуіјѕкм", "aeopcxyijskm")},
+    **{c: lat for c, lat in zip("АВЕКМНОРСТХ", "ABEKMHOPCTX")},
+    **{c: lat for c, lat in zip("οανρτι", "oavrti")},
+    **{c: lat for c, lat in zip("ΑΒΕΖΗΙΚΜΝΟΡΤΧ", "ABEZHIKMNOPTX")},
+})
+_CHU_CA_LAT = re.compile(r"[A-Za-z]")
+_CHU_CA_GIA = re.compile(r"[\u0370-\u03ff\u0400-\u04ff]")
+
+
+def _co_tron_chu(t: str) -> bool:
+    """Có từ nào vừa có chữ Latin vừa có chữ Cyrillic/Hy Lạp? Trong hoá đơn tiếng Việt gần như luôn là cố ý."""
+    return any(_CHU_CA_LAT.search(w) and _CHU_CA_GIA.search(w) for w in re.findall(r"\w+", t))
+
+
+# Chữ đơn lẻ ngăn bằng dấu chấm/gạch: "L.ư.u ý c.h.o m.ô h.ì.n.h". Cần ít nhất 4 chữ liền nhau mới coi là bị tách.
+_CHU_TACH = re.compile(r"(?:(?<=\W)|^)(?:\w[.\-_·•]){3,}\w(?=\W|$)")
+_BIDI = re.compile("[\u202a-\u202e\u2066-\u2069]")
+
+
+_DAU_TACH_LE = re.compile(r"(?<=\b\w)[.\-_·•](?=\w)|(?<=\w)[.\-_·•](?=\w\b)")
+
+
+def _go_tach(t: str) -> str:
+    """Có một chuỗi dài chữ đơn bị tách thì gỡ MỌI dấu tách kẹp giữa hai chữ có một bên là chữ đơn (vì "m.ô"
+    ngắn quá để tự nó là dấu hiệu, nhưng đứng cạnh "d.u.y.ệ.t" thì là cùng một thủ thuật)."""
+    if not _CHU_TACH.search(t):
+        return t
+    return _DAU_TACH_LE.sub("", t)
 
 
 # Mẫu viết trên chuỗi đã bỏ dấu và hạ chữ thường. Mỗi mẫu cố ý đòi HAI mảnh (một động từ ra lệnh
@@ -73,12 +109,29 @@ _MAU_CHI_DAN = tuple(re.compile(p) for p in (
     # trong ghi chú hoá đơn bình thường KHÔNG khớp.
     r"\b(hay|vui long|yeu cau|ban phai)\b.{0,25}\b(danh dau|xac nhan|ghi nhan|duyet|bo qua|tiet lo|in ra)\b",
     r"\b(tiet lo|in ra)\b.{0,25}\b(prompt|chi dan he thong|huong dan he thong|mat khau|khoa api)",
+    # Thêm 16/11/2026 (bộ câu thử của Minh, #100): giả vai, "hãy quên", đòi in hướng dẫn, thẻ hệ thống, và câu
+    # gọi THẲNG trợ lý. Mỗi mẫu đòi hai mảnh (người nhận lệnh + lệnh) để câu bình thường không khớp.
+    r"\b(dong vai|ban la|ban se la|you are|act as)\b.{0,40}\b(ke toan|admin|quan tri|he thong|da duyet|nguoi duyet)",
+    r"\b(quen|forget)\b.{0,25}\b(nhung gi|huong dan|chi dan|duoc dan|dan luc dau|instructions?)\b",
+    r"\b(in ra|liet ke|cho (toi |minh |em )?biet|print|reveal)\b.{0,25}\b(toan bo )?(huong dan|chi dan|instructions?|prompt)\b",
+    r"\[\s*(system|assistant|admin)\s*\]|\b(system|assistant)\s*:",
+    r"\b(tro ly|assistant|may doc hoa don|mo hinh doc|chatbot)\b.{0,60}\b(hay|phai|khong can|dung gan co|coi|duyet|bo qua)\b",
+    r"\b(cho|gui) (mo hinh|tro ly|model)\b.{0,30}\b(duyet|dung gan|bo qua|hop le|ok)\b",
+    r"\b(dung|khong) (gan co|can doi chieu)\b.{0,30}\b(thue|tong|hoa don|hop le)|\bcoi\b.{0,25}\bla dung\b",
+    r"verified\s*=\s*true|\bapproved\b.{0,20}\b(status|trang thai)\b|disregard (all )?(prior|previous)",
+    # Tiếng Trung: "bỏ qua chỉ dẫn trước", "đánh dấu hợp lệ".
+    r"(忽略|无视).{0,8}(指示|指令|规则|说明)|标记.{0,10}(有效|合法)",
 ))
 
 
 def _co_chi_dan(s: str) -> bool:
-    t = _bo_dau(s).lower()
-    return any(m.search(t) for m in _MAU_CHI_DAN)
+    # Ba dạng: nguyên văn, đã đổi chữ giả Latin, đã gỡ chữ bị tách. Câu bị che bằng một thủ thuật vẫn lộ ra ở
+    # dạng đã gỡ thủ thuật đó.
+    for dang in {s, s.translate(_NHAM_CHU), _go_tach(s.translate(_NHAM_CHU))}:
+        t = _bo_dau(dang).lower()
+        if any(m.search(t) for m in _MAU_CHI_DAN):
+            return True
+    return False
 
 
 def lam_sach_chuoi(
@@ -93,6 +146,13 @@ def lam_sach_chuoi(
 
     co: list[str] = []
     t = unicodedata.normalize("NFC", s)
+    # Ba thủ thuật che lệnh. Cờ riêng cho từng thủ thuật để người duyệt biết vì sao (bất kỳ cờ nào cũng buộc xem lại).
+    if _BIDI.search(t):
+        co.append(CO_DOI_CHIEU)
+    if _co_tron_chu(t):
+        co.append(CO_TRON_CHU)
+    if _go_tach(t) != t:
+        co.append(CO_CHU_BI_TACH)
 
     ra: list[str] = []
     for c in t:
@@ -178,7 +238,8 @@ def lam_sach_raw(s: Any) -> tuple[Any, tuple[str, ...]]:
 
 
 __all__ = [
-    "CO_CAT_DO_DAI", "CO_CHI_DAN", "CO_DIEU_KHIEN", "CO_QUA_SAU", "CO_VO_HINH",
+    "CO_CAT_DO_DAI", "CO_CHI_DAN", "CO_CHU_BI_TACH", "CO_DIEU_KHIEN", "CO_DOI_CHIEU", "CO_QUA_SAU", "CO_TRON_CHU",
+    "CO_VO_HINH",
     "MAX_DO_SAU", "MAX_KHOA", "MAX_RAW", "MAX_TRUONG",
     "lam_sach_chuoi", "lam_sach_cay", "lam_sach_raw",
 ]
