@@ -432,6 +432,16 @@ DOI_HANH_VI: dict[str, str] = {
         "CÙNG LÚC với `--profile vision`: đặt mà container không chạy thì /health "
         "báo degraded vĩnh viễn (#14)."
     ),
+    "FUEL_PRICE_WARN_DAYS": (
+        "Giá dầu cũ từ ngần này ngày thì báo giá có cảnh báo (mặc định 2). Compose "
+        "không truyền thì AGENTS §3.1c nói 'đổi được bằng env' mà triển khai không đổi "
+        "được; đặt sai thì dịch vụ không khởi động."
+    ),
+    "FUEL_PRICE_MAX_DAYS": (
+        "Giá dầu cũ từ ngần này ngày thì /tools/quote trả 422, từ chối báo giá (mặc "
+        "định 7). Đây là ngưỡng quyết định khi nào khách KHÔNG nhận được báo giá, nên "
+        "phải đổi được khi triển khai."
+    ),
 }
 
 
