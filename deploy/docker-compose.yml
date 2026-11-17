@@ -148,6 +148,12 @@ services:
       ANSER_TEXT_MAX_CONCURRENT: ${TEXT_MAX_CONCURRENT:-4}
       ANSER_TEXT_MAX_QUEUE: ${TEXT_MAX_QUEUE:-16}
       ANSER_TEXT_WAIT_TIMEOUT_S: ${TEXT_WAIT_TIMEOUT_S:-20}
+      # Ngưỡng p95 trên /health (#9). Chỉ ms/token "chưa đạt" hạ `degraded`;
+      # tổng ms chỉ báo cáo. Xem src/core/nguong_p95.py.
+      P95_MS_MOI_TOKEN: ${P95_MS_MOI_TOKEN:-60}
+      P95_NGUONG_MS: ${P95_NGUONG_MS:-5000}
+      P95_CUA_SO: ${P95_CUA_SO:-200}
+      P95_MAU_TOI_THIEU: ${P95_MAU_TOI_THIEU:-30}
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: ${DATABASE_URL:-}
       # TÊN BIẾN PHẢI LÀ API_AUTH_TOKEN — đó là tên `dependencies.py` đọc.

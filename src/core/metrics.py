@@ -29,10 +29,13 @@ import os
 import re
 import threading
 import time
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+from src.core import nguong_p95
 
 logger = logging.getLogger("projecta.metrics")
 
@@ -45,6 +48,14 @@ METRICS_PATH = os.getenv(
 )
 
 _write_lock = threading.Lock()
+
+# Cửa sổ p95 cho /health (#9): (latency_ms, ms/token hoặc None) của các lượt gần
+# nhất, TRONG BỘ NHỚ. Không đọc lại file JSONL: file đó tắt được
+# (`AI_METRICS_PATH=`), không phải volume, và đọc file trên mỗi /health là I/O
+# thừa. Hệ quả chấp nhận: khởi động lại thì cửa sổ rỗng -> "không đủ dữ liệu"
+# tới khi đủ mẫu, không báo đạt khống. `P95_CUA_SO` hỏng thì lỗi ngay lúc import.
+_cua_so_lock = threading.Lock()
+_cua_so: deque[tuple[int, Optional[float]]] = deque(maxlen=nguong_p95.doc_cua_so()[0])
 
 # Trường KHÔNG BAO GIỜ được ghi, kể cả khi LOG_CONTENT=1 (P2: bí mật kinh doanh)
 _FORBIDDEN_KEYS = {"internal", "margin", "base_margin_pct", "carrier_cost",
@@ -120,6 +131,12 @@ def record(metric: TurnMetric) -> None:
     Ghi một lượt. KHÔNG BAO GIỜ raise — đo đạc hỏng không được làm hỏng
     nghiệp vụ.
     """
+    # Cửa sổ p95 cập nhật TRƯỚC khi xét METRICS_PATH: tắt ghi file không được
+    # làm /health mất số đo.
+    try:
+        _ghi_cua_so(metric)
+    except Exception as exc:
+        logger.warning("Không cập nhật được cửa sổ p95: %s", exc)
     if not METRICS_PATH:
         return
     try:
@@ -135,6 +152,39 @@ def record(metric: TurnMetric) -> None:
                 f.write(line + "\n")
     except Exception as exc:
         logger.warning("Không ghi được ai_metrics_log: %s", exc)
+
+
+def _ms_moi_token(metric: TurnMetric) -> Optional[float]:
+    """model_ms / completion_tokens — chỉ khi BIẾT cả hai. Không biết số token
+    (mock, server không trả `usage`) thì None: bỏ khỏi mẫu, không đoán, không
+    chia trên `latency_ms` (gồm cả tool, RAG, n8n)."""
+    tok, ms = metric.completion_tokens, metric.model_ms
+    if tok is None or ms is None or tok <= 0 or ms < 0:
+        return None
+    return ms / tok
+
+
+def _ghi_cua_so(metric: TurnMetric) -> None:
+    with _cua_so_lock:
+        _cua_so.append((int(metric.latency_ms), _ms_moi_token(metric)))
+
+
+def p95_gan_day() -> dict[str, Any]:
+    """Kết luận p95 trên cửa sổ hiện tại cho /health — xem `nguong_p95.ket_luan`."""
+    with _cua_so_lock:
+        mau = list(_cua_so)
+    return nguong_p95.ket_luan(
+        ms_moi_token=[t for _, t in mau if t is not None],
+        tong_ms=[float(lat) for lat, _ in mau],
+        so_luot=len(mau),
+    )
+
+
+def dat_lai_cua_so_p95() -> None:
+    """Xoá cửa sổ và đọc lại `P95_CUA_SO` từ env. Cho test và cho lúc đổi cấu hình."""
+    global _cua_so
+    with _cua_so_lock:
+        _cua_so = deque(maxlen=nguong_p95.doc_cua_so()[0])
 
 
 class Timer:
@@ -213,4 +263,5 @@ def summarize(path: str | None = None, limit: int = 5000) -> dict[str, Any]:
     }
 
 
-__all__ = ["TurnMetric", "Timer", "record", "summarize", "LOG_CONTENT", "METRICS_PATH"]
+__all__ = ["TurnMetric", "Timer", "record", "summarize", "p95_gan_day", "dat_lai_cua_so_p95",
+           "LOG_CONTENT", "METRICS_PATH"]
