@@ -8,6 +8,13 @@ from src.core.prompts import Prompts
 # khai, không hai bản mặc định (R4). `api/dependencies.py` re-export tên này.
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
+# Lịch sử hội thoại (S7, BR-38). Body gửi kèm `history` trong lời gọi `/chat` (hướng chủ dự án chốt
+# 12/11, Body#28); Brain không lưu. Ở tầng T1 vì lược đồ request (`api`) và `memory` (`core`) cùng cần,
+# và một con số không được tồn tại ở hai nơi (R4).
+LICH_SU_SO_TIN_DUNG = 6          # Brain chỉ dùng chừng này tin GẦN NHẤT (trước đây là mặc định của memory.py)
+LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắt lặng lẽ
+LICH_SU_TOI_DA_KY_TU = 4000      # mỗi tin; dài hơn thì 422
+
 
 class Config:
     """
