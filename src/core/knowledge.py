@@ -54,6 +54,7 @@ from datetime import date
 from typing import Any, Optional, Protocol
 
 from src.core.chunking import chunk_document, looks_tabular
+from src.core.config import kb_embedder_id, kb_reranker_id
 from src.core.utils import hom_nay_vn
 
 logger = logging.getLogger("projecta.knowledge")
@@ -62,11 +63,8 @@ logger = logging.getLogger("projecta.knowledge")
 _DATE_MIN = 10000101
 _DATE_MAX = 99991231
 
-# Giá trị mặc định — đổi bằng env, KHÔNG sửa code.
-EMBEDDER_ID = os.getenv("KB_EMBEDDER_ID", "BAAI/bge-m3")
-# ViRanker: chuyên tiếng Việt, nền BGE-M3, giấy phép Apache-2.0.
-# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại.
-RERANKER_ID = os.getenv("KB_RERANKER_ID", "namdp-ptit/ViRanker")
+# Model embedder và reranker: đổi bằng env `KB_EMBEDDER_ID` / `KB_RERANKER_ID`, KHÔNG sửa code. Một định
+# nghĩa ở `core/config.py` (`kb_embedder_id()`, `kb_reranker_id()`, R4), cùng lý do giấy phép.
 # 0..1 sau sigmoid — lần đầu tiên ngưỡng này có nghĩa. Reranker cũ trả logit thô
 # của một model tiếng Anh, ngưỡng 0.0 trên đó chỉ là con số cho có.
 RELEVANCE_THRESHOLD = float(os.getenv("KB_RELEVANCE_THRESHOLD", "0.5"))
@@ -308,8 +306,9 @@ class KnowledgeBase:
     def embedder(self) -> Embedder:
         if self._embedder is None:
             from sentence_transformers import SentenceTransformer
-            logger.info("Nạp embedder %s trên %s", EMBEDDER_ID, self.device)
-            self._embedder = SentenceTransformer(EMBEDDER_ID, device=self.device)
+            ten = kb_embedder_id()
+            logger.info("Nạp embedder %s trên %s", ten, self.device)
+            self._embedder = SentenceTransformer(ten, device=self.device)
         return self._embedder
 
     def loaded_embedder(self) -> Optional[Embedder]:
@@ -327,8 +326,9 @@ class KnowledgeBase:
     def reranker(self) -> Reranker:
         if self._reranker is None:
             from sentence_transformers import CrossEncoder
-            logger.info("Nạp reranker %s trên %s", RERANKER_ID, self.device)
-            self._reranker = CrossEncoder(RERANKER_ID, device=self.device)
+            ten = kb_reranker_id()
+            logger.info("Nạp reranker %s trên %s", ten, self.device)
+            self._reranker = CrossEncoder(ten, device=self.device)
         return self._reranker
 
     @property

@@ -16,6 +16,23 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 # chuyển về đây vì engine, memory và route /chat cùng cần (R4: một định nghĩa). `engine.MAX_HISTORY_TURNS`
 # vẫn dùng được: engine import lại tên này.
 MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
+
+# Model của kho tri thức (RAG). MỘT nơi đọc env và giữ mặc định (R4): trước 17/11 `Config` và `knowledge.py`
+# mỗi nơi tự đọc `KB_EMBEDDER_ID` / `KB_RERANKER_ID` và viết cứng một bản mặc định, trong khi chỉ
+# `knowledge.py` thật sự nạp model; đổi mặc định ở một nơi thì `Config` (dùng cho báo cáo đo) báo sai model.
+# Là HÀM chứ không phải hằng số lúc import, để đổi env rồi nạp lại có hiệu lực và test gán env được.
+# Cả hai model phải dùng thương mại được: bge-m3 (MIT), ViRanker (Apache-2.0, chuyên tiếng Việt, nền BGE-M3).
+# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại (`tests/test_giay_phep_model.py` chặn).
+KB_EMBEDDER_MAC_DINH = "BAAI/bge-m3"
+KB_RERANKER_MAC_DINH = "namdp-ptit/ViRanker"
+
+
+def kb_embedder_id() -> str:
+    return os.getenv("KB_EMBEDDER_ID", KB_EMBEDDER_MAC_DINH)
+
+
+def kb_reranker_id() -> str:
+    return os.getenv("KB_RERANKER_ID", KB_RERANKER_MAC_DINH)
 LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắt lặng lẽ
 LICH_SU_TOI_DA_KY_TU = 4000      # mỗi tin; dài hơn thì 422
 
@@ -134,8 +151,8 @@ class Config:
         #  - ms-marco là model TIẾNG ANH, mà điểm của nó lại dùng làm ngưỡng lọc.
         #  - jina-reranker-v2 tốt nhưng CC-BY-NC-4.0: cấm dùng thương mại.
         # bge-m3 (MIT) + ViRanker (Apache-2.0) cùng nền BGE-M3, dùng thương mại được.
-        self.embedding_model_id = os.getenv("KB_EMBEDDER_ID", "BAAI/bge-m3")
-        self.reranker_model_id  = os.getenv("KB_RERANKER_ID", "namdp-ptit/ViRanker")
+        self.embedding_model_id = kb_embedder_id()
+        self.reranker_model_id = kb_reranker_id()
 
         # --- RAG: phạm vi kho tri thức ---
         # Hợp đồng, bảng giá cước, chính sách công nợ là của CẢ CÔNG TY, không

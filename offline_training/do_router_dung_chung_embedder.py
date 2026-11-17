@@ -155,10 +155,11 @@ async def do(args) -> tuple[int, dict[str, Any]]:
     from src.agents.manager import ManagerAgent
     from src.api.chay_ngoai_loop import chay_tren_kho
     from src.api.routes.chat import _phan_loai
-    from src.core.knowledge import EMBEDDER_ID, KnowledgeBase
+    from src.core.config import kb_embedder_id
+    from src.core.knowledge import KnowledgeBase
 
     duong = getattr(args, "duong", "moi")
-    bao_cao: dict[str, Any] = {"embedder": EMBEDDER_ID, "device": args.device, "luot": args.luot,
+    bao_cao: dict[str, Any] = {"embedder": kb_embedder_id(), "device": args.device, "luot": args.luot,
                                "duong": duong}
     kb = KnowledgeBase(tempfile.mkdtemp(prefix="kb85-"), device=args.device)
     try:
