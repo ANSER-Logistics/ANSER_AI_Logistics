@@ -163,3 +163,11 @@ Dockerfile được, với điều kiện `/health` báo `task_registry.backend:
 trong `.env` VÀ chạy `docker compose --profile vision up -d`; `/health` phải báo
 `vision_backend: "server"` và `vllm_vision_server.ok: true`. Để trống biến đó
 (mặc định) thì vision tắt có tuyên bố như trước.
+
+Đã sửa ngày 17/11/2026 (#35), bỏ khỏi bảng: `vllm-text` ghim `v0.8.5` và ép
+`--quantization=awq`, lệch với mọi phép đo (vLLM 0.10.2–0.11.2, tự nhận lượng tử
+hoá). Nay cả hai container dùng `vllm/vllm-openai:v0.11.2`, và `--quantization` /
+`--dtype` chỉ thêm khi đặt `TEXT_QUANTIZATION` / `TEXT_DTYPE` trong `.env` (mặc
+định rỗng — vLLM tự nhận từ `config.json`, chọn nhân `awq_marlin`).
+`tests/test_deploy_config.py` khoá cả hai điều. **Chưa chạy trên GPU**: cần
+`docker compose up` rồi `/health` trả `vllm_server.ok: true` với model AWQ.
