@@ -1,6 +1,6 @@
 # src/agents/vision.py
 """
-VisionAgent — lớp mỏng bọc quanh ModelEngine.generate_vision (model thị giác theo VISION_MODEL_ID, mặc định Qwen2.5-VL-3B).
+VisionAgent — lớp mỏng bọc quanh ModelEngine.generate_vision (model thị giác theo VISION_MODEL_ID, mặc định Qwen3-VL-2B).
 
 MỘT model VLM duy nhất cho cả 3 vai trò (đã LOẠI BỎ Florence-2):
   1. caption  — mô tả ảnh bằng tiếng Việt

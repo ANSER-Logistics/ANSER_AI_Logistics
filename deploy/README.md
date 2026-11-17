@@ -33,7 +33,7 @@ Ba lỗi chồng lên nhau, và chúng cùng nhau tạo ra đúng hiện tượn
         ┌───────────▶│  vllm-text   │  GPU ~62%   Qwen3-8B AWQ    :8001
 ┌───────┴─────┐ HTTP └──────────────┘
 │    brain    │      ┌──────────────┐
-│  CPU thuần  │─────▶│ vllm-vision  │  GPU ~20%   Qwen2.5-VL-3B   :8002
+│  CPU thuần  │─────▶│ vllm-vision  │  GPU ~25%   Qwen3-VL-2B     :8002
 └───────┬─────┘      └──────────────┘
         │            ┌──────────────┐
         └───────────▶│    redis     │  trạng thái tác vụ nền
