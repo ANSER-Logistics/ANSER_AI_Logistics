@@ -130,6 +130,16 @@ def main() -> None:
 
     for muc in chung:
         so_mot_muc(muc, sa[muc], sb[muc])
+        # `benchmark_v3 --thu-lai-n8n` ghi thêm mục `thu_lai` (kết quả SAU MỘT LẦN THỬ LẠI, như `/chat`).
+        # Chỉ so khi CẢ HAI bên có; một bên có một bên không thì so là so hai thứ khác nhau.
+        tl_a, tl_b = sa[muc].get("thu_lai"), sb[muc].get("thu_lai")
+        if tl_a and tl_b:
+            so_mot_muc(f"{muc} — sau một lần thử lại",
+                       {"row_ids": sa[muc].get("row_ids"), "per_row": tl_a.get("per_row")},
+                       {"row_ids": sb[muc].get("row_ids"), "per_row": tl_b.get("per_row")})
+        elif tl_a or tl_b:
+            print(f"\n[{muc}] chỉ một bên đo 'sau một lần thử lại' — bỏ qua phần đó "
+                  "(chạy cả hai bên với --thu-lai-n8n để so)")
 
     thieu = sorted(set(sa) ^ set(sb))
     if thieu:

@@ -27,6 +27,31 @@ from src.core.prompts import Prompts
 MAX_WORKFLOW_TOKENS = 2048
 
 
+def loi_lan_truoc(err: str) -> str:
+    """
+    Lời nhắn `/chat` đưa cho model ở lần thử lại, chứa lý do cụ thể từ `validate_workflow()`.
+
+    Một định nghĩa cho cả `chat.py` (production) và `offline_training/benchmark_v3.py` (đo): bộ đo mà tự viết
+    lời nhắn thử lại của mình thì đo một thứ khác với thứ khách nhận (#91: v4 trượt n8n ở lần thử đầu, còn
+    production thử lại một lần, nên con số "một lần" chỉ là cận dưới).
+    """
+    return (
+        f"Lần trước JSON bị lỗi: {err}. "
+        "Sửa lại và chỉ xuất JSON hợp lệ, không thêm chữ nào khác."
+    )
+
+
+def soan_yeu_cau(task: str, plan: str, feedback: str = "") -> str:
+    """Câu user gửi cho model sinh workflow; `feedback` (nếu có) là kết quả của `loi_lan_truoc`."""
+    user = f"YÊU CẦU: {task}\nKẾ HOẠCH: {plan}"
+    if feedback:
+        user += (
+            f"\n\nLỖI LẦN TRƯỚC: {feedback}\n"
+            "Sửa đúng lỗi đó rồi xuất lại workflow."
+        )
+    return user
+
+
 class CoderAgent(BaseAgent):
     def __init__(self, engine, memory):
         super().__init__(engine, "coder")
@@ -45,16 +70,9 @@ class CoderAgent(BaseAgent):
             example=self.middleware.get_workflow_examples(),
         )
 
-        user = f"YÊU CẦU: {task}\nKẾ HOẠCH: {plan}"
-        if feedback:
-            user += (
-                f"\n\nLỖI LẦN TRƯỚC: {feedback}\n"
-                "Sửa đúng lỗi đó rồi xuất lại workflow."
-            )
-
         return await self.generate_chat(
             system=system,
-            user=user,
+            user=soan_yeu_cau(task, plan, feedback),
             max_new_tokens=MAX_WORKFLOW_TOKENS,
             temperature=0.1,
             json_schema=self.middleware.get_workflow_json_schema(),

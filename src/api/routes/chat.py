@@ -26,6 +26,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
+from src.agents.coder import loi_lan_truoc
 from src.api.chay_ngoai_loop import chay_ngoai_loop, chay_tren_kho
 from src.api.dependencies import (
     ChatRequest,
@@ -874,12 +875,8 @@ async def chat_endpoint(
                         "Workflow JSON không hợp lệ (%s) — thử lại",
                         err, extra={"request_id": request_id},
                     )
-                    feedback = (
-                        f"Lần trước JSON bị lỗi: {err}. "
-                        "Sửa lại và chỉ xuất JSON hợp lệ, không thêm chữ nào khác."
-                    )
                     raw = dem.cong(await runtime.coder.write_code(
-                        user_msg, ke_hoach_wf, feedback=feedback))
+                        user_msg, ke_hoach_wf, feedback=loi_lan_truoc(err)))
                     obj, err = _extract_json_block(raw)
                     if obj is not None:
                         ok, err = _validate_workflow(obj)
