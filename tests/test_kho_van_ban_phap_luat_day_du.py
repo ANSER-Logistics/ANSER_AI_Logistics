@@ -15,6 +15,7 @@ thúc một câu. Nó là chốt tối thiểu, không thay cho việc đối ch
 from __future__ import annotations
 
 import re
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -30,13 +31,26 @@ def _tai_lieu() -> list[Path]:
     return sorted(p for p in DOCS.iterdir() if p.suffix.lower() in DUOI)
 
 
+def _van_ban(p: Path) -> str:
+    """
+    Chữ của tài liệu. `.docx` đọc bằng `zipfile` thuần, KHÔNG qua `doc_extract.extract`: CI không cài `python-docx`
+    (và test tự bỏ qua khi thiếu thư viện là đúng kiểu im lặng mà dự án cấm). Bài kiểm cụt chỉ cần chữ và
+    thứ tự của chúng, không cần bố cục; bảng trong `.docx` vẫn nằm trong XML nên không bị bỏ sót.
+    """
+    if p.suffix.lower() == ".docx":
+        with zipfile.ZipFile(p) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", xml)).strip()
+    return extract(p.read_bytes(), p.name).text.strip()
+
+
 def test_chot_chong_xanh_suong_co_du_tai_lieu():
     assert len(_tai_lieu()) >= 5, f"chỉ thấy {len(_tai_lieu())} tài liệu trong {DOCS}"
 
 
 @pytest.mark.parametrize("p", _tai_lieu(), ids=lambda p: p.name)
 def test_tai_lieu_khong_cut_giua_cau_hay_giua_cong_thuc(p):
-    text = extract(p.read_bytes(), p.name).text.strip()
+    text = _van_ban(p)
     assert len(text) > 2000, f"{p.name} chỉ có {len(text)} ký tự: nhiều khả năng cụt"
     cuoi = text[-1]
     assert cuoi not in "=:,;-(+*/", (
