@@ -255,6 +255,66 @@ def score_n8n(rows: list[dict], outputs: list[str],
     }
 
 
+def chat_thu_lai_n8n(system: str, row: dict, why: str) -> list[dict]:
+    """
+    Cuộc chat của lần thử lại cho MỘT câu n8n hỏng, dựng bằng đúng hai hàm `/chat` dùng
+    (`coder.soan_yeu_cau` + `coder.loi_lan_truoc`) — không viết lại chữ nào ở đây (R4).
+    """
+    from src.agents.coder import loi_lan_truoc, soan_yeu_cau
+
+    return [
+        {"role": "system", "content": system},
+        {"role": "user",
+         "content": soan_yeu_cau(row["task"], row["plan"], loi_lan_truoc(why))},
+    ]
+
+
+def thu_lai_n8n(nha: Any, rows: list[dict], ket_qua: dict, system: str,
+                json_schema: dict, max_tokens: int, temperature: float = 0.0) -> dict:
+    """
+    n8n "sau một lần thử lại": đúng cái `/chat` làm khi workflow trượt `validate_workflow` (chat.py:
+    thử lại ĐÚNG 1 lần, kèm lý do lỗi cụ thể), nên gần số khách nhận hơn con số một lần của `score_n8n`.
+
+    VÌ SAO CÓ (#91, 17/11/2026). `anser-v4` trượt n8n 14/34 ở lần thử đầu; 8 trong số đó chỉ là một nhánh
+    nối tới node không tồn tại, mà `validate_workflow` nói đúng tên node đó trong lỗi. Production được thử
+    lại với lời nhắn ấy, bộ đo thì không, nên chưa ai biết 8 ca đó có sống sót hay không. Hàm này đo đúng chỗ
+    đó. Nó KHÔNG thay cổng của `score_n8n` (cổng vẫn theo lần thử đầu, như mọi bảng trước đây).
+
+    Khác production một chỗ, nói thẳng: nhiệt độ mặc định 0,0 như phần còn lại của bộ đo (production
+    dùng 0,1), để hai lần đo giống nhau chạy lại ra cùng một số.
+
+    Chỉ sinh lại những câu hỏng; câu đã đạt giữ nguyên, nên tốn thêm GPU tỷ lệ với số câu hỏng.
+    """
+    ly_do = {str(i): why for i, why in ket_qua.get("failures", ())}
+    hong = [k for k, ok in enumerate(ket_qua["per_row"]) if not ok]
+    per_row = list(ket_qua["per_row"])
+    if not hong:
+        return {"n_thu_lai": 0, "n_sua_duoc": 0, "n_valid": sum(per_row), "n": len(per_row),
+                "valid_rate": sum(per_row) / max(len(per_row), 1), "per_row": per_row,
+                "n_cat_cut": 0, "ma": [], "outputs": [], "finishes": [], "failures": []}
+
+    chats = [chat_thu_lai_n8n(system, rows[k], ly_do.get(str(rows[k].get("_id", "?")), ""))
+             for k in hong]
+    outs, fins = nha.sinh(chats, json_schema, max_tokens, temperature)
+    sau = score_n8n([rows[k] for k in hong], outs, fins)
+    for j, k in enumerate(hong):
+        per_row[k] = sau["per_row"][j]
+    return {
+        "n_thu_lai": len(hong),
+        "n_sua_duoc": sum(sau["per_row"]),
+        "n_valid": sum(per_row),
+        "n": len(per_row),
+        "valid_rate": sum(per_row) / max(len(per_row), 1),
+        "per_row": per_row,
+        "n_cat_cut": sau["n_cat_cut"],
+        # Dưới đây chỉ để in và để `--tho`; không đưa vào file JSON so cặp (xem `ghi_json`).
+        "ma": [str(rows[k].get("_id", "?")) for k in hong],
+        "outputs": outs,
+        "finishes": fins,
+        "failures": sau["failures"],
+    }
+
+
 def tran_token(env: str, mac_dinh: int) -> int:
     """
     Trần token cho một nhánh đo — mặc định LẤY TỪ CHÍNH MÃ PRODUCTION.
@@ -956,6 +1016,10 @@ def main() -> None:
     )
     parser.add_argument("--skip", nargs="*", default=[],
                         choices=["extraction", "n8n", "narration", "agent"])
+    parser.add_argument("--thu-lai-n8n", action="store_true",
+                        help="đo thêm n8n SAU MỘT LẦN THỬ LẠI như `/chat` production (kèm lý do lỗi "
+                             "cụ thể). Chỉ in và ghi thêm mục `thu_lai`; cổng vẫn theo lần thử đầu. "
+                             "Tốn thêm GPU cho đúng số câu hỏng.")
     parser.add_argument("--json", dest="json_out", default="",
                         help="ghi kết quả TỪNG CÂU ra file JSON, để so hai bản "
                              "theo cặp bằng compare_runs.py")
@@ -1087,24 +1151,38 @@ def main() -> None:
             system = Prompts.CODER_SYSTEM.format(
                 tools=render_node_catalog(), example=render_examples()
             )
+            from src.agents.coder import soan_yeu_cau
             chats = [
                 [{"role": "system", "content": system},
-                 {"role": "user", "content": f"YÊU CẦU: {r['task']}\nKẾ HOẠCH: {r['plan']}"}]
+                 {"role": "user", "content": soan_yeu_cau(r["task"], r["plan"])}]
                 for r in rows
             ]
+            n8n_schema = build_workflow_schema()
+            n8n_tran = tran_token("BENCH_N8N_MAX_TOKENS", MAX_WORKFLOW_TOKENS)
             outputs, finishes = nha.sinh(
-                chats, build_workflow_schema(),
-                max_tokens=tran_token("BENCH_N8N_MAX_TOKENS", MAX_WORKFLOW_TOKENS),
-                temperature=0.0)
+                chats, n8n_schema, max_tokens=n8n_tran, temperature=0.0)
             result = score_n8n(rows, outputs, finishes)
             ghi_tho("n8n", rows, outputs, finishes, result.get("failures", ()))
             print(f"\n[n8n] hợp lệ {result['n_valid']}/{result['n']}"
-                  f" ({result['valid_rate'] * 100:.0f}%)")
+                  f" ({result['valid_rate'] * 100:.0f}%)  (lần thử đầu — số của cổng)")
             if result["n_cat_cut"]:
                 print(f"    trong đó {result['n_cat_cut']} ca CẮT CỤT (chạm trần token)"
                       f" — sửa bằng nới trần, không phải bằng train lại")
             for _id, why in result["failures"][:10]:
                 print(f"  ✗ {_id}: {why}")
+            if args.thu_lai_n8n:
+                tl = thu_lai_n8n(nha, rows, result, system, n8n_schema, n8n_tran)
+                ghi_tho("n8n_thu_lai",
+                        [{"_id": m} for m in tl["ma"]], tl["outputs"], tl["finishes"],
+                        tl["failures"])
+                print(f"[n8n] SAU MỘT LẦN THỬ LẠI (như /chat): hợp lệ {tl['n_valid']}/{tl['n']}"
+                      f" ({tl['valid_rate'] * 100:.0f}%) — thử lại {tl['n_thu_lai']} câu,"
+                      f" sửa được {tl['n_sua_duoc']}, còn {tl['n_cat_cut']} ca cắt cụt")
+                for _id, why in tl["failures"][:10]:
+                    print(f"  ✗ (sau thử lại) {_id}: {why}")
+                # Chỉ phần gọn vào file so cặp; nguyên văn nằm ở `--tho`.
+                result["thu_lai"] = {k: tl[k] for k in (
+                    "n_thu_lai", "n_sua_duoc", "n_valid", "n", "valid_rate", "per_row", "n_cat_cut")}
             ket_qua_chay["n8n"] = result
             ghi_json()
             n8n_min = float(os.getenv("N8N_VALID_MIN", "0.90"))
