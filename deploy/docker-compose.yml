@@ -154,6 +154,11 @@ services:
       P95_NGUONG_MS: ${P95_NGUONG_MS:-5000}
       P95_CUA_SO: ${P95_CUA_SO:-200}
       P95_MAU_TOI_THIEU: ${P95_MAU_TOI_THIEU:-30}
+      # Tuổi giá dầu (AGENTS §3.1c): cũ từ WARN ngày thì cảnh báo, từ MAX ngày thì
+      # /tools/quote trả 422. RỖNG = mặc định trong src/core/pricing.py, nên con số
+      # mặc định chỉ sống ở MỘT nơi (R4). Hỏng thì dịch vụ không khởi động.
+      FUEL_PRICE_WARN_DAYS: ${FUEL_PRICE_WARN_DAYS:-}
+      FUEL_PRICE_MAX_DAYS: ${FUEL_PRICE_MAX_DAYS:-}
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: ${DATABASE_URL:-}
       # TÊN BIẾN PHẢI LÀ API_AUTH_TOKEN — đó là tên `dependencies.py` đọc.

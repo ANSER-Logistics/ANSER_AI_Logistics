@@ -146,6 +146,23 @@ def test_env_trong_thi_dung_mac_dinh(monkeypatch):
     assert doc_nguong_tuoi_gia_dau() == (2, 7)
 
 
+def test_env_dat_rong_thi_van_dung_mac_dinh_nhu_compose_truyen(monkeypatch):
+    """
+    Compose truyền `FUEL_PRICE_*: ${FUEL_PRICE_*:-}` (17/11/2026): biến TỒN TẠI trong container nhưng RỖNG, khác
+    với biến không tồn tại. Rỗng mà coi là "không phải số nguyên" thì mọi triển khai không đặt gì sẽ không
+    khởi động được. Mặc định chỉ sống ở pricing.py, nên compose không lặp lại con số.
+    """
+    monkeypatch.setenv("FUEL_PRICE_WARN_DAYS", "")
+    monkeypatch.setenv("FUEL_PRICE_MAX_DAYS", "")
+    assert doc_nguong_tuoi_gia_dau() == (2, 7)
+    monkeypatch.setenv("FUEL_PRICE_WARN_DAYS", "   ")
+    assert doc_nguong_tuoi_gia_dau() == (2, 7)
+    # chỉ đặt một biến, biến kia để rỗng: biến rỗng rơi về mặc định riêng của nó
+    monkeypatch.setenv("FUEL_PRICE_WARN_DAYS", "1")
+    monkeypatch.setenv("FUEL_PRICE_MAX_DAYS", "")
+    assert doc_nguong_tuoi_gia_dau() == (1, 7)
+
+
 def test_env_hop_le_duoc_dung(monkeypatch):
     monkeypatch.setenv("FUEL_PRICE_WARN_DAYS", "1")
     monkeypatch.setenv("FUEL_PRICE_MAX_DAYS", "3")
