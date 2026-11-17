@@ -28,10 +28,20 @@ VÌ SAO CÓ PHÉP ĐO NÀY
     team viết). Tài liệu nạp vào kho là văn bản hư cấu sinh ngay trong script. Không có dữ liệu khách,
     không gọi ra ngoài trừ việc tải model từ HuggingFace (R2).
 
+HAI ĐƯỜNG (`--duong`, thêm 17/11/2026 sau PR #116)
+    moi  (mặc định) đúng như `chat.py` hôm nay: `chat._phan_loai` -> câu cần embedding chạy trên
+         worker DUY NHẤT của kho (`manager.cach_chay` == "kho"), nên hai lời gọi `encode` không chồng
+         nhau và loop không bị chặn. Trễ router giờ GỒM thời gian xếp hàng sau việc của kho.
+    cu   đường trước PR #116: `manager.analyze_task` phân loại NGAY TRÊN LOOP. Giữ để so với số đo
+         16/11 (trễ router khi kho bận p95 230–277 ms) và để test chứng minh script bắt được lỗi.
+    Cả hai đường đều đo thêm ĐỘ TRỄ CỦA EVENT LOOP khi kho bận (`tre_loop_ms`): một nhịp ngủ 10 ms,
+    lệch bao nhiêu là loop bị chặn bấy nhiêu. #116 nhắm đúng con số này, không phải trễ router.
+
 CHẠY (Colab, sau khi clone repo và cài requirements)
     ENV=GPU python offline_training/do_router_dung_chung_embedder.py --luot 3000 --out /content/r85.json
     # Kho mặc định chạy embedder trên CPU (KB_DEVICE, như production). Đo thêm trên GPU:
     ENV=GPU python offline_training/do_router_dung_chung_embedder.py --device cuda --out /content/r85_cuda.json
+    # Đường trước #116, để so: thêm --duong cu
 
 MÃ THOÁT
     0  không thấy vấn đề, và có đủ lượt chạy chồng
@@ -63,6 +73,7 @@ WS_DO = "ws-do-85"        # kho để TÌM: nội dung không đổi suốt phé
 WS_TAI = "ws-tai-85"      # kho để GHI: nạp lại liên tục, tạo tải `encode` trên worker
 LECH_DIEM = 1e-4
 LUOT_CHONG_TOI_THIEU = 50
+NHIP_LOOP_S = 0.010
 
 # Câu hỏi tìm kiếm — khớp với tài liệu hư cấu bên dưới.
 CAU_TIM = [
@@ -143,9 +154,12 @@ def tom_tat_tim(passages) -> list[tuple[str, int]]:
 async def do(args) -> tuple[int, dict[str, Any]]:
     from src.agents.manager import ManagerAgent
     from src.api.chay_ngoai_loop import chay_tren_kho
+    from src.api.routes.chat import _phan_loai
     from src.core.knowledge import EMBEDDER_ID, KnowledgeBase
 
-    bao_cao: dict[str, Any] = {"embedder": EMBEDDER_ID, "device": args.device, "luot": args.luot}
+    duong = getattr(args, "duong", "moi")
+    bao_cao: dict[str, Any] = {"embedder": EMBEDDER_ID, "device": args.device, "luot": args.luot,
+                               "duong": duong}
     kb = KnowledgeBase(tempfile.mkdtemp(prefix="kb85-"), device=args.device)
     try:
         t0 = time.perf_counter()
@@ -160,6 +174,11 @@ async def do(args) -> tuple[int, dict[str, Any]]:
         bao_cao["khong_do_duoc"] = "router KHÔNG dùng chung embedder với kho — không phải cấu hình cần đo"
         return 2, bao_cao
     bao_cao["dung_chung_embedder"] = True
+
+    async def phan_loai(c: str) -> dict:
+        if duong == "cu":
+            return await manager.analyze_task(c)        # trước #116: encode NGAY TRÊN LOOP
+        return await _phan_loai(manager, c)             # như chat.py hôm nay
 
     for so in range(args.so_tai_lieu):
         kb.add_document(WS_DO, tai_lieu_hu_cau(so), f"quy-dinh-{so}.md")
@@ -188,7 +207,7 @@ async def do(args) -> tuple[int, dict[str, Any]]:
     tre_ranh = []
     for i in range(min(300, args.luot)):
         t = time.perf_counter()
-        await manager.analyze_task(cau_router[i % len(cau_router)])
+        await phan_loai(cau_router[i % len(cau_router)])
         tre_ranh.append((time.perf_counter() - t) * 1000)
 
     # ---- 3. Đồng thời ----------------------------------------------------------------
@@ -245,7 +264,7 @@ async def do(args) -> tuple[int, dict[str, Any]]:
             chong = dem.dang_ban
             t = time.perf_counter()
             try:
-                kq = await manager.analyze_task(c)
+                kq = await phan_loai(c)
             except Exception as exc:            # noqa: BLE001
                 loi.ghi("router", exc)
                 await asyncio.sleep(0)
@@ -264,8 +283,17 @@ async def do(args) -> tuple[int, dict[str, Any]]:
             await asyncio.sleep(0)
         xong.set()
 
+    tre_loop: list[float] = []
+
+    async def do_tre_loop() -> None:
+        """Nhịp ngủ 10 ms: dậy muộn bao nhiêu là loop bị việc khác chặn bấy nhiêu."""
+        while not xong.is_set():
+            t = time.perf_counter()
+            await asyncio.sleep(NHIP_LOOP_S)
+            tre_loop.append(max(0.0, (time.perf_counter() - t - NHIP_LOOP_S) * 1000))
+
     t_dt = time.perf_counter()
-    await asyncio.gather(bom_tai_kho(), chay_router())
+    await asyncio.gather(bom_tai_kho(), chay_router(), do_tre_loop())
     bao_cao["dong_thoi_s"] = round(time.perf_counter() - t_dt, 1)
 
     bao_cao.update({
@@ -283,6 +311,10 @@ async def do(args) -> tuple[int, dict[str, Any]]:
             "ban_p50": p(tre_ban, 0.5), "ban_p95": p(tre_ban, 0.95),
             "ban_tb": statistics.fmean(tre_ban) if tre_ban else None,
         },
+        "tre_loop_ms": {
+            "so_nhip": len(tre_loop), "p50": p(tre_loop, 0.5), "p95": p(tre_loop, 0.95),
+            "max": max(tre_loop) if tre_loop else None,
+        },
     })
 
     co_van_de = bool(loi.dem) or bao_cao["router_lech"] or bao_cao["search_lech"]
@@ -299,7 +331,8 @@ async def do(args) -> tuple[int, dict[str, Any]]:
 
 def in_bao_cao(bc: dict[str, Any]) -> None:
     print("=" * 64)
-    print(f"  #85 — router dùng chung embedder ({bc.get('embedder')}, device={bc.get('device')})")
+    print(f"  #85 — router dùng chung embedder ({bc.get('embedder')}, device={bc.get('device')}, "
+          f"đường={bc.get('duong')})")
     print("=" * 64)
     if "khong_do_duoc" in bc:
         print(f"KHÔNG ĐO ĐƯỢC: {bc['khong_do_duoc']}")
@@ -319,6 +352,9 @@ def in_bao_cao(bc: dict[str, Any]) -> None:
 
     print(f"trễ router (ms)      : rảnh p50 {f(t['ranh_p50'])} / p95 {f(t['ranh_p95'])}   "
           f"bận p50 {f(t['ban_p50'])} / p95 {f(t['ban_p95'])}")
+    lp = bc["tre_loop_ms"]
+    print(f"loop bị chặn (ms)    : p50 {f(lp['p50'])} / p95 {f(lp['p95'])} / max {f(lp['max'])}  "
+          f"({lp['so_nhip']} nhịp, khi kho bận)")
     print(f"\nKẾT LUẬN: {bc['ket_luan']}")
 
 
@@ -330,6 +366,8 @@ def main() -> None:
     ap.add_argument("--hang-doi", type=int, default=4, help="số thao tác kho chờ sẵn trên worker")
     ap.add_argument("--nap-moi", type=int, default=5, help="cứ N thao tác kho thì 1 lần add_document")
     ap.add_argument("--out", default="", help="ghi báo cáo JSON")
+    ap.add_argument("--duong", choices=["moi", "cu"], default="moi",
+                    help="moi = như chat.py sau PR #116 (mặc định); cu = phân loại ngay trên loop như trước")
     args = ap.parse_args()
     if args.device is None:
         import os

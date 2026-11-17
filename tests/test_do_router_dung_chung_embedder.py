@@ -54,8 +54,9 @@ class EmbedderKhongAnToanLuong(EmbedderGia):
             self._dang_dung.release()
 
 
-def _tham_so(luot: int = 300) -> argparse.Namespace:
-    return argparse.Namespace(luot=luot, device="cpu", so_tai_lieu=2, hang_doi=4, nap_moi=5, out="")
+def _tham_so(luot: int = 300, duong: str = "moi") -> argparse.Namespace:
+    return argparse.Namespace(luot=luot, device="cpu", so_tai_lieu=2, hang_doi=4, nap_moi=5, out="",
+                              duong=duong)
 
 
 _KHO_GOC = knowledge.KnowledgeBase
@@ -70,9 +71,11 @@ def _gan_kho(monkeypatch, embedder) -> None:
     monkeypatch.setattr(knowledge, "KnowledgeBase", tao)
 
 
-def test_embedder_an_toan_thi_khong_thay_van_de(monkeypatch):
+@pytest.mark.parametrize("duong", ["moi", "cu"])
+def test_embedder_an_toan_thi_khong_thay_van_de(monkeypatch, duong):
     _gan_kho(monkeypatch, EmbedderGia())
-    ma, bc = asyncio.run(do85.do(_tham_so()))
+    ma, bc = asyncio.run(do85.do(_tham_so(duong=duong)))
+    assert bc["duong"] == duong and bc["tre_loop_ms"]["so_nhip"] > 0
     assert bc["dung_chung_embedder"] is True
     assert bc["so_cau_di_toi_embedding"] > 0
     assert bc["luot_router_chay_chong"] >= do85.LUOT_CHONG_TOI_THIEU, bc
@@ -81,11 +84,21 @@ def test_embedder_an_toan_thi_khong_thay_van_de(monkeypatch):
 
 
 def test_embedder_khong_an_toan_luong_thi_bat_duoc(monkeypatch):
+    # Đường cũ (encode trên loop, chồng với worker): script phải bắt được lỗi nó sinh ra để tìm.
     _gan_kho(monkeypatch, EmbedderKhongAnToanLuong())
-    ma, bc = asyncio.run(do85.do(_tham_so()))
+    ma, bc = asyncio.run(do85.do(_tham_so(duong="cu")))
     assert ma == 1, bc.get("ket_luan")
     assert any("Already borrowed" in k for k in bc["ngoai_le"]), bc["ngoai_le"]
     assert bc["ket_luan"] == "CÓ VẤN ĐỀ"
+
+
+def test_duong_moi_khong_de_encode_chong_nhau(monkeypatch):
+    # PR #116: câu cần embedding chạy trên worker DUY NHẤT của kho -> cùng embedder không thread-safe
+    # mà không lỗi nào. Đây là điều #116 hứa; lỗi lại là ai đó đưa router ra khỏi worker.
+    _gan_kho(monkeypatch, EmbedderKhongAnToanLuong())
+    ma, bc = asyncio.run(do85.do(_tham_so(duong="moi")))
+    assert bc["ngoai_le"] == {}, bc["ngoai_le"]
+    assert ma == 0, bc["ket_luan"]
 
 
 def test_khong_nap_duoc_embedder_thi_ma_2_khong_phai_dat(monkeypatch):
