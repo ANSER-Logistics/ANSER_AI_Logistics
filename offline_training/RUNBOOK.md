@@ -150,3 +150,82 @@ web service. Colab chỉ để train / quantize / đo.
 Cell 3.4 sao lưu `baseline_report.txt` và `tuned_report.txt` lên Drive. Lần
 train sau, so với hai file này để biết thay đổi có thật sự cải thiện không —
 đây chính là điều mà bug #6 (`ai_metrics_log`) sinh ra để giải quyết.
+
+---
+
+## 6. So hai model trên cùng bộ đề, kèm mốc tham chiếu mạnh (#91)
+
+Việc này trả lời đúng một câu: **v4 hỏng n8n vì model, hay vì cách đo?** Ba điều làm cho phép đo thỏa đáng:
+
+1. **Cùng điều kiện.** Hai model chạy trong CÙNG phiên Colab, cùng bản vLLM, cùng commit, trên CÙNG bốn tập đo. Hai bảng ở hai ngày khác nhau không so chéo được: v3 n8n ra 25/34 ngày 16/11 (vLLM 0.10.2) và 33/34 ngày 17/11 (0.11.2).
+2. **Cùng đường với production.** Chạy qua server vLLM (`openai:` trong `providers.py`, dựng body bằng chính `ChatRequest.to_payload`), không qua `vllm.LLM` trong tiến trình. Production gọi qua server, nên đo đúng đường đó bớt một biến. Chưa ai kiểm hai đường cho kết quả giống hệt nhau trên bốn tập đo; hai bảng 16/11 và 17/11 đều đo qua `vllm.LLM`.
+3. **Có mốc tham chiếu.** Một model mạnh (Claude, DeepSeek) chạy trên cùng bộ đề cho biết câu nào bộ đề làm được. Câu mà MỌI bản đều sai là câu nghi đề bài, không phải model.
+
+### 6.1 Chia VRAM trước khi bật server (không tốn GPU)
+
+Chép cờ production (`--max-model-len=32768`, `--gpu-memory-utilization=0.62`) cho hai server là hết bộ nhớ ngay lúc server thứ hai khởi động. Tính trước:
+
+```bash
+python offline_training/ke_hoach_vram.py \
+    --model /content/drive/.../anser-v3-awq --ten anser-v3 \
+    --model /content/drive/.../anser-v4-awq --ten anser-v4
+```
+
+Công cụ đọc trọng số và KV cache từ file model, hỏi `nvidia-smi` dung lượng GPU, rồi in hai lệnh `vllm serve` (đúng cờ của `deploy/docker-compose.yml`) với `--max-model-len` lớn nhất còn vừa. Không vừa thì **từ chối**; khi đó chạy lần lượt từng model trong cùng phiên (mục 6.4) vẫn đạt điều kiện 1 và 2.
+
+Hạ `--max-model-len` không đổi đầu ra, miễn mọi prompt cộng phần sinh ngắn hơn nó. Prompt dài hơn thì vLLM trả 400 và benchmark nổ rõ ràng. Hai con số overhead trong kế hoạch là **ước tính chưa đo**: nếu server báo thiếu bộ nhớ cho KV cache lúc khởi động, thêm `--overhead-gib 3.5` rồi tính lại.
+
+### 6.2 Bật hai server, rồi đo song song
+
+Bật LẦN LƯỢT (đợi server trước lên `/health` rồi mới bật server sau). Sau đó, ở hai ô lệnh riêng hoặc dùng `&`:
+
+```bash
+export ANSER_GENERATED_DIR=/content/drive/.../generated
+
+python offline_training/benchmark_v3.py --model 'openai:http://127.0.0.1:8001/v1#anser-v3' \
+    --no-gate --thu-lai-n8n --json v3.json --tho v3_tho.jsonl  > v3.log 2>&1 &
+python offline_training/benchmark_v3.py --model 'openai:http://127.0.0.1:8002/v1#anser-v4' \
+    --no-gate --thu-lai-n8n --json v4.json --tho v4_tho.jsonl  > v4.log 2>&1 &
+wait
+```
+
+`--thu-lai-n8n` đo thêm n8n **sau một lần thử lại** như `/chat` (PR #138). Một GPU chia hai thì từng lần chạy chậm hơn, và tổng thời gian không ngắn hơn chạy lần lượt: lợi ích của "song song" là cùng điều kiện, không phải nhanh hơn.
+
+### 6.3 Mốc tham chiếu từ model mạnh (API ngoài)
+
+**R2.** Chỉ chạy trên bốn tập `generated/eval_*.jsonl` (kịch bản hoàn toàn hư cấu). Không chạy trên dữ liệu khách, kể cả bản đã ẩn danh. Chủ dự án cho phép gọi Claude và DeepSeek cho việc này (17/11/2026). Khoá API đọc từ biến môi trường (Colab Secrets), không ghi vào dòng lệnh hay file.
+
+```bash
+# Claude: provider có sẵn. Cần ANTHROPIC_API_KEY trong Colab Secrets.
+python offline_training/benchmark_v3.py --model anthropic:claude-opus-5-5 \
+    --no-gate --thu-lai-n8n --json claude.json --tho claude_tho.jsonl
+```
+
+Ràng buộc JSON của API ngoài khác grammar của vLLM (`rang_buoc` ghi trong file JSON, và `compare_runs` / `bang_nhieu_lan_chay` cảnh báo khi hai lần chạy lệch nhau). Vì vậy điểm của mốc tham chiếu là **cận để biết bộ đề có làm được**, không so ngang với model local như hai bản cùng cơ chế.
+
+### 6.4 Chạy lần lượt (khi hai server không vừa GPU)
+
+Cùng phiên, cùng commit, tắt server trước rồi mới bật server sau:
+
+```bash
+vllm serve .../anser-v3-awq --served-model-name=anser-v3 --max-model-len=32768 --gpu-memory-utilization=0.62 --port=8001 &
+# đợi /health, chạy benchmark cho v3 như 6.2, rồi: kill %1 ; đợi GPU trống (nvidia-smi) ; bật v4 tương tự.
+```
+
+### 6.5 Đọc kết quả
+
+```bash
+python -m offline_training.bang_nhieu_lan_chay \
+    --lan v3=v3.json --lan v4=v4.json --lan claude=claude.json \
+    --tham-chieu claude --sau-thu-lai
+```
+
+Bảng cho từng nhánh: điểm có khoảng Wilson, rồi ba danh sách câu.
+
+| Danh sách | Nghĩa | Làm gì |
+|---|---|---|
+| Mọi lần chạy đều **sai** | Nghi **đề bài** hoặc bộ kiểm | Đọc nguyên văn câu đó trong `*_tho.jsonl` trước khi kết tội model |
+| Mốc đúng, mọi bản local sai | Khoảng cách thật của model | Ứng viên cho dữ liệu huấn luyện (v5) |
+| Có bản local đúng, mốc sai | Ca lạ | Soát ràng buộc JSON hai bên |
+
+Dòng "**v4 so với v3: LÀM HỎNG**" kèm "mốc tham chiếu làm được x/y" cho biết trong các câu v4 làm hỏng, bao nhiêu câu là câu làm được (lỗi của model) và bao nhiêu là câu cả Claude cũng sai (nghi đề bài). `--sau-thu-lai` chuyển nhánh n8n sang kết quả sau thử lại cho lần chạy có mục đó; lần chạy không có thì bảng nói thẳng là đang dùng lần đầu. Phép đo này không thay cổng của `benchmark_v3` và không đổi model đang chạy.
