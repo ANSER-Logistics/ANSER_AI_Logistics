@@ -28,6 +28,7 @@ import unicodedata
 from collections import Counter
 from typing import Any
 
+from offline_training.hoa_don_luat import mst_gia as _mst_gia  # MỘT định nghĩa MST hư cấu (R4)
 from src.core.freight_invoice import FreightInvoice
 from src.core.freight_invoice import verify as verify_freight
 from src.core.mcp_server import MCPServer
@@ -49,16 +50,6 @@ _SAN_PHAM = [
 ]
 _TUYEN = ["Hà Nội", "Hải Phòng", "Đà Nẵng", "Vinh", "Huế", "Nha Trang", "Cần Thơ", "Biên Hòa", "Quy Nhơn"]
 _XE = ["xe tải 5 tấn", "xe tải 8 tấn", "xe tải 15 tấn", "container 20ft", "container 40ft"]
-_TRONG_SO_MST = (31, 29, 23, 19, 17, 13, 7, 5, 3)
-
-
-def _mst_gia(rng: random.Random) -> str:
-    """MST 10 số bịa: bắt đầu bằng 99, chữ số cuối là số kiểm tra thật (`src/core/tax_id.py`)."""
-    while True:
-        so = [9, 9] + [rng.randint(0, 9) for _ in range(7)]
-        du = sum(n * w for n, w in zip(so, _TRONG_SO_MST)) % 11
-        if du != 0:      # du = 0 thì không có chữ số kiểm tra hợp lệ nào: bốc lại chín số đầu
-            return "".join(map(str, so)) + str(10 - du)
 
 
 def _lam_tron_nghin(x: float) -> int:
