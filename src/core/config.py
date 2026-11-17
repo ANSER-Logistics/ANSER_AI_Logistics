@@ -83,7 +83,8 @@ class Config:
         #  Bảng ước lượng cũ (Qwen2-VL-2B, MiniLM) đã xoá 16/11/2026: các model
         #  trong đó không còn là mặc định. Số ĐO thật, text + vision cùng máy:
         #  VRAM đỉnh 21,1GB / 22,5GB ở TEXT_GPU_FRACTION=0.55 (BAO_CAO_BR04.md §6,
-        #  repo tài liệu). Vision mặc định Qwen2.5-VL-3B (~7,5GB bf16, engine.py);
+        #  repo tài liệu; số đo đó là của Qwen2.5-VL-3B ~7,5GB bf16, mặc định cũ).
+        #  Vision mặc định nay là Qwen3-VL-2B (~4,3GB bf16, suy từ số tham số; xem dưới);
         #  embedder bge-m3 và reranker ViRanker chạy trên CPU mặc định (KB_DEVICE).
         # =================================================================
 
@@ -98,10 +99,23 @@ class Config:
         self.text_model_id = os.getenv("TEXT_MODEL_ID", "").strip()
 
         # --- Eye: Vision/VLM (load riêng qua transformers, ngoài vLLM) ---
-        # Qwen2.5-VL-3B thay cho Qwen2-VL-2B (03/08/2026): đọc tài liệu và OCR
-        # tốt hơn rõ, mà việc của nó là đọc đúng con số tiền trên tờ giấy nhàu.
-        # Đổi bằng env khi VRAM chật: VISION_MODEL_ID=Qwen/Qwen2-VL-2B-Instruct
-        self.vision_model_id = os.getenv("VISION_MODEL_ID", "Qwen/Qwen2.5-VL-3B-Instruct")
+        # GIẤY PHÉP QUYẾT ĐỊNH MẶC ĐỊNH (17/11/2026, chủ dự án chốt đổi model).
+        # Mặc định cũ Qwen2.5-VL-3B-Instruct mang giấy phép `qwen-research`: chỉ
+        # cho nghiên cứu và đánh giá phi thương mại, dùng thương mại phải xin
+        # Alibaba Cloud (đọc văn bản giấy phép ngày 17/11). Chủ dự án không xin
+        # được, nên mặc định là model Apache-2.0 cùng thế hệ với model văn bản.
+        #
+        # Vì sao bản 2B chứ không phải 4B: số đo VRAM duy nhất có sẵn (BR-04) là đỉnh
+        # 21,1GB / 22,5GB với vision 3B ~7,5GB. Qwen3-VL-4B bf16 ~8,9GB sẽ đẩy tổng
+        # tới sát trần và gần như chắc chắn tràn trên L4; 2B ~4,3GB còn dư. 4B là ứng
+        # viên cần đo lại VRAM đỉnh, không phải mặc định.
+        #
+        # TẠM THỜI: chưa có số đo tiếng Việt của model này trên bộ hoá đơn hư cấu
+        # (BR-33 / #98 / #114). Đo xong thì giữ hoặc đổi sang ứng viên Apache-2.0
+        # hoặc MIT khác bằng env — không cần sửa mã.
+        # `tests/test_giay_phep_model.py` chặn việc đưa một model phi thương mại
+        # trở lại làm mặc định (config, .env.example, compose).
+        self.vision_model_id = os.getenv("VISION_MODEL_ID", "Qwen/Qwen3-VL-2B-Instruct")
 
         # --- RAG: Embedding + Reranker ---
         # Đổi 03/08/2026, ba lý do — xem RAG_VLM_KE_HOACH.md §A.1.2 và §A.1.7:

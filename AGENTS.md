@@ -156,7 +156,7 @@ Mọi tham số phần cứng đọc từ biến môi trường, có mặc đị
 
 ```python
 TEXT_MODEL_ID          # đường dẫn hoặc HF id. KHÔNG có mặc định, cố ý
-VISION_MODEL_ID        # Qwen/Qwen2.5-VL-3B-Instruct
+VISION_MODEL_ID        # Qwen/Qwen3-VL-2B-Instruct (Apache-2.0; bản 3B cũ là `qwen-research`, phi thương mại)
 VLLM_BASE_URL          # http://127.0.0.1:8001/v1 — CHỈ host nội bộ (R2; host công cộng bị `serving.kiem_url_noi_bo` từ chối)
 TEXT_GPU_FRACTION      # 0.55 (compose: 0.62, vì vision là container riêng)
 TEXT_MAX_MODEL_LEN     # 32768

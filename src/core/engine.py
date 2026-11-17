@@ -55,6 +55,25 @@ def _doc_anh(duong_dan: str) -> tuple[bytes, str]:
     return du_lieu, mime
 
 
+def chon_lop_nap_vision(transformers_module):
+    """
+    Lớp `Auto...` nạp model thị giác trong tiến trình. Hàm thuần, nhận module để test được
+    mà không nạp transformers thật (nặng RAM).
+
+    `AutoModelForImageTextToText` trước: nó là lớp đọc được Qwen2-VL, Qwen2.5-VL và Qwen3-VL
+    (README của Qwen3-VL dùng chính nó). `AutoModelForVision2Seq` chỉ là chỗ lùi cho transformers
+    cũ chưa có lớp kia. Không có lớp nào thì báo rõ, không lặng lẽ trả None.
+    """
+    for ten in ("AutoModelForImageTextToText", "AutoModelForVision2Seq"):
+        lop = getattr(transformers_module, ten, None)
+        if lop is not None:
+            return lop
+    raise ImportError(
+        "transformers không có AutoModelForImageTextToText lẫn AutoModelForVision2Seq: "
+        "nâng transformers (Qwen3-VL cần >= 4.57)."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Chọn backend — MỘT chỗ quyết định (SRS chu kỳ 01, BR-03 yêu cầu 1, 2, 7)
 # ---------------------------------------------------------------------------
@@ -475,28 +494,29 @@ class ModelEngine:
     def _nap_vision_trong_tien_trinh(self) -> None:
         """Vision qua transformers, nạp trong tiến trình. Dùng cả khi text đi server."""
         import torch
-
-        # `type: ignore` vì gói stub của transformers chưa khai `AutoModelForVision2Seq`,
-        # không phải vì lớp này không tồn tại — nó có thật từ transformers 4.39.
-        from transformers import (  # type: ignore[attr-defined]
-            AutoModelForVision2Seq,
-            AutoProcessor,
-        )
+        import transformers
+        from transformers import AutoProcessor
 
         # 2) Vision eye — transformers, load vào phần VRAM CÒN LẠI ngoài pool vLLM.
         #
-        #    `AutoModelForVision2Seq` thay cho `Qwen2VLForConditionalGeneration`
-        #    (03/08/2026): lớp cụ thể kia KHÔNG nạp được Qwen2.5-VL — kiến trúc
-        #    đó cần `Qwen2_5_VLForConditionalGeneration`. Đóng đinh một lớp cụ
-        #    thể nghĩa là mỗi lần đổi model vision lại phải sửa code; `Auto...`
-        #    đọc `architectures` trong config.json và chọn đúng lớp.
+        #    Lớp `Auto...` thay cho `Qwen2VLForConditionalGeneration` (03/08/2026):
+        #    lớp cụ thể kia KHÔNG nạp được Qwen2.5-VL — kiến trúc đó cần
+        #    `Qwen2_5_VLForConditionalGeneration`. Đóng đinh một lớp cụ thể nghĩa
+        #    là mỗi lần đổi model vision lại phải sửa code; `Auto...` đọc
+        #    `architectures` trong config.json và chọn đúng lớp.
+        #    17/11/2026: đổi sang `AutoModelForImageTextToText` vì mặc định vision
+        #    đổi sang Qwen3-VL (giấy phép, xem config.py); `chon_lop_nap_vision`
+        #    lùi về `AutoModelForVision2Seq` cho transformers cũ.
         #
-        #    VRAM bf16: Qwen2-VL-2B ~4,5GB, Qwen2.5-VL-3B ~7,5GB. Cộng cả vLLM
-        #    (gpu_memory_utilization là phần GIỮ CHỖ, không phải phần dùng thật)
-        #    thì L4 22,5GB rất sát trần — xem RAG_VLM_KE_HOACH.md §B.2.4, và đó
-        #    là lý do embedder/reranker của RAG chạy CPU.
+        #    VRAM bf16: Qwen3-VL-2B ~4,3GB, Qwen3-VL-4B ~8,9GB (tính từ số tham số
+        #    trên Hugging Face, 17/11/2026, chưa phải VRAM đỉnh thật; bản 3B cũ
+        #    đo ~7,5GB). Cộng cả vLLM (gpu_memory_utilization là phần GIỮ CHỖ,
+        #    không phải phần dùng thật) thì L4 22,5GB rất sát trần — xem
+        #    RAG_VLM_KE_HOACH.md §B.2.4, và đó là lý do embedder/reranker của RAG
+        #    chạy CPU. Bản 4B nặng hơn 3B cũ khoảng 1,4GB: phải đo lại VRAM đỉnh.
         logger.info("Loading vision model: %s", self.config.vision_model_id)
-        self.vision_model = AutoModelForVision2Seq.from_pretrained(
+        lop_nap = chon_lop_nap_vision(transformers)
+        self.vision_model = lop_nap.from_pretrained(
             self.config.vision_model_id,
             torch_dtype=torch.bfloat16,
             device_map="cuda",
