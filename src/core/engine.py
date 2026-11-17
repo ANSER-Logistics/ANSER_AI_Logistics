@@ -7,7 +7,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from src.core.config import Config
+from src.core.config import MAX_HISTORY_TURNS, Config
 from src.core.serving import (
     REPETITION_PENALTY_TU_DO,
     BackendUnavailable,
@@ -290,10 +290,8 @@ def tao_task_registry() -> "TaskRegistry | RedisTaskRegistry":
 
 TASK_REGISTRY = tao_task_registry()
 
-# Số lượt hội thoại tối đa đưa lại vào prompt. 6 lượt (3 cặp hỏi-đáp) đủ cho
-# các câu nối tiếp thực tế ("thế xe 3 tấn thì sao?") mà không ăn hết ngân sách
-# ngữ cảnh — mỗi lượt cũ đẩy chi phí mọi request sau đó lên.
-MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
+# `MAX_HISTORY_TURNS` (số lượt hội thoại tối đa đưa lại vào prompt) khai ở `core/config.py` (R4):
+# route /chat và memory cũng cần. Giữ tên ở đây để `engine.MAX_HISTORY_TURNS` dùng như cũ.
 # Lượt cũ dài hơn mức này bị cắt: câu trả lời workflow JSON có thể vài nghìn
 # token, nhét nguyên vào lượt sau là vô ích mà tốn ngữ cảnh.
 MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1200"))

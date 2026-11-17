@@ -71,7 +71,7 @@ class ChatRequest(BaseModel):
     #   - vắng (None): Body cũ chưa gửi -> Brain lùi về đọc DB như trước (với DB thật của Body thì
     #     ra rỗng, vì sáu bảng đó không tồn tại);
     #   - `[]`: Body có gửi và đây là lượt đầu -> KHÔNG đọc DB;
-    #   - có tin: dùng đúng các tin đó (chỉ LICH_SU_SO_TIN_DUNG tin cuối).
+    #   - có tin: dùng đúng các tin đó (chỉ MAX_HISTORY_TURNS tin cuối, mặc định 6).
     # Trường lạ khác vẫn bị bỏ qua như trước; riêng `history` nay được nhận chứ không rơi im lặng.
     history: Optional[list[LuotHoiThoai]] = Field(default=None, max_length=LICH_SU_TOI_DA_TIN)
 

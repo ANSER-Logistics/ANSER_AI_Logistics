@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from src.api.dependencies import ChatRequest
 from src.api.main import app
 from src.api.routes import chat as chat_mod
-from src.core.config import LICH_SU_SO_TIN_DUNG, LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN
+from src.core.config import LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN, MAX_HISTORY_TURNS
 from tests.test_chat_routing import moi_truong  # noqa: F401  (fixture dựng runtime tối thiểu)
 
 client = TestClient(app)
@@ -78,8 +78,24 @@ def test_truong_la_trong_mot_tin_van_bi_bo_qua_nhu_truoc():
     assert r.history[0].content == "x"
 
 
+def test_nut_so_tin_lich_su_chi_duoc_doc_tu_env_o_mot_noi():
+    """
+    R4. Ngày 17/11 PR #128 thêm một hằng số 6 song song với `MAX_HISTORY_TURNS` đã có ở engine.py: hai con
+    số cùng nghĩa, một cái đổi được bằng env, một cái không. Núm chỉ được đọc từ env MỘT lần trong `src/`,
+    và `engine.MAX_HISTORY_TURNS` là chính con số đó.
+    """
+    from pathlib import Path
+
+    from src.core import engine
+
+    goc = Path(__file__).resolve().parent.parent / "src"
+    so_noi = sum(p.read_text(encoding="utf-8").count('getenv("MAX_HISTORY_TURNS"') for p in goc.rglob("*.py"))
+    assert so_noi == 1, f"MAX_HISTORY_TURNS được đọc từ env ở {so_noi} nơi"
+    assert engine.MAX_HISTORY_TURNS == MAX_HISTORY_TURNS
+
+
 def test_hai_ngu_nghia_cua_hang_so_khop_nhau():
-    assert LICH_SU_SO_TIN_DUNG <= LICH_SU_TOI_DA_TIN
+    assert MAX_HISTORY_TURNS <= LICH_SU_TOI_DA_TIN
 
 
 # ---------------------------------------------------------------------------
@@ -94,8 +110,8 @@ def test_vang_thi_lui_ve_db_va_rong_thi_khong():
 def test_chi_lay_nhung_tin_gan_nhat_va_giu_thu_tu():
     tin = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"tin {i}"} for i in range(12)]
     ra = chat_mod._lich_su_tu_request(_req(history=tin))
-    assert len(ra) == LICH_SU_SO_TIN_DUNG
-    assert [m["content"] for m in ra] == [f"tin {i}" for i in range(12 - LICH_SU_SO_TIN_DUNG, 12)]
+    assert len(ra) == MAX_HISTORY_TURNS
+    assert [m["content"] for m in ra] == [f"tin {i}" for i in range(12 - MAX_HISTORY_TURNS, 12)]
     assert all(set(m) == {"role", "content"} for m in ra)          # không rò trường nào khác xuống model
 
 
@@ -170,7 +186,7 @@ def test_body_cu_khong_gui_history_thi_van_doc_db_nhu_truoc(ghi):
 def test_chi_dua_tin_gan_nhat_xuong_model(ghi):
     tin = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"tin {i}"} for i in range(LICH_SU_TOI_DA_TIN)]
     _hoi({"message": "tiếp", "history": tin})
-    assert len(ghi.history_nhan) == LICH_SU_SO_TIN_DUNG
+    assert len(ghi.history_nhan) == MAX_HISTORY_TURNS
     assert ghi.history_nhan[-1]["content"] == f"tin {LICH_SU_TOI_DA_TIN - 1}"
 
 

@@ -11,7 +11,11 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 # Lịch sử hội thoại (S7, BR-38). Body gửi kèm `history` trong lời gọi `/chat` (hướng chủ dự án chốt
 # 12/11, Body#28); Brain không lưu. Ở tầng T1 vì lược đồ request (`api`) và `memory` (`core`) cùng cần,
 # và một con số không được tồn tại ở hai nơi (R4).
-LICH_SU_SO_TIN_DUNG = 6          # Brain chỉ dùng chừng này tin GẦN NHẤT (trước đây là mặc định của memory.py)
+# Số tin lịch sử tối đa đưa lại vào prompt. 6 tin (3 cặp hỏi-đáp) đủ cho các câu nối tiếp thực tế
+# ("thế xe 3 tấn thì sao?") mà không ăn hết ngân sách ngữ cảnh. TRƯỚC 17/11 núm này nằm ở engine.py;
+# chuyển về đây vì engine, memory và route /chat cùng cần (R4: một định nghĩa). `engine.MAX_HISTORY_TURNS`
+# vẫn dùng được: engine import lại tên này.
+MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
 LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắt lặng lẽ
 LICH_SU_TOI_DA_KY_TU = 4000      # mỗi tin; dài hơn thì 422
 
