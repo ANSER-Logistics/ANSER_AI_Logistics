@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import re
+import statistics
 import threading
 import time
 from collections import deque
@@ -92,6 +93,12 @@ class TurnMetric:
     router_score: Optional[float] = None
     router_margin: Optional[float] = None
     router_method: Optional[str] = None
+    # Thời gian PHÂN LOẠI câu hỏi (ms) và nó chạy ở đâu: "ngay" (từ khoá, ngay trên loop), "kho" (xếp hàng
+    # sau việc của kho, vì dùng chung embedder), "ngoai_loop" (embedder riêng). Từ PR #116 câu cần embedding
+    # phải chờ worker của kho; đo thật trên GPU (17/11, #85) thấy khi kho bận chờ 1 đến 4,6 giây. Chưa có lưu
+    # lượng thật nên chưa biết điều đó có xảy ra ngoài đời không: hai trường này để có số đo mà quyết.
+    router_ms: Optional[int] = None
+    router_cach: Optional[str] = None
     message_chars: int = 0
     answer_chars: int = 0
     history_turns: int = 0
@@ -206,6 +213,24 @@ class Timer:
         return False
 
 
+def _tom_tat_router_ms(rows: list[dict]) -> Optional[dict[str, dict[str, Any]]]:
+    """
+    p50/p95/max của thời gian phân loại, gom theo nơi chạy (`router_cach`). Dòng nào thiếu `router_ms` thì
+    BỎ, không coi là 0: lượt cũ trước khi có trường này không được kéo số xuống. Không dòng nào có thì None.
+    """
+    nhom: dict[str, list[float]] = {}
+    for r in rows:
+        ms = r.get("router_ms")
+        if isinstance(ms, (int, float)) and ms >= 0:
+            nhom.setdefault(str(r.get("router_cach") or "?"), []).append(float(ms))
+    if not nhom:
+        return None
+    return {
+        cach: {"n": len(v), "p50": statistics.median(v), "p95": nguong_p95.p95(v), "max": max(v)}
+        for cach, v in sorted(nhom.items())
+    }
+
+
 def summarize(path: str | None = None, limit: int = 5000) -> dict[str, Any]:
     """
     Thống kê nhanh để so sánh trước/sau một thay đổi.
@@ -252,6 +277,8 @@ def summarize(path: str | None = None, limit: int = 5000) -> dict[str, Any]:
             "max": lat[-1],
         },
         "by_route": dict(by_route),
+        # Thời gian phân loại theo nơi chạy. None = chưa lượt nào có số đo (không phải 0).
+        "router_ms": _tom_tat_router_ms(rows),
         "ask_back_rate": (
             round(sum(1 for r in asked if r["asked_back"]) / len(asked), 4)
             if asked else None

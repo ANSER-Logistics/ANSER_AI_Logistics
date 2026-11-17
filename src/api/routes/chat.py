@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Optional
 
@@ -628,6 +629,17 @@ async def _phan_loai(manager, user_msg: str) -> dict:
     return manager.phan_loai(user_msg)
 
 
+def _cach_phan_loai(manager, user_msg: str) -> Optional[str]:
+    """Nơi `_phan_loai` sẽ chạy câu này ("ngay", "kho", "ngoai_loop"), cho số đo. None nếu manager không biết."""
+    if not hasattr(manager, "cach_chay"):
+        return None
+    try:
+        return manager.cach_chay(user_msg)
+    except Exception as exc:       # đo đạc hỏng không được làm hỏng nghiệp vụ
+        logger.warning("Không xác định được nơi phân loại: %s", exc)
+        return None
+
+
 def _webhook_headers(task_id: str, request_id: str = "") -> dict[str, str]:
     """
     Header cho webhook gọi về Body. KHÔNG bịa token khi chưa cấu hình.
@@ -732,7 +744,12 @@ async def chat_endpoint(
             history = await chay_ngoai_loop(_load_history, user_id)
         metric.history_turns = len(history)
 
+        # Đo thời gian phân loại và nơi nó chạy (#85): câu cần embedding xếp hàng sau việc của kho, và chỉ
+        # đo ngoài đời mới biết điều đó có làm người dùng chờ không.
+        metric.router_cach = _cach_phan_loai(runtime.manager, user_msg)
+        t_router = time.perf_counter()
         decision = await _phan_loai(runtime.manager, user_msg)
+        metric.router_ms = int((time.perf_counter() - t_router) * 1000)
         cat = decision.get("category", "GENERAL")
         metric.route = cat
         metric.router_score = decision.get("score")
