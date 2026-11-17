@@ -22,6 +22,7 @@ from src.api.dependencies import (
     runtime,
     thieu_token_o_trien_khai,
 )
+from src.core import metrics, nguong_p95
 from src.core.engine import TASK_REGISTRY
 from src.core.serving import Overloaded
 
@@ -185,6 +186,13 @@ async def health():
         backend["vllm_vision_server"] = await vision_server.health()
         server_down = server_down or not backend["vllm_vision_server"].get("ok", False)
 
+    # p95 của 200 lượt gần nhất (#9, NFR-03). CHỈ ms/token "chưa đạt" mới hạ
+    # `degraded`: nó đo sức khoẻ server (hàng đợi, batching, GPU tranh chấp).
+    # Tổng ms chỉ báo cáo — câu trả lời dài vượt 5.000ms là chuyện đã biết.
+    # "không đủ dữ liệu" (vừa khởi động, mock) KHÔNG hạ `degraded`, cũng
+    # không báo đạt.
+    p95 = metrics.p95_gan_day()
+
     return JSONResponse(
         {
             "status": "ok",
@@ -204,9 +212,11 @@ async def health():
                 or auth_thieu
                 or task_registry["redis_loi"]
                 or (runtime.vision_error and backend["vision_backend"] != "none")
+                or p95["muc"] == nguong_p95.CHUA_DAT
             ),
             **backend,
             "task_registry": task_registry,
+            "p95": p95,
             "engine_ready": runtime.engine is not None,
             "kb_ready": runtime.kb is not None,
             "vision_ready": runtime.vision is not None,

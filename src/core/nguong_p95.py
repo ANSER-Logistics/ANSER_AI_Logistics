@@ -20,6 +20,7 @@ thời gian SINH, không phải hàng đợi. Một ngưỡng tổng duy nhất 
 
 from __future__ import annotations
 
+import math
 import os
 
 MAC_DINH_NGUONG_MS = 5000.0
@@ -45,6 +46,70 @@ def doc_nguong() -> tuple[float, float]:
             _doc("P95_MS_MOI_TOKEN", MAC_DINH_MS_MOI_TOKEN))
 
 
+# ---------------------------------------------------------------------------
+# Kết luận LÚC CHẠY trên /health (#9, chủ dự án chốt 12/11/2026)
+# ---------------------------------------------------------------------------
+# - Cửa sổ 200 lượt gần nhất: p95 trên cả đời service không phản ứng với sự cố
+#   đang xảy ra.
+# - Tối thiểu 30 mẫu ms/token: dưới đó "không đủ dữ liệu", KHÔNG báo đạt — p95
+#   trên 3 lượt là vô nghĩa. Ba mức theo đúng tiền lệ của benchmark_v3.
+# - Chỉ ms/token được hạ `degraded`. Tổng ms chỉ báo cáo: câu trả lời dài vượt
+#   nó là chuyện đã biết, để nó báo động là tạo báo động giả đều đặn.
+MAC_DINH_CUA_SO = 200
+MAC_DINH_MAU_TOI_THIEU = 30
+DAT, CHUA_DAT, KHONG_DU = "đạt", "chưa đạt", "không đủ dữ liệu"
+
+
+def doc_cua_so() -> tuple[int, int]:
+    """(số lượt trong cửa sổ, số mẫu ms/token tối thiểu) từ env."""
+    cua_so = int(_doc("P95_CUA_SO", MAC_DINH_CUA_SO))
+    toi_thieu = int(_doc("P95_MAU_TOI_THIEU", MAC_DINH_MAU_TOI_THIEU))
+    if toi_thieu > cua_so:
+        raise ValueError(
+            f"P95_MAU_TOI_THIEU={toi_thieu} lớn hơn P95_CUA_SO={cua_so} — "
+            "không bao giờ đủ mẫu, /health sẽ mãi báo 'không đủ dữ liệu'"
+        )
+    return cua_so, toi_thieu
+
+
+def p95(mau: list[float]) -> float | None:
+    """Phân vị 95 kiểu nearest-rank (ceil(n×0,95)−1): n nhỏ thì p95 ≈ max, không
+    tụt về phần tử thứ 2 từ cuối như `int(n×0,95)`."""
+    if not mau:
+        return None
+    xep = sorted(mau)
+    return xep[min(len(xep) - 1, math.ceil(len(xep) * 0.95) - 1)]
+
+
+def ket_luan(ms_moi_token: list[float], tong_ms: list[float], so_luot: int) -> dict:
+    """
+    Kết luận p95 cho /health trên các mẫu của cửa sổ hiện tại.
+
+    `ms_moi_token`: chỉ các lượt BIẾT số token (đã lọc ở metrics). `muc` chỉ
+    xét ms/token; tổng ms đi kèm để đọc, không quyết định gì.
+    """
+    nguong_ms, nguong_tok = doc_nguong()
+    cua_so, toi_thieu = doc_cua_so()
+    p_tok = p95(ms_moi_token)
+    p_tong = p95(tong_ms)
+    if len(ms_moi_token) < toi_thieu:
+        muc = KHONG_DU
+    else:
+        muc = DAT if p_tok is not None and p_tok <= nguong_tok else CHUA_DAT
+    return {
+        "muc": muc,
+        "ms_moi_token": None if p_tok is None else round(p_tok, 1),
+        "nguong_ms_moi_token": nguong_tok,
+        "so_mau_ms_moi_token": len(ms_moi_token),
+        "mau_toi_thieu": toi_thieu,
+        "tong_ms": None if p_tong is None else round(p_tong),
+        "nguong_tong_ms": nguong_ms,
+        "tong_dat": None if p_tong is None else p_tong <= nguong_ms,   # chỉ báo cáo
+        "so_luot": so_luot,
+        "cua_so": cua_so,
+    }
+
+
 def danh_gia(p95_ms: float | None, p95_ms_moi_token: float | None) -> dict:
     """Đạt/vượt cho từng ngưỡng. None = không đo được -> không kết luận."""
     nguong_ms, nguong_tok = doc_nguong()
@@ -56,4 +121,8 @@ def danh_gia(p95_ms: float | None, p95_ms_moi_token: float | None) -> dict:
     }
 
 
-__all__ = ["MAC_DINH_MS_MOI_TOKEN", "MAC_DINH_NGUONG_MS", "danh_gia", "doc_nguong"]
+__all__ = [
+    "CHUA_DAT", "DAT", "KHONG_DU",
+    "MAC_DINH_CUA_SO", "MAC_DINH_MAU_TOI_THIEU", "MAC_DINH_MS_MOI_TOKEN", "MAC_DINH_NGUONG_MS",
+    "danh_gia", "doc_cua_so", "doc_nguong", "ket_luan", "p95",
+]

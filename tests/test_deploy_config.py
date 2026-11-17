@@ -66,6 +66,8 @@ def _env_code_doc() -> set[str]:
         re.compile(r"getenv\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']"),
         re.compile(r"environ\.get\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']"),
         re.compile(r"environ\[\s*[\"']([A-Z_][A-Z0-9_]*)[\"']\s*\]"),
+        # `nguong_p95._doc("P95_...", mặc định)`: đọc env + kiểm số > 0 (#9).
+        re.compile(r"\b_doc\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']"),
     )
     for p in (GOC / "src").rglob("*.py"):
         noi_dung = p.read_text(encoding="utf-8")
@@ -315,13 +317,10 @@ def test_ten_phan_vram_giong_compose():
 # Khoá `.env.example` mà compose CỐ Ý không truyền, kèm nơi nó thật sự có tác
 # dụng. Danh sách này là lời khai, không phải ngoại lệ miễn phí: mỗi dòng phải
 # nói ai đọc biến đó.
-ENV_MAU_NGOAI_COMPOSE: dict[str, str] = {
-    "P95_MS_MOI_TOKEN": (
-        "Chỉ offline_training/do_ngan_sach_ctx.py dùng, đọc từ env của phiên "
-        "Colab. Service đang chạy không so p95 với ngưỡng nào."
-    ),
-    "P95_NGUONG_MS": "Cùng lý do với P95_MS_MOI_TOKEN.",
-}
+#
+# Rỗng từ #9 (17/11/2026): hai khoá P95 từng nằm đây, nay compose truyền đi và
+# /health dùng chúng.
+ENV_MAU_NGOAI_COMPOSE: dict[str, str] = {}
 
 
 def _khoa_env_mau() -> list[str]:
