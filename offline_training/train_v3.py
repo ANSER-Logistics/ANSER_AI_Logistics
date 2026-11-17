@@ -230,7 +230,7 @@ try:
 except ImportError:
     _want_liger = False
     print("⚠ Chưa cài liger-kernel — với Qwen3 rất dễ OOM ở bước tính loss.\n"
-          "  Cài: pip install liger-kernel   (rồi chạy lại cell này)\n"
+          "  Cài: pip install liger-kernel==0.5.10   (bản khớp transformers 4.51.3; rồi chạy lại cell này)\n"
           "  Hoặc hạ MAX_SEQ_LEN xuống 3072 để loại bớt mẫu dài.")
 
 if _want_liger:
