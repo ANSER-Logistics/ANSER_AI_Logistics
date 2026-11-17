@@ -30,8 +30,9 @@ DẠNG `--model`
     /content/.../anser-v3-awq  cũng vậy
     openai:http://127.0.0.1:8001/v1#anser-v3    endpoint tương thích OpenAI
     anthropic:claude-opus-5                     API Anthropic
+    deepseek:<tên model>                        API DeepSeek (JSON mode, không ép lược đồ); cần DEEPSEEK_API_KEY
 
-R2: dạng `anthropic:` gửi dữ liệu ra ngoài, nên CHỈ được chạy trên bộ đề HOÀN
+R2: các dạng `anthropic:` và `deepseek:` gửi dữ liệu ra ngoài, nên CHỈ được chạy trên bộ đề HOÀN
 TOÀN HƯ CẤU (`generated/eval_*.jsonl`, sinh từ kịch bản bịa; chủ dự án chốt
 15/11/2026). Bộ "đã ẩn danh" (`sample_data/an_danh.py`) KHÔNG đủ: đổi tên và số
 tiền vẫn để lại cấu trúc sổ sách của khách. Không bao giờ trên bản xuất sổ sách
@@ -487,6 +488,128 @@ class OpenAITuongThich:
 
 
 # ---------------------------------------------------------------------------
+# Bản dựng 4 — API DeepSeek (mốc tham chiếu, #91)
+# ---------------------------------------------------------------------------
+
+def payload_deepseek(model: str, chat: Chat, json_schema: dict | None, max_tokens: int,
+                     temperature: float, effort: str = "none") -> dict[str, Any]:
+    """
+    Thân request cho `POST https://api.deepseek.com/chat/completions` — hàm THUẦN, test được không cần mạng.
+
+    Đọc từ tài liệu chính thức ngày 17/11/2026 (api-docs.deepseek.com), KHÔNG đo trên API thật:
+      - `response_format={"type": "json_object"}` chỉ đảm bảo JSON HỢP LỆ, không ép lược đồ. Tài liệu đòi chữ
+        "json" và một ví dụ trong prompt, nên lược đồ được đưa vào tin nhắn hệ thống. Đây là cơ chế KHÁC grammar
+        của vLLM (`rang_buoc="json_object"`), nên điểm không so ngang trực tiếp với model local.
+      - Suy nghĩ BẬT mặc định; `max_tokens` mặc định 64K ở chế độ đó và token suy nghĩ ăn vào trần. Gửi
+        `reasoning_effort="none"` để tắt, cho `max_tokens` nghĩa như bên vLLM (như `BENCH_CLAUDE_THINKING`).
+        Giá trị `none` có trong danh sách của tài liệu; chưa chạy thật, nên chốt chặn `smoke_test_guided` (câu hỏi
+        64 token) là chỗ bắt nếu cấu hình này sai.
+      - Không gửi `repetition_penalty`/`guided_json`/`chat_template_kwargs`: đó là phần mở rộng của vLLM.
+    """
+    messages = [dict(m) for m in chat]                    # không đụng vào cuộc chat của người gọi
+    if json_schema is not None:
+        import json
+
+        chi_dan = (
+            "Trả về MỘT đối tượng JSON (json) hợp lệ khớp lược đồ JSON Schema dưới đây, không thêm chữ nào khác:\n"
+            + json.dumps(json_schema, ensure_ascii=False)
+        )
+        if messages and messages[0].get("role") == "system":
+            messages[0]["content"] = f"{messages[0]['content']}\n\n{chi_dan}"
+        else:
+            messages.insert(0, {"role": "system", "content": chi_dan})
+    body: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if effort:
+        body["reasoning_effort"] = effort
+    if json_schema is not None:
+        body["response_format"] = {"type": "json_object"}
+    return body
+
+
+class DeepSeek:
+    rang_buoc = "json_object"
+
+    def __init__(self, model: str, spec: str):
+        from offline_training.dgen_common import DEEPSEEK_BASE_URL
+
+        self.ten = spec
+        self.model = model
+        # Một định nghĩa cho địa chỉ (R4) và KHÔNG đọc từ env: một biến địa chỉ là chỗ để gửi bộ đề tới nơi khác.
+        self.base_url = DEEPSEEK_BASE_URL
+        # Khoá đọc từ env (Colab Secrets), không nhận qua dòng lệnh (R2b).
+        self._api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        if not self._api_key:
+            raise SystemExit(
+                "DEEPSEEK_API_KEY chưa set. Trên Colab: Secrets (biểu tượng chìa khoá) -> thêm DEEPSEEK_API_KEY "
+                "rồi bật notebook access. KHÔNG hardcode key vào file (AGENTS.md R2b)."
+            )
+        self._effort = os.getenv("BENCH_DEEPSEEK_EFFORT", "none").strip()
+        print("  ⚠ R2: bộ đề được GỬI RA API DeepSeek. Chỉ hợp lệ trên bộ hư cấu `generated/eval_*.jsonl`, "
+              "không bao giờ trên dữ liệu khách (kể cả bản đã ẩn danh).")
+        print(f"  ⓘ suy nghĩ {'TẮT' if self._effort == 'none' else 'reasoning_effort=' + self._effort}"
+              " — token suy nghĩ tính vào max_tokens" + ("" if self._effort == "none" else ", nên trần không còn so được với vLLM."))
+
+    def dien_dat_duoc(self, json_schema: dict) -> bool:
+        # Lược đồ đi bằng LỜI trong prompt nên mọi lược đồ đều "gửi được"; độ ép thì thấp hơn grammar và nằm ở `rang_buoc`.
+        return True
+
+    def _mot_cau(self, chat: Chat, json_schema: dict | None,
+                 max_tokens: int, temperature: float) -> tuple[str, str]:
+        import time
+
+        import httpx
+
+        gio = float(os.getenv("BENCH_TIMEOUT_S", "300"))
+        body = payload_deepseek(self.model, chat, json_schema, max_tokens, temperature, self._effort)
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self._api_key}"}
+        resp = None
+        for lan in range(4):
+            try:
+                resp = httpx.post(f"{self.base_url}/chat/completions", json=body, headers=headers,
+                                  timeout=httpx.Timeout(gio, connect=10.0))
+            except httpx.TimeoutException:
+                return "", "timeout"
+            if resp.status_code not in (429, 500, 502, 503, 504):
+                break
+            time.sleep(min(2 ** lan, 8))
+        assert resp is not None
+        if resp.status_code >= 400:
+            raise RuntimeError(f"DeepSeek trả {resp.status_code}: {resp.text[:400]}")
+        lua_chon = resp.json()["choices"][0]
+        text = (lua_chon["message"].get("content") or "").strip()
+        ly_do = lua_chon.get("finish_reason") or "stop"
+        # Tài liệu: nội dung không nhận ra là JSON bị thay bằng dấu cách, kể cả khi finish_reason="stop".
+        # Gắn nhãn riêng để tầng chấm không đổ tội "JSON hỏng" cho model khi lỗi nằm ở chế độ JSON.
+        if json_schema is not None and not text and ly_do == "stop":
+            return "", "blank"
+        return text, ly_do
+
+    def sinh(self, chats: list[Chat], json_schema: dict | None,
+             max_tokens: int, temperature: float) -> tuple[list[str], list[str]]:
+        with ThreadPoolExecutor(max_workers=SONG_SONG) as pool:
+            ket_qua = list(pool.map(
+                lambda c: self._mot_cau(c, json_schema, max_tokens, temperature), chats
+            ))
+        texts = [t for t, _ in ket_qua]
+        finishes = [f for _, f in ket_qua]
+        _bao_cat_cut(finishes, max_tokens)
+        trong = sum(1 for f in finishes if f == "blank")
+        if trong:
+            print(f"  ⚠ {trong}/{len(finishes)} câu DeepSeek trả NỘI DUNG TRỐNG ở chế độ JSON (tài liệu: nội dung "
+                  f"không nhận ra là JSON bị thay bằng dấu cách) — chấm thành trượt, lỗi thuộc chế độ JSON chứ chưa chắc là model.")
+        la = sorted({f for f in finishes if f not in ("stop", "length", "timeout", "blank")})
+        if la:
+            print(f"  ⚠ lý do dừng lạ từ DeepSeek: {la} (insufficient_system_resource/aborted/content_filter là "
+                  f"lỗi phía API hoặc bộ lọc, không phải model sinh sai).")
+        return texts, finishes
+
+
+# ---------------------------------------------------------------------------
 # Bản dựng 3 — API Anthropic
 # ---------------------------------------------------------------------------
 
@@ -609,6 +732,15 @@ def tach_spec(spec: str) -> tuple[str, str, str]:
             )
         return "anthropic", "", model
 
+    if spec.startswith("deepseek:"):
+        model = spec[len("deepseek:"):]
+        if not model:
+            raise SystemExit(
+                "Dạng deepseek: thiếu tên model. Đúng phải là:\n"
+                "  --model deepseek:<tên model trong api-docs.deepseek.com>"
+            )
+        return "deepseek", "", model
+
     return "vllm", "", spec
 
 
@@ -618,11 +750,15 @@ def dung_provider(spec: str) -> NhaCungCap:
         return OpenAITuongThich(dia_chi, model, spec)
     if loai == "anthropic":
         return Anthropic(model, spec)
+    if loai == "deepseek":
+        return DeepSeek(model, spec)
     return VLLMTrongTienTrinh(model)
 
 
 __all__ = [
     "Anthropic",
+    "DeepSeek",
+    "payload_deepseek",
     "NhaCungCap",
     "OpenAITuongThich",
     "SONG_SONG",

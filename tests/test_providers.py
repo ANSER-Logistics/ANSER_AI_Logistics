@@ -34,6 +34,7 @@ from offline_training.providers import (
     KHOA_CAU_TRUC_KHONG_DO,
     KHOA_KHONG_DO,
     Anthropic,
+    DeepSeek,
     OpenAITuongThich,
     VLLMTrongTienTrinh,
     doi_ly_do_dung,
@@ -268,6 +269,7 @@ def test_ly_do_la_hoac_None_ve_stop_chu_khong_no():
     (VLLMTrongTienTrinh, "guided_json"),
     (OpenAITuongThich, "guided_json"),
     (Anthropic, "structured_output"),
+    (DeepSeek, "json_object"),
 ])
 def test_moi_ban_dung_khai_dung_rang_buoc(lop, mong_doi):
     """
@@ -277,7 +279,7 @@ def test_moi_ban_dung_khai_dung_rang_buoc(lop, mong_doi):
     assert lop.rang_buoc == mong_doi
 
 
-@pytest.mark.parametrize("lop", [VLLMTrongTienTrinh, OpenAITuongThich, Anthropic])
+@pytest.mark.parametrize("lop", [VLLMTrongTienTrinh, OpenAITuongThich, Anthropic, DeepSeek])
 def test_moi_ban_dung_deu_co_sinh_va_cung_chu_ky(lop):
     """
     `sinh` phải trả 2-tuple `(văn_bản, lý_do_dừng)`. Không kiểm được kiểu trả về
