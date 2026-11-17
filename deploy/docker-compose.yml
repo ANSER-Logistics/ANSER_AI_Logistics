@@ -24,11 +24,10 @@
 #
 # ⚠️ FILE NÀY CHƯA TỪNG ĐƯỢC CHẠY (tính đến 13/08/2026).
 #
-# Ba chỗ mô tả kiến trúc mà code CHƯA làm tới. Ghi ra đây vì file compose đọc
-# như thể mọi thứ đã nối, và người triển khai sẽ tin nó:
+# Chỗ mô tả kiến trúc mà người triển khai cần biết trước khi tin file này:
 #
-#   1. `redis` — container chạy, nhưng KHÔNG code nào dùng. TASK_REGISTRY vẫn là
-#      OrderedDict trong RAM (src/core/engine.py). Restart là mất task đang chạy.
+#   1. `redis` — ĐÃ NỐI 09/11/2026 (#15): TASK_REGISTRY dùng Redis khi có
+#      REDIS_URL; Redis lỗi thì lùi về RAM và /health báo `degraded`.
 #   2. `vllm-vision` — CÓ client HTTP từ 09/11/2026 (#14), nhưng container nằm
 #      trong profile `vision`, nên mặc định KHÔNG chạy. Vì vậy VLLM_VISION_BASE_URL
 #      để RỖNG mặc định: `brain` khai `vision_backend: "none"` (tắt có tuyên bố),
@@ -42,17 +41,38 @@
 
 services:
   vllm-text:
-    image: vllm/vllm-openai:v0.8.5          # ghim cứng: API vLLM trôi liên tục
+    # v0.11.2 — CÙNG bản với `vllm-vision` và với mọi phép đo (BR-04, BR-05,
+    # phiên #13: `requirements-gpu.txt`, vllm>=0.10.2,<0.12). Ghim cứng vì API
+    # vLLM trôi liên tục. Bản cũ v0.8.5 chưa ai đo grammar `guided_json`/`anyOf`
+    # trên đó, và không còn cài được trên Python 3.13 của Colab (#35).
+    # `tests/test_deploy_config.py` khoá: mọi image vLLM cùng một bản, và bản đó
+    # nằm trong khoảng `requirements-gpu.txt` cho phép.
+    image: vllm/vllm-openai:v0.11.2
     container_name: anser-vllm-text
     restart: unless-stopped
+    environment:
+      # Rỗng = để vLLM tự nhận từ `quantization_config` trong config.json —
+      # đúng như đường trong tiến trình (src/core/config.py) và như phép đo, để
+      # đo và chạy thật dùng CÙNG một nhân (awq_marlin thay vì awq bị ép).
+      # Ép awq thì đặt luôn TEXT_DTYPE=half (nhân awq cũ chỉ nhận float16).
+      TEXT_QUANTIZATION: ${TEXT_QUANTIZATION:-}
+      TEXT_DTYPE: ${TEXT_DTYPE:-}
+    # Qua shell để BỎ HẲN cờ khi biến rỗng: `--quantization=` rỗng là lỗi của
+    # vLLM, và danh sách `command:` không bỏ được phần tử. `$$` là `$` để shell
+    # TRONG container mở rộng, không phải compose.
+    #   --max-model-len: BR-04, chốt 28/10/2026
+    #   --disable-log-requests: P2, prompt chứa dữ liệu khách
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - --model=/models/${TEXT_MODEL_DIR:?thiếu TEXT_MODEL_DIR trong .env}
-      - --served-model-name=anser-v3
-      - --quantization=awq
-      - --max-model-len=${TEXT_MAX_MODEL_LEN:-32768}   # BR-04, chốt 28/10/2026
-      - --gpu-memory-utilization=${TEXT_GPU_FRACTION:-0.62}
-      - --port=8001
-      - --disable-log-requests               # P2: prompt chứa dữ liệu khách
+      - >-
+        exec vllm serve /models/${TEXT_MODEL_DIR:?thiếu TEXT_MODEL_DIR trong .env}
+        --served-model-name=anser-v3
+        --max-model-len=${TEXT_MAX_MODEL_LEN:-32768}
+        --gpu-memory-utilization=${TEXT_GPU_FRACTION:-0.62}
+        --port=8001
+        --disable-log-requests
+        $${TEXT_QUANTIZATION:+--quantization=$$TEXT_QUANTIZATION}
+        $${TEXT_DTYPE:+--dtype=$$TEXT_DTYPE}
     volumes:
       - ${MODELS_DIR:-./models}:/models:ro
     ports:
@@ -76,8 +96,8 @@ services:
 
   # Giai đoạn 3b. Bật khi VLM đã sẵn sàng:  docker compose --profile vision up -d
   vllm-vision:
-    # v0.11.2: bản đã chạy trong phiên Colab sạch (requirements-gpu.txt). Qwen3-VL cần
-    # vLLM >= 0.11.0; v0.8.5 (ảnh của vllm-text bên trên) không nạp được kiến trúc này.
+    # v0.11.2: bản đã chạy trong phiên Colab sạch (requirements-gpu.txt), cùng
+    # bản với vllm-text. Qwen3-VL cần vLLM >= 0.11.0.
     image: vllm/vllm-openai:v0.11.2
     container_name: anser-vllm-vision
     profiles: ["vision"]

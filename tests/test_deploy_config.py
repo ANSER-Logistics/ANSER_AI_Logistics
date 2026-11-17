@@ -475,3 +475,59 @@ def test_danh_sach_doi_hanh_vi_khong_rong():
     """
     assert len(DOI_HANH_VI) >= 4
     assert all(ly_do.strip() for ly_do in DOI_HANH_VI.values())
+
+
+# ---------------------------------------------------------------------------
+# #35 — phiên bản vLLM và lượng tử hoá: compose phải khớp phần còn lại (R4)
+# ---------------------------------------------------------------------------
+# Trước 17/11/2026 `vllm-text` ghim `v0.8.5` và ép `--quantization=awq`, trong
+# khi `requirements-gpu.txt` khai `vllm>=0.10.2,<0.12`, mọi phép đo (BR-04,
+# BR-05) chạy 0.10.2–0.11.2, và `config.py` cố ý KHÔNG ép lượng tử hoá. Tức là
+# chạy compose là chạy một cấu hình chưa ai đo. Không gì báo, vì file compose
+# chưa từng được chạy.
+
+REQ_GPU = GOC / "requirements-gpu.txt"
+
+
+def _anh_vllm() -> list[str]:
+    """Phiên bản của mọi image `vllm/vllm-openai:vX.Y.Z` trong compose."""
+    return re.findall(r"image:\s*vllm/vllm-openai:v?(\S+)", COMPOSE.read_text(encoding="utf-8"))
+
+
+def _so(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def test_moi_container_vllm_cung_mot_ban():
+    anh = _anh_vllm()
+    assert len(anh) >= 2, f"mong có vllm-text và vllm-vision, thấy {anh}"
+    assert len(set(anh)) == 1, (
+        f"compose ghim nhiều bản vLLM khác nhau: {sorted(set(anh))}. Một con số "
+        "version không được tồn tại ở hai nơi lệch nhau (R4)."
+    )
+
+
+def test_ban_vllm_cua_compose_nam_trong_khoang_requirements_gpu():
+    m = re.search(r"^vllm>=([\d.]+),<([\d.]+)", REQ_GPU.read_text(encoding="utf-8"), re.M)
+    assert m, "requirements-gpu.txt không còn dòng `vllm>=a,<b`"
+    san, tran = _so(m.group(1)), _so(m.group(2))
+    for ban in _anh_vllm():
+        assert san <= _so(ban) < tran, (
+            f"compose dùng vLLM {ban}, ngoài khoảng {m.group(1)}..<{m.group(2)} mà "
+            "requirements-gpu.txt (và mọi phép đo) dùng. Đổi một bên thì đổi cả hai."
+        )
+
+
+def test_compose_khong_ep_cung_luong_tu_hoa():
+    """`--quantization` chỉ được đến từ `TEXT_QUANTIZATION` — cùng tên với
+    đường trong tiến trình (`config.py`), mặc định rỗng để vLLM tự nhận."""
+    text = COMPOSE.read_text(encoding="utf-8")
+    ep_cung = re.findall(r"--quantization[= ](?!\$)[A-Za-z0-9_]+", text)
+    assert not ep_cung, f"compose ép cứng lượng tử hoá: {ep_cung}"
+    assert "--quantization=$$TEXT_QUANTIZATION" in text, (
+        "compose phải truyền --quantization từ TEXT_QUANTIZATION (rỗng thì bỏ cờ)"
+    )
+    assert "TEXT_QUANTIZATION" in _env_code_doc(), "tên phải trùng với tên code đọc"
+    assert re.search(r"^TEXT_QUANTIZATION=\s*$", ENV_MAU.read_text(encoding="utf-8"), re.M), (
+        ".env.example phải khai TEXT_QUANTIZATION và để RỖNG mặc định"
+    )
