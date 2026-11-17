@@ -21,9 +21,14 @@ openai==1.75.0           # client DeepSeek (base_url api.deepseek.com)
 # chung khi gap mau dai. Liger gop lm_head + cross-entropy thanh mot kernel,
 # khong bao gio dung nguyen tensor logits.
 #
-# KHONG ghim cung: liger bam sat transformers, ghim lech ban la gay. Cai chung
-# mot lenh voi bitsandbytes de pip giai quyet phu thuoc mot lan.
-liger-kernel
+# GHIM CUNG (sua 17/11/2026, #91). Ban truoc ghi "khong ghim cung", va de
+# pip lay ban moi nhat. Ban moi nhat nay doi transformers >= 5.0.0, ma dong
+# tren ghim 4.51.3: liger cai xong nhung train_v3.py bao "Khong bat duoc
+# Liger" roi chay duong thuong -- tuc la dung cai OOM giua chung ma liger
+# sinh ra de chan. Do tren Colab L4: 0.5.10 + transformers 4.51.3 bat duoc
+# Liger ("Liger Kernel BAT"), chay thu 4 buoc khong OOM.
+# Doi transformers thi doi ca dong nay, va chay thu EPOCHS=0.05 truoc.
+liger-kernel==0.5.10
 
 # CÀI RIÊNG khi cần (không để chung vì nặng / dễ xung đột):
 #   Bước quantize : pip install autoawq==0.2.9
