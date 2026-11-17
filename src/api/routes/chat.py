@@ -36,7 +36,7 @@ from src.api.dependencies import (
     web_search_fallback,
 )
 from src.core import metrics
-from src.core.config import LICH_SU_SO_TIN_DUNG, Config
+from src.core.config import MAX_HISTORY_TURNS, Config
 from src.core.doc_dau_vao import noi_tra_loi_hoi_thue
 from src.core.engine import TASK_REGISTRY
 from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
@@ -133,7 +133,7 @@ def _load_history(user_id) -> list[dict]:
 
 def _lich_su_tu_request(req) -> Optional[list[dict]]:
     """
-    Lịch sử do Body gửi kèm, dạng messages, chỉ `LICH_SU_SO_TIN_DUNG` tin GẦN NHẤT.
+    Lịch sử do Body gửi kèm, dạng messages, chỉ `MAX_HISTORY_TURNS` tin GẦN NHẤT.
 
     `None` = Body không gửi (Body cũ) -> chỗ gọi lùi về DB. `[]` = Body gửi và đây là lượt đầu -> không
     đọc DB. Lược đồ đã kiểm vai (chỉ user/assistant) và độ dài, nên ở đây chỉ cắt và đổi dạng. Nội dung
@@ -142,7 +142,7 @@ def _lich_su_tu_request(req) -> Optional[list[dict]]:
     if req.history is None:
         return None
     tin = [{"role": m.role, "content": m.content} for m in req.history]
-    return tin[-LICH_SU_SO_TIN_DUNG:]
+    return tin[-MAX_HISTORY_TURNS:]
 
 
 def _save_turn(user_id, store_id, user_msg: str, answer: str) -> None:
