@@ -201,6 +201,18 @@ python offline_training/benchmark_v3.py --model anthropic:claude-opus-5-5 \
     --no-gate --thu-lai-n8n --json claude.json --tho claude_tho.jsonl
 ```
 
+```bash
+# DeepSeek: cần DEEPSEEK_API_KEY trong Colab Secrets (đã có, dùng cho các script sinh dữ liệu).
+python offline_training/benchmark_v3.py --model deepseek:deepseek-v4-pro \
+    --no-gate --thu-lai-n8n --json deepseek.json --tho deepseek_tho.jsonl
+```
+
+Provider `deepseek:` viết theo tài liệu công khai của DeepSeek đọc ngày 17/11/2026, **chưa chạy trên API thật**. Ba điều cần biết trước khi tin con số của nó:
+
+- JSON mode của DeepSeek chỉ đảm bảo JSON **hợp lệ**, không ép lược đồ. Lược đồ được đưa vào tin nhắn hệ thống bằng lời; `rang_buoc` ghi `json_object`. Model làm sai lược đồ thì bị chấm trượt; bên vLLM (grammar) và bên Claude (structured output) lỗi kiểu đó không xảy ra vì lược đồ được ép.
+- Suy nghĩ BẬT mặc định bên DeepSeek và token suy nghĩ ăn vào `max_tokens`. Provider gửi `reasoning_effort=none`; đổi bằng `BENCH_DEEPSEEK_EFFORT`. Nếu cấu hình đó sai thì chốt chặn `smoke_test_guided` (câu hỏi 64 token) dừng phiên ngay từ đầu, không đo tiếp một phép đo hỏng.
+- Tên model lấy từ tài liệu: `deepseek-flash` (rẻ hơn) và `deepseek-v4-pro`. Các trang tài liệu đó không còn nhắc `deepseek-chat` và `deepseek-reasoner`, tên mà vài script sinh dữ liệu trong `offline_training/` còn dùng; chưa kiểm API còn nhận chúng không.
+
 Ràng buộc JSON của API ngoài khác grammar của vLLM (`rang_buoc` ghi trong file JSON, và `compare_runs` / `bang_nhieu_lan_chay` cảnh báo khi hai lần chạy lệch nhau). Vì vậy điểm của mốc tham chiếu là **cận để biết bộ đề có làm được**, không so ngang với model local như hai bản cùng cơ chế.
 
 ### 6.4 Chạy lần lượt (khi hai server không vừa GPU)
