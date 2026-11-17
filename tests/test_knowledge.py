@@ -8,6 +8,8 @@ nguồn — chứ không phải chất lượng ngữ nghĩa của model.
 
 from __future__ import annotations
 
+import sys
+import types
 from datetime import date
 
 import pytest
@@ -409,3 +411,94 @@ def test_chuan_hoa_nhan_list_cac_mang_numpy():
 
     out = to_float_lists([np.array([0.1, 0.2], dtype=np.float32)])
     assert all(type(x) is float for x in out[0])
+
+
+# ---------------------------------------------------------------------------
+# #118 — lọc hiệu lực của nhánh BM25, và một văn bản nạp dưới nhiều tên tệp
+# ---------------------------------------------------------------------------
+
+class _CollectionVectorTrong(FakeCollection):
+    """Đường vector không bắt được gì: mọi ứng viên phải đến từ BM25."""
+
+    def query(self, query_embeddings, n_results, where=None, **kwargs):
+        return {"documents": [[]], "metadatas": [[]]}
+
+
+class _BM25TheoDanhDau:
+    """BM25 giả: điểm của mỗi đoạn tra theo một dấu chữ có trong đoạn."""
+
+    def __init__(self, pairs, diem_theo_dau):
+        self.pairs = pairs
+        self.diem_theo_dau = diem_theo_dau
+
+    def get_scores(self, _tokens):
+        return [next(d for dau, d in self.diem_theo_dau.items() if dau in text)
+                for text, _ in self.pairs]
+
+
+def test_bm25_loc_hieu_luc_TRUOC_khi_cat_top_5(monkeypatch):
+    """5 đoạn hết hiệu lực chiếm 5 chỗ đầu của BM25; đoạn còn hiệu lực xếp thứ 6.
+
+    Bản cũ cắt top 5 rồi mới lọc hiệu lực, nên nhánh từ khoá trả rỗng, và câu hỏi
+    mà đường vector không bắt được thì không có câu trả lời, dù tài liệu đúng nằm
+    ngay trong kho.
+    """
+    monkeypatch.setitem(sys.modules, "underthesea",
+                        types.SimpleNamespace(word_tokenize=lambda s: s.split()))
+    kb = KnowledgeBase(embedder=FakeEmbedder(), reranker=FakeReranker(),
+                       collection=_CollectionVectorTrong())
+    for i in range(5):
+        kb.add_document("ws", f"phu phi cau duong ban cu so {i} HETHAN{i}",
+                        source=f"cu_{i}.txt", effective_to="2025-12-31")
+    kb.add_document("ws", "phu phi cau duong ban moi CONHIEULUC", source="moi.txt",
+                    effective_from="2026-01-01")
+
+    got = kb.collection.get(where={"workspace_id": "ws"})
+    pairs = list(zip(got["documents"], got["metadatas"]))
+    diem = {**{f"HETHAN{i}": 10.0 - i for i in range(5)}, "CONHIEULUC": 1.0}
+    kb._bm25_cache["ws"] = (_BM25TheoDanhDau(pairs, diem), pairs)
+
+    kq = kb.search("ws", "phu phi cau duong", top_k=3, on_date=date(2026, 6, 1))
+    assert [p.source for p in kq] == ["moi.txt"], (
+        "đoạn còn hiệu lực xếp thứ 6 của BM25 phải lọt vào kết quả"
+    )
+
+
+VAN_BAN_LUAT = (
+    "LUẬT THUẾ GIÁ TRỊ GIA TĂNG\n"
+    "Điều 9. Thuế suất 5% áp dụng đối với nước sạch phục vụ sản xuất và sinh hoạt.\n"
+)
+
+
+def test_mot_van_ban_nap_duoi_ba_ten_tep_khong_tra_cung_doan_hai_lan(kb):
+    """`src/data/docs/` có 6 văn bản luật, mỗi văn bản ba tệp (bản gốc và hai bản
+    "(Converted - ...)"). Mã băm chỉ so trong cùng tên tệp, nên ba tệp thành ba
+    nguồn và một đoạn chiếm cả hai chỗ của `top_k=2`.
+    """
+    kb.add_document("ws", VAN_BAN_LUAT, source="67-2025-QH15.docx")
+    kb.add_document("ws", VAN_BAN_LUAT, source="67-2025-QH15.docx (Converted - 1).docx")
+    # Bản chuyển đổi hay khác ở khoảng trắng và xuống dòng: vẫn là một văn bản.
+    kb.add_document("ws", "  " + VAN_BAN_LUAT.replace("\n", "\r\n  ") + "\n\n",
+                    source="67-2025-QH15.docx (Converted - 2).docx")
+
+    kq = kb.search("ws", "thuế suất nước sạch", top_k=2)
+    assert kq, "phải tìm được văn bản"
+    van_ban = [" ".join(p.text.split()) for p in kq]
+    assert len(van_ban) == len(set(van_ban)), f"cùng một đoạn trả về hai lần: {van_ban}"
+
+
+def test_ban_trung_bao_ro_trung_voi_nguon_nao(kb):
+    kb.add_document("ws", VAN_BAN_LUAT, source="goc.docx")
+    res = kb.add_document("ws", VAN_BAN_LUAT, source="goc.docx (Converted).docx")
+    assert res.chunks == 0
+    assert any("goc.docx" in w for w in res.warnings), res.warnings
+    assert [d["source"] for d in kb.list_documents("ws")] == ["goc.docx"]
+
+
+def test_hai_tai_lieu_KHAC_nhau_chung_mot_doan_van_la_hai_nguon(kb):
+    """Khử trùng theo CẢ VĂN BẢN, không theo từng đoạn: hai hợp đồng có chung điều
+    khoản mẫu vẫn là hai tài liệu (cùng ý với test_merge_hai_doan_TRUNG_NOI_DUNG...)."""
+    chung = "Điều 5. Bên B thanh toán trong 30 ngày kể từ ngày nhận hoá đơn.\n"
+    kb.add_document("ws", "HỢP ĐỒNG A\n" + chung, source="hd_a.docx")
+    kb.add_document("ws", "HỢP ĐỒNG B\n" + chung, source="hd_b.docx")
+    assert {d["source"] for d in kb.list_documents("ws")} == {"hd_a.docx", "hd_b.docx"}

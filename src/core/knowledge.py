@@ -49,6 +49,7 @@ import hashlib
 import logging
 import math
 import os
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Optional, Protocol
@@ -106,6 +107,8 @@ class IngestResult:
     chunks: int = 0
     replaced: bool = False
     skipped_unchanged: bool = False
+    # Tên nguồn đã có cùng nội dung (#118); khi có thì tài liệu này KHÔNG được nạp.
+    duplicate_of: Optional[str] = None
     warnings: list[str] = field(default_factory=list)
 
 
@@ -156,6 +159,20 @@ def to_date_int(value: Optional[str], default: int) -> int:
 
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def normalized_hash(text: str) -> str:
+    """
+    Mã băm của văn bản đã chuẩn hoá: Unicode NFC, mọi chuỗi khoảng trắng (kể cả
+    xuống dòng, `\\r\\n`) gộp thành một dấu cách.
+
+    Dùng để nhận ra CÙNG MỘT văn bản nạp dưới tên tệp khác (#118): bản gốc và các
+    bản "(Converted - ...)" hay chỉ khác nhau ở khoảng trắng hoặc cách dựng dấu
+    tiếng Việt. `content_hash` giữ nguyên cách tính để "nội dung không đổi thì bỏ
+    qua" vẫn so đúng từng byte như trước.
+    """
+    chuan = " ".join(unicodedata.normalize("NFC", text).split())
+    return content_hash(chuan)
 
 
 def to_float_lists(vectors: Any) -> list[list[float]]:
@@ -378,6 +395,33 @@ class KnowledgeBase:
                 return res
             self.collection.delete(ids=ids_cu)
             res.replaced = True
+            self._bm25_cache.pop(workspace_id, None)
+
+        # Cùng một văn bản đã nạp dưới tên tệp KHÁC thì không nạp thêm bản nữa
+        # (#118). Ba tệp của một văn bản luật thành ba nguồn thì một đoạn chiếm
+        # hai chỗ trong top_k, và tên tệp "(Converted - ...)" lọt vào chuỗi dẫn
+        # nguồn trả cho khách. Khử theo CẢ VĂN BẢN chứ không theo từng đoạn: hai
+        # hợp đồng khác nhau có chung điều khoản mẫu vẫn phải là hai nguồn.
+        # Tài liệu nạp trước khi có trường `norm_hash` không được so (thiếu
+        # trường); nạp lại chúng là có.
+        norm = normalized_hash(text)
+        trung = self.collection.get(where={"$and": [
+            {"workspace_id": workspace_id}, {"norm_hash": norm},
+        ]})
+        nguon_trung = sorted({
+            str(m.get("source")) for m in (trung.get("metadatas") or [])
+            if m.get("source") != source
+        })
+        if nguon_trung:
+            res.duplicate_of = nguon_trung[0]
+            res.warnings.append(
+                f"Nội dung trùng với tài liệu đã nạp '{nguon_trung[0]}' — không nạp "
+                f"thêm bản thứ hai. Muốn dùng tên '{source}' thì xoá '{nguon_trung[0]}' "
+                f"rồi nạp lại."
+            )
+            logger.info("Bỏ qua %s (%s): trùng nội dung với %s",
+                        source, workspace_id, nguon_trung[0])
+            return res
 
         chunks = chunk_document(text)
         if not chunks:
@@ -394,6 +438,7 @@ class KnowledgeBase:
             "workspace_id": workspace_id,
             "source": source,
             "content_hash": digest,
+            "norm_hash": norm,
             "doc_type": doc_type,
             "effective_from": effective_from or "",
             "effective_to": effective_to or "",
@@ -522,7 +567,12 @@ class KnowledgeBase:
                 from underthesea import word_tokenize
                 diem = bm25.get_scores(word_tokenize(query.lower()))
                 xep = sorted(zip(diem, pairs), key=lambda x: x[0], reverse=True)
-                lexical = [p for _, p in xep[:5] if is_effective(p[1], ngay)]
+                # Lọc hiệu lực TRƯỚC khi cắt top 5, cùng lý do với đường vector ở
+                # trên (#118). Cắt trước thì 5 đoạn hết hiệu lực điểm cao nhất
+                # chiếm hết chỗ rồi bị loại, nhánh này ra rỗng và đoạn còn hiệu
+                # lực xếp thứ 6 không bao giờ tới reranker. Duyệt cả danh sách đã
+                # sắp xếp sẵn: không thêm phép tính nào đáng kể so với `sorted`.
+                lexical = [p for _, p in xep if is_effective(p[1], ngay)][:5]
         except Exception as exc:  # BM25 hỏng không được làm chết cả tìm kiếm
             logger.warning("BM25 lỗi, chỉ dùng dense: %s", exc)
 
@@ -562,6 +612,7 @@ __all__ = [
     "KnowledgeBase",
     "Passage",
     "content_hash",
+    "normalized_hash",
     "to_float_lists",
     "format_for_prompt",
     "is_effective",
