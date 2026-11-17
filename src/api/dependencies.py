@@ -8,11 +8,12 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 from fastapi import Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from src.core.config import LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN
 from src.core.config import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
 
 if TYPE_CHECKING:
@@ -46,6 +47,15 @@ RUNTIME_PROFILE = os.getenv("RUNTIME_PROFILE", "full").strip().lower()
 # Request Models
 # ---------------------------------------------------------------------------
 
+class LuotHoiThoai(BaseModel):
+    """
+    Một tin trong lịch sử hội thoại do Body gửi kèm. CHỈ hai vai: `user` và `assistant`. Không có `system`:
+    lịch sử là DỮ LIỆU từ ngoài, không được là chỗ để ai đó chèn chỉ thị hệ thống. Vai khác là 422.
+    """
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=LICH_SU_TOI_DA_KY_TU)
+
+
 class ChatRequest(BaseModel):
     # int HOẶC chuỗi. Body bán lẻ (Flask) gửi số nguyên; Body logistics (Next.js)
     # dùng UUID cho `users.id` và `warehouses.id`. Ép `int` ở đây chặn thẳng
@@ -57,6 +67,13 @@ class ChatRequest(BaseModel):
     user_id: Union[int, str]
     store_id: Union[int, str]
     message: str
+    # Lịch sử hội thoại, CŨ NHẤT TRƯỚC (BR-38, Body#28). Ba trạng thái, khác nhau về nghĩa:
+    #   - vắng (None): Body cũ chưa gửi -> Brain lùi về đọc DB như trước (với DB thật của Body thì
+    #     ra rỗng, vì sáu bảng đó không tồn tại);
+    #   - `[]`: Body có gửi và đây là lượt đầu -> KHÔNG đọc DB;
+    #   - có tin: dùng đúng các tin đó (chỉ LICH_SU_SO_TIN_DUNG tin cuối).
+    # Trường lạ khác vẫn bị bỏ qua như trước; riêng `history` nay được nhận chứ không rơi im lặng.
+    history: Optional[list[LuotHoiThoai]] = Field(default=None, max_length=LICH_SU_TOI_DA_TIN)
 
 
 # ---------------------------------------------------------------------------

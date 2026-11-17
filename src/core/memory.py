@@ -9,7 +9,7 @@ import logging
 
 from sqlalchemy import create_engine, text
 
-from src.core.config import Config
+from src.core.config import LICH_SU_SO_TIN_DUNG, Config
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ class MemoryManager:
         except Exception:
             logger.error("DB error saving message user_id=%s role=%s", user_id, role, exc_info=True)
 
-    def get_history_messages(self, user_id, limit=6) -> list:
+    def get_history_messages(self, user_id, limit=LICH_SU_SO_TIN_DUNG) -> list:
         """
         Lịch sử hội thoại dạng [{"role": ..., "content": ...}] — ĐÚNG khe
         hội thoại của chat template.
@@ -256,7 +256,7 @@ class MemoryManager:
             logger.error("DB error fetching history user_id=%s", user_id, exc_info=True)
             return []
 
-    def get_context_string(self, user_id, limit=6):
+    def get_context_string(self, user_id, limit=LICH_SU_SO_TIN_DUNG):
         try:
             with self.get_conn() as conn:
                 # 1. Visual context (attachment mới nhất trong session đang active)

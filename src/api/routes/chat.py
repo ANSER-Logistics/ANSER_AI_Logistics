@@ -36,7 +36,7 @@ from src.api.dependencies import (
     web_search_fallback,
 )
 from src.core import metrics
-from src.core.config import Config
+from src.core.config import LICH_SU_SO_TIN_DUNG, Config
 from src.core.doc_dau_vao import noi_tra_loi_hoi_thue
 from src.core.engine import TASK_REGISTRY
 from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
@@ -129,6 +129,20 @@ def _load_history(user_id) -> list[dict]:
     except Exception as exc:
         logger.warning("Không đọc được lịch sử hội thoại: %s", exc)
         return []
+
+
+def _lich_su_tu_request(req) -> Optional[list[dict]]:
+    """
+    Lịch sử do Body gửi kèm, dạng messages, chỉ `LICH_SU_SO_TIN_DUNG` tin GẦN NHẤT.
+
+    `None` = Body không gửi (Body cũ) -> chỗ gọi lùi về DB. `[]` = Body gửi và đây là lượt đầu -> không
+    đọc DB. Lược đồ đã kiểm vai (chỉ user/assistant) và độ dài, nên ở đây chỉ cắt và đổi dạng. Nội dung
+    KHÔNG ghi log (dữ liệu khách, R2).
+    """
+    if req.history is None:
+        return None
+    tin = [{"role": m.role, "content": m.content} for m in req.history]
+    return tin[-LICH_SU_SO_TIN_DUNG:]
 
 
 def _save_turn(user_id, store_id, user_msg: str, answer: str) -> None:
@@ -710,8 +724,12 @@ async def chat_endpoint(
 
         # Lịch sử hội thoại — thiếu nó thì mọi tin nhắn là một phiên độc lập,
         # "thế xe 3 tấn thì sao?" không thể hiểu được.
-        # Đọc DB nằm ngoài event loop (§4.1-2): `/health` và việc poll tác vụ không chờ SQL.
-        history = await chay_ngoai_loop(_load_history, user_id)
+        # Body gửi kèm `history` (BR-38, Body#28) thì dùng đúng nó và KHÔNG đọc DB: với DB thật của
+        # Body sáu bảng lịch sử không tồn tại nên đọc ra rỗng. Body cũ không gửi thì lùi về đọc DB như
+        # trước. Đọc DB nằm ngoài event loop (§4.1-2): `/health` và việc poll tác vụ không chờ SQL.
+        history = _lich_su_tu_request(req)
+        if history is None:
+            history = await chay_ngoai_loop(_load_history, user_id)
         metric.history_turns = len(history)
 
         decision = await _phan_loai(runtime.manager, user_msg)
