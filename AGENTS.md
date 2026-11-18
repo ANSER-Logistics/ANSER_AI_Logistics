@@ -228,7 +228,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 ### 4.2. Chống mục ruỗng
 
 - Xoá code chết thay vì để lại. `RetailChatResponse`/`ProductExtraction` từng bị đánh dấu dead code — kiểm tra trước khi thêm schema mới.
-- [`.agents/`](.agents/) là thiết lập v1 (team Gemini, `ENV=COLAB`, A100, Qwen2-VL-7B) — **lỗi thời**, giữ lại nhưng không làm theo. File này thay thế nó; chỗ nào hai bên nói khác nhau thì theo file này.
+- [`.agents/agents.md`](.agents/agents.md) và [`.agents/workflows/`](.agents/workflows/) là thiết lập v1 (team Gemini, `ENV=COLAB`, A100, Qwen2-VL-7B) — **lỗi thời**, giữ lại nhưng không làm theo. File này thay thế chúng; chỗ nào hai bên nói khác nhau thì theo file này. `.agents/skills/` thì đang dùng (§9).
 - `src/archive/` **đã xoá** (05/08/2026): 15 script thời ProjectA_Backup/Make.com, trỏ vào đường dẫn Drive không còn tồn tại, không nơi nào import, và chiếm 215/252 lỗi lint của cả repo. Lấy lại bằng `git show 6c8b4f8^:src/archive/<file>` nếu cần đối chiếu.
 - Sửa code là sửa tài liệu. ARCHITECTURE.md v1.0 lệch khỏi code nhiều tháng và đã dẫn tới quyết định sai (chọn model theo A100 trong khi code chạy L4). **Từ 15/11/2026 tài liệu ở repo khác**, nên "cùng PR" không còn nghĩa đen. Thay vào đó: PR nào đổi route, module `src/core/`, biến môi trường hoặc một hành vi mà tài liệu mô tả phải **nêu điều đó trong mô tả PR** và mở PR tương ứng ở `anser-brain-docs`, nêu số PR bên kia. CI của repo tài liệu kéo mã về và bắt các lệch mà máy bắt được (route, module, biến môi trường, liên kết), chạy khi có commit và mỗi thứ Hai. Chỗ hở: không có gì ép việc mở PR bên kia, chỉ có người duyệt.
 
@@ -298,6 +298,131 @@ Trọng tâm phản biện — 4 câu hỏi hỏi mọi lần:
 - Tầng API test bằng `ENV=LOCAL`, không cần GPU.
 - Đổi định dạng workflow ⇒ cập nhật `tests/` trong cùng PR.
 - Trước khi tuyên bố "xong": chạy `pytest`, dán kết quả. Test fail thì nói rõ là fail — không mô tả vòng vo.
+
+### 5.4. Mở PR và issue: điền đủ mọi trường GitHub (thêm 18/11/2026)
+
+**Áp cho mọi AI (Claude, Codex, Gemini, Copilot) và người.** Mục đích: thành viên mở bảng project là biết ngay việc nào của ai, gấp cỡ nào, nặng cỡ nào, đang ở đâu, mà không phải mở từng issue ra đọc.
+
+Đo 18/11/2026: trong 15 PR gần nhất, 14 cái không có label, 15 cái không có assignee. Các issue gần đây không cái nào có Type hay label. Chỉ reviewer có, vì CODEOWNERS tự gắn team `brain`.
+
+#### Phải điền những gì
+
+Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/126): Assignee `wikiepeidia`, Label `documentation`, Type `Task`, Priority `Low`, Effort `Medium`, Project `Brain — Giao viec` với Status `Todo`.
+
+| Trường | Issue | PR | Giá trị hợp lệ (đo 18/11/2026) |
+|---|---|---|---|
+| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả (`@me`) | Login thành viên |
+| **Labels** | Đúng một | Đúng một | `bug` (sửa lỗi), `enhancement` (thêm/đổi tính năng), `documentation` (tài liệu, cấu hình AI), `question`. Issue thêm được `good first issue`, `help wanted`. `duplicate`, `invalid`, `wontfix` chỉ người duyệt gắn lúc đóng |
+| **Type** | Bắt buộc | PR không có trường này | `Task` (việc khác, tài liệu, hỗ trợ), `Bug`, `Feature`. Cùng nghĩa với label |
+| **Priority** | Bắt buộc | Bắt buộc | `Urgent`, `High`, `Medium`, `Low` |
+| **Effort** | Bắt buộc | Bắt buộc | `High`, `Medium`, `Low` |
+| **Start date**, **Target date** | Khi việc có hạn | Khi PR có hạn | `YYYY-MM-DD` |
+| **Project** | `Brain — Giao viec` (org Project số 6) | như issue | Mọi việc phải có mặt ở đây (§5.0) |
+| **Project Status** | `Todo` khi mới mở | Trạng thái đúng lúc mở | Danh sách đầy đủ: lệnh `field-list` bên dưới. Ngoài `Todo` chưa đo được |
+| **Reviewers** | — | Team `brain` do CODEOWNERS tự gắn. **Thêm** người cụ thể khi cần chuyên môn; chạm hợp đồng với Body thì thêm team `body`. **Không tự thêm mình** | Login thành viên, `ANSER-Logistics/brain`, `ANSER-Logistics/body` |
+| **Base** | — | Nhánh tính năng đang tích hợp, **không phải `main`** (§6.0) | |
+| **Draft** | — | Mở draft khi chưa qua `pytest` + `ruff` hoặc đang chờ phản biện (§5.2) | |
+| **Milestone** | Repo chưa có milestone nào: để trống, không tự tạo | như issue | |
+| **Liên kết** | Việc con gắn làm **sub-issue** của việc cha. Việc bị chặn thì gắn **blocked by** | `Closes #N` (xong việc) hoặc `Refs #N` (một phần) trong body | |
+| **Title, body** | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải tự đứng được | `loại(phạm vi): mô tả`. Body có tóm tắt, thay đổi, **kết quả `pytest`** (§5.3), và các mục §7 (chi phí VNĐ/tháng, chỉ số, PR bên `anser-brain-docs` nếu đổi hành vi) | |
+| **Tự merge, auto-merge** | — | **Cấm** gộp vào `main` và bật auto-merge: chỉ chủ dự án gộp vào `main` (§6.0). Vào nhánh tính năng thì agent hoặc chủ dự án gộp sau khi CI xanh và PR đã được duyệt (chủ dự án chốt 17/11/2026); người mở PR không tự gộp PR của mình | |
+
+**Chọn Priority và Effort thế nào.** Chưa có thang chính thức. Theo cách chủ dự án đã gắn: #126 là việc hỗ trợ 30–45 phút, chỉ bình luận, được gắn Priority `Low`, Effort `Medium`. Không chắc thì hỏi người giao việc. **Không để trống.**
+
+#### Lệnh để gắn tất cả
+
+`gh issue create` và `gh pr create` không có cờ cho Type, Priority, Effort hay ngày. Phần đó gắn bằng REST.
+
+```bash
+R=ANSER-Logistics/ANSER_AI_Logistics
+```
+
+**Issue:**
+
+```bash
+# 1. Tạo issue, kèm assignee, label, project
+URL=$(gh issue create -R $R --title "…" --body-file issue.md \
+  --assignee <login> --label documentation --project "Brain — Giao viec")
+N=${URL##*/}
+
+# 2. Type
+gh api -X PATCH repos/$R/issues/$N -f type=Task
+
+# 3. Priority, Effort (thêm Start date / Target date nếu có hạn)
+gh api -X POST repos/$R/issues/$N/issue-field-values --input - <<'JSON'
+{"issue_field_values": [
+  {"field_id": 49418578, "value": "Low"},
+  {"field_id": 49418584, "value": "Medium"}
+]}
+JSON
+```
+
+**PR:**
+
+```bash
+URL=$(gh pr create --base <nhánh tính năng> --title "docs(ai): …" --body-file pr.md \
+  --assignee @me --label documentation --reviewer <login nếu cần> \
+  --project "Brain — Giao viec" [--draft])
+N=${URL##*/}
+
+gh api -X POST repos/$R/issues/$N/issue-field-values --input - <<'JSON'
+{"issue_field_values": [
+  {"field_id": 49418578, "value": "Low"},
+  {"field_id": 49418584, "value": "Low"}
+]}
+JSON
+```
+
+PR không có Type. Priority và Effort gắn được lên PR qua cùng endpoint (đã chạy thử trên PR #144 ngày 18/11/2026). Giao diện PR có thể không hiện mục Fields, nhưng giá trị vẫn được lưu.
+
+**Project Status** (cần scope `project`, xem dưới):
+
+```bash
+PID=$(gh project view 6 --owner ANSER-Logistics --format json -q .id)
+ITEM=$(gh project item-add 6 --owner ANSER-Logistics --url "$URL" --format json -q .id)
+gh project field-list 6 --owner ANSER-Logistics --format json   # lấy id của trường Status và id của lựa chọn Todo
+gh project item-edit --project-id "$PID" --id "$ITEM" --field-id <id Status> --single-select-option-id <id Todo>
+```
+
+**Liên kết** (REST cần `id` dạng số của issue, không phải số `#N`):
+
+```bash
+gh api -X POST repos/$R/issues/<cha>/sub_issues -F sub_issue_id=$(gh api repos/$R/issues/<con> -q .id)
+gh api -X POST repos/$R/issues/<N>/dependencies/blocked_by -F issue_id=$(gh api repos/$R/issues/<việc chặn> -q .id)
+```
+
+#### Lấy giá trị hợp lệ từ GitHub, đừng nhớ
+
+Các `field_id` ở trên (Priority `49418578`, Effort `49418584`, Start date `49418580`, Target date `49418582`) đo ngày 18/11/2026. Chúng đổi nếu ai đó tạo lại trường. Gửi sai `field_id` thì lệnh báo lỗi, nên đối chiếu lại khi lệnh hỏng:
+
+```bash
+gh api orgs/ANSER-Logistics/issue-fields -q '.[] | "\(.id) \(.name) \([.options[]?.name] | join("/"))"'
+gh label list -R $R
+gh api orgs/ANSER-Logistics/issue-types -q '.[].name'
+gh api orgs/ANSER-Logistics/teams -q '.[].slug'
+```
+
+#### Kiểm lại sau khi tạo
+
+Lệnh có thể thành công mà vẫn thiếu trường (ví dụ project bị bỏ vì thiếu scope), nên đọc lại:
+
+```bash
+gh api repos/$R/issues/$N -q '{type: .type.name, labels: [.labels[].name], assignees: [.assignees[].login]}'
+gh api repos/$R/issues/$N/issue-field-values -q '[.[] | "\(.issue_field_name)=\(.single_select_option.name // .value)"]'
+gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # với PR
+```
+
+#### Khi token `gh` thiếu scope
+
+Đo 18/11/2026: token trên máy dev chỉ có `gist, notifications, read:org, repo, workflow`. Thiếu `project` thì `--project`, `gh project …` và `--json projectItems` đều báo lỗi scope. Gặp lỗi đó thì:
+
+1. Vẫn gắn mọi trường còn lại.
+2. Ghi vào body: *"Chưa gắn Project vì token thiếu scope `project`."*
+3. Báo người dùng chạy `gh auth refresh -s project`.
+
+**Không bỏ qua im lặng.** Việc không có trên Project là việc không ai thấy (§5.0).
+
+Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`, và danh sách lựa chọn của trường Status. Lệnh `issue-field-values` đã chạy thật.
 
 ---
 
@@ -394,16 +519,27 @@ Chi tiết và các hướng xử: xem việc trên bảng kanzo.
 
 ---
 
-## 9. Cấu hình cho trợ lý AI (Claude Code, Copilot) — thêm 16/11/2026
+## 9. Cấu hình cho trợ lý AI (Claude Code, Codex, Gemini, Copilot) — thêm 16/11/2026, sửa 18/11/2026
 
-File này là nguồn sự thật cho **mọi** agent. Các file dưới chỉ bổ sung theo từng công cụ; mâu thuẫn thì AGENTS.md thắng.
+File này là nguồn sự thật cho **mọi** agent (Codex đọc nó trực tiếp). Các file dưới chỉ bổ sung theo từng công cụ; mâu thuẫn thì AGENTS.md thắng.
 
 | File | Cho ai | Nội dung |
 |---|---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code | Import AGENTS.md + cách dùng skill và graph |
+| [`GEMINI.md`](GEMINI.md) | Gemini CLI | Import AGENTS.md (Gemini mặc định đọc `GEMINI.md`, không đọc `AGENTS.md`) |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
-| [`.claude/skills/anser-map`](.claude/skills/anser-map/SKILL.md) | Claude (tự nạp) | Bản đồ module, chỗ nào lỗi thời, cách hỏi graph |
-| [`.claude/skills/anser-verify`](.claude/skills/anser-verify/SKILL.md) | Claude (`/anser-verify`) | Đúng các bước CI + pre-commit, 4 câu hỏi R1–R4, quét bí mật toàn lịch sử bằng chính `scan_secrets` |
+| [`.claude/skills/`](.claude/skills/) | Claude Code | Skill dự án |
+| [`.agents/skills/`](.agents/skills/) | Codex, Gemini CLI | **Bản sao giống hệt** `.claude/skills/` — `tests/test_skill_dong_bo.py` chặn lệch và kiểm frontmatter |
+
+Sáu skill, ở cả hai thư mục:
+
+| Skill | Nội dung |
+|---|---|
+| `anser-map` | Bản đồ module, chỗ nào lỗi thời, cách hỏi graph. Nạp trước khi dò mã |
+| `anser-verify` | Đúng các bước CI + pre-commit, 4 câu hỏi R1–R4, quét bí mật toàn lịch sử bằng chính `scan_secrets` |
+| `async-data-miner`, `fastapi-background-tasker`, `ocr-invoice-parser`, `webhook-dispatcher` | Skill **v1** từ `.agents/` cũ. Đầu mỗi file có khối ⚠️ ghi chỗ nào lỗi thời và mã thật nằm ở đâu |
+
+**Sửa skill thì sửa một bên rồi chép sang bên kia.** Frontmatter bắt buộc `name` (trùng tên thư mục, chữ thường + gạch ngang) và `description`; thiếu nó thì Gemini báo "invalid frontmatter format" và bỏ qua skill — đúng chuyện đã xảy ra với bốn skill v1 trước 18/11/2026.
 
 **Graph tri thức (graphify):** `graphify-out/` sinh cục bộ, **không commit** (đã gitignore). Dựng bằng `/graphify .`, cập nhật bằng `graphify update .` (chỉ AST, không gọi LLM). [`.graphifyignore`](.graphifyignore) **có commit**: nó loại `src/data/` (file upload, có thể là dữ liệu khách) để không bao giờ bị gửi cho bộ trích xuất LLM (R2).
 

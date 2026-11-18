@@ -72,4 +72,4 @@ Known benign (checked 16/11/2026, 8 commits): `dcc7a34`, `65dd3e3`, `57a594c`, `
 
 ## 4. Where the PR goes
 
-`main` is production (AGENTS.md §6.0). Open PRs against the feature branch the team integrates into (currently `feat/workflow-format-and-deterministic-core`), never merge your own PR, never push to `main`.
+`main` is production (AGENTS.md §6.0). Open PRs against the feature branch the team integrates into (currently `feat/workflow-format-and-deterministic-core`), never merge your own PR, never push to `main`. Fill every GitHub field when you open it (assignee, label, Priority, Effort, Project `Brain — Giao viec`, reviewers, linked issue, draft state; issues also Type), then read them back: AGENTS.md §5.4.
