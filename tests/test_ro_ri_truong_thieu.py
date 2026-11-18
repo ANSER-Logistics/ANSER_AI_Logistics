@@ -223,3 +223,30 @@ def test_chen_dia_danh_vao_truong_thieu_thi_luon_bi_bat():
             assert ("destination" in {t for t, _ in ra}), (s["_id"], d, base)
             n += 1
     assert n > 1000
+
+
+# ---------------------------------------------------------------------------
+# Lọc ở bước dựng dataset (build_dataset_v3)
+# ---------------------------------------------------------------------------
+
+def test_loc_dong_ro_ri_loai_dung_dong_nhan_sai_va_giu_phan_con_lai():
+    from offline_training.ro_ri_truong_thieu import loc_dong_ro_ri
+
+    rows = [
+        _train_row("EX0034", "ship về HP", destination=None),                   # nhãn sai: loại
+        _train_row("EX0111", "giá bao nhiêu vậy", destination=None),            # nhãn thiếu, tin nhắn sạch: giữ
+        _train_row("EX0112", "đi Hải Phòng", destination="Hải Phòng"),          # có nhãn: giữ
+        {"_id": "FU1", "_source": "logistics_extract_multiturn", "messages": [{}, {}, {}, {}, {}]},  # hai lượt: giữ
+        {"_id": "X", "messages": "hỏng"},                                       # không đọc được: giữ, không nổ
+    ]
+    giu, loai = loc_dong_ro_ri(rows)
+    assert [r["_id"] for r in giu] == ["EX0111", "EX0112", "FU1", "X"]
+    assert loai == [{"id": "EX0034", "truong": "destination", "khop": "hp"}]
+
+
+def test_build_dataset_v3_goi_bo_loc_cho_train_extraction():
+    """Dựng dataset là chỗ bộ lọc có tác dụng thật; hàm đúng mà không ai gọi thì nhãn sai vẫn vào tập train."""
+    from pathlib import Path
+
+    nguon = (Path(__file__).resolve().parent.parent / "offline_training" / "build_dataset_v3.py").read_text(encoding="utf-8")
+    assert "loc_dong_ro_ri(rows)" in nguon and 'name == "train_extraction.jsonl"' in nguon

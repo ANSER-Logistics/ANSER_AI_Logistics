@@ -126,9 +126,25 @@ def build_pair_from_template(path: Path, data: dict):
     return {"_id": path.stem, "task": task, "plan": plan, "answer": answer}, None
 
 
+def dong_train(system: str, p: dict) -> dict:
+    """Một dòng `train_n8n.jsonl` từ một cặp `{_id, task, plan, answer}`. `_source` mặc định "n8n"."""
+    return {
+        "_id": p["_id"],
+        "_source": p.get("_source", "n8n"),
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"YÊU CẦU: {p['task']}\nKẾ HOẠCH: {p['plan']}"},
+            {"role": "assistant", "content": json.dumps(p["answer"], ensure_ascii=False)},
+        ],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=20260727)
+    parser.add_argument("--bo-loc", type=int, default=0, metavar="N",
+                        help="thêm N mẫu n8n 'bộ lọc nghiệp vụ' (IF là câu hỏi, nhánh không để trống hoặc có bước riêng; "
+                             "make_n8n_bo_loc.py, #91 v5). Mặc định 0: không đổi dataset hiện có")
     args = parser.parse_args()
 
     _stage_catalog_dir()
@@ -136,6 +152,7 @@ def main() -> None:
         reload_catalog,
         render_examples,
         render_node_catalog,
+        validate_workflow,
     )
     reload_catalog()
     from src.core.prompts import Prompts
@@ -161,6 +178,16 @@ def main() -> None:
             else:
                 pairs.append(pair)
 
+    if args.bo_loc:
+        from offline_training.make_n8n_bo_loc import sinh
+        from src.core.workflow_schema import get_node_catalog
+        for m in sinh(get_node_catalog(), args.bo_loc):
+            ok, why = validate_workflow(m["answer"])
+            if ok:
+                pairs.append(m)
+            else:
+                skipped.append((m["_id"], f"validate_workflow: {why}"))
+
     rng = random.Random(args.seed)
     rng.shuffle(pairs)
     eval_pairs, train_pairs = pairs[:N_EVAL], pairs[N_EVAL:]
@@ -169,17 +196,7 @@ def main() -> None:
     train_path = GENERATED_DIR / "train_n8n.jsonl"
     with open(train_path, "w", encoding="utf-8") as f:
         for p in train_pairs:
-            entry = {
-                "_id": p["_id"],
-                "_source": "n8n",
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": f"YÊU CẦU: {p['task']}\nKẾ HOẠCH: {p['plan']}"},
-                    {"role": "assistant",
-                     "content": json.dumps(p["answer"], ensure_ascii=False)},
-                ],
-            }
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.write(json.dumps(dong_train(system, p), ensure_ascii=False) + "\n")
 
     # KHÔNG ghi eval_n8n.jsonl ở đây nữa — `make_n8n_eval.py` sở hữu file đó.
     # Ghi đè nó là xoá 34 đề bằng 0 đề, và benchmark sẽ lặng lẽ bỏ qua cả nhánh.
@@ -189,7 +206,8 @@ def main() -> None:
             "kiểm lại, file eval_n8n.jsonl không được ghi từ đây."
         )
 
-    print(f"✓ {train_path} — {len(train_pairs)} cặp train")
+    n_bl = sum(1 for p in train_pairs if p.get("_source") == "n8n_bo_loc")
+    print(f"✓ {train_path} — {len(train_pairs)} cặp train" + (f", trong đó {n_bl} mẫu 'bộ lọc nghiệp vụ' (#91)" if n_bl else ""))
     print("  eval n8n do make_n8n_eval.py sinh riêng (không cắt khỏi tập train)")
     if skipped:
         print(f"\nBỏ qua {len(skipped)} template:")
