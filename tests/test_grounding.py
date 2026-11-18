@@ -519,3 +519,36 @@ def test_gach_noi_trong_ngay_khong_bi_nham_la_dau_tru():
 
 def test_context_khong_co_so_am_thi_khong_chan_gi():
     assert dau_lai_lo_ok("Lãi 5.000.000 đồng.", '{"net_profit": 5000000}')[0] is True
+
+
+# ---------------------------------------------------------------------------
+# "lợi nhuận" cũng là từ chỉ chiều dương (19/11/2026): "lợi nhuận ròng 5.000.000" cho một khoản LỖ nghe là lãi
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("cau", [
+    "Lợi nhuận ròng 5.000.000 đồng.",
+    "Lợi nhuận tháng này là 5 triệu đồng.",
+    "Công ty có lợi nhuận 5.000.000 đồng trong kỳ.",
+    "Doanh thu 20.000.000 đồng, lợi nhuận ròng 5.000.000 đồng.",     # đã lọt trước đây
+])
+def test_loi_nhuan_cho_khoan_lo_thi_bi_chan(cau):
+    ok, bad = dau_lai_lo_ok(cau, CTX_LO)
+    assert ok is False and bad, cau
+    assert guard_answer(cau, CTX_LO).blocked
+
+
+@pytest.mark.parametrize("cau", [
+    "Lợi nhuận ròng lỗ 5.000.000 đồng.",                    # có từ chỉ chiều âm
+    "Không có lợi nhuận, lỗ ròng 5.000.000 đồng.",
+    "Lợi nhuận ròng là -5.000.000 đồng.",                   # tự mang dấu trừ
+    "Lợi nhuận ròng âm 5.000.000 đồng.",
+    "Lợi nhuận gộp 7.500.000 đồng.",                        # số dương trong context
+    "Lợi nhuận ròng giảm 5.000.000 đồng.",
+    "Biên lợi nhuận chuyến này là tốt.",                    # không có số tiền
+])
+def test_loi_nhuan_dung_dau_thi_khong_bi_chan_oan(cau):
+    assert dau_lai_lo_ok(cau, CTX_LO)[0] is True, cau
+
+
+def test_loi_nhuan_khong_chan_khi_context_khong_co_so_am():
+    assert dau_lai_lo_ok("Lợi nhuận ròng 5.000.000 đồng.", '{"net_profit": 5000000}')[0] is True
