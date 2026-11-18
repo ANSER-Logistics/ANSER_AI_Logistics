@@ -325,7 +325,7 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 | **Milestone** | Repo chưa có milestone nào: để trống, không tự tạo | như issue | |
 | **Liên kết** | Việc con gắn làm **sub-issue** của việc cha. Việc bị chặn thì gắn **blocked by** | `Closes #N` (xong việc) hoặc `Refs #N` (một phần) trong body | |
 | **Title, body** | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải tự đứng được | `loại(phạm vi): mô tả`. Body có tóm tắt, thay đổi, **kết quả `pytest`** (§5.3), và các mục §7 (chi phí VNĐ/tháng, chỉ số, PR bên `anser-brain-docs` nếu đổi hành vi) | |
-| **Tự merge, auto-merge** | — | **Cấm.** Chỉ chủ dự án gộp (§6.0) | |
+| **Tự merge, auto-merge** | — | **Cấm** gộp vào `main` và bật auto-merge: chỉ chủ dự án gộp vào `main` (§6.0). Vào nhánh tính năng thì agent hoặc chủ dự án gộp sau khi CI xanh và PR đã được duyệt (chủ dự án chốt 17/11/2026); người mở PR không tự gộp PR của mình | |
 
 **Chọn Priority và Effort thế nào.** Chưa có thang chính thức. Theo cách chủ dự án đã gắn: #126 là việc hỗ trợ 30–45 phút, chỉ bình luận, được gắn Priority `Low`, Effort `Medium`. Không chắc thì hỏi người giao việc. **Không để trống.**
 
