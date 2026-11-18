@@ -10,6 +10,7 @@ from typing import Any
 from src.core.config import MAX_HISTORY_TURNS, Config
 from src.core.serving import (
     REPETITION_PENALTY_TU_DO,
+    BackendTruncated,
     BackendUnavailable,
     CauHinhSai,
     ChatRequest,
@@ -31,6 +32,20 @@ def _ket_qua_trong_tien_trinh(out) -> tuple[str, int | None]:
     """
     ids = getattr(out, "token_ids", None)
     return out.text.strip(), (len(ids) if ids is not None else None)
+
+
+def _bi_cat_cut(token_moi: list[int], toi_da: int, eos: list[int | None]) -> bool:
+    """
+    Đường trong tiến trình (transformers) không có `finish_reason`: suy ra từ độ dài.
+    Cụt = sinh đủ `toi_da` token mà token cuối KHÔNG phải EOS. Sinh đủ `toi_da` mà
+    token cuối đúng là EOS thì model vừa kịp kết thúc: không cụt.
+
+    Rỗng (không sinh gì) không phải cụt: đó là đầu ra rỗng, và người đọc đã coi
+    rỗng là không đọc được.
+    """
+    if not token_moi or len(token_moi) < toi_da:
+        return False
+    return token_moi[-1] not in {e for e in eos if e is not None}
 
 
 def _doc_anh(duong_dan: str) -> tuple[bytes, str]:
@@ -689,10 +704,14 @@ class ModelEngine:
     # VISION  (method MỚI — để vision_model không còn là "dead load")
     # ------------------------------------------------------------------
     async def generate_vision(self, image_path: str, prompt: str, max_new_tokens: int = 512,
-                              json_schema: dict | None = None):
+                              json_schema: dict | None = None, phai_tron_ven: bool = False):
         """
         Chạy VLM trên 1 ảnh + prompt, trả về text.
         Bất đồng bộ: inference nặng được đẩy ra thread pool (không block event loop).
+
+        `phai_tron_ven=True` khi người gọi sẽ lấy SỐ từ đầu ra: model hết `max_new_tokens`
+        mà chưa tự kết thúc thì ném `BackendTruncated` thay vì trả nửa chuỗi (cả đường
+        server lẫn đường trong tiến trình). Xem `serving.BackendTruncated`.
 
         `json_schema` bật RÀNG BUỘC GIẢI MÃ: model chỉ được sinh ra token nào giữ
         chuỗi hợp lệ theo lược đồ. Đường text (vLLM) đã có `guided_json` từ lâu;
@@ -727,6 +746,7 @@ class ModelEngine:
             async with self.vision_guard.slot():
                 return await self.vision_server.vision(
                     anh, mime, prompt, max_tokens=max_new_tokens, json_schema=json_schema,
+                    phai_tron_ven=phai_tron_ven,
                 )
 
         loop = asyncio.get_running_loop()
@@ -763,6 +783,17 @@ class ModelEngine:
             with torch.no_grad():
                 generated = self.vision_model.generate(**inputs, **gen_kwargs)
             trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated)]
+            if phai_tron_ven and trimmed:
+                gc = getattr(self.vision_model, "generation_config", None)
+                eos = getattr(gc, "eos_token_id", None)
+                eos_ids = list(eos) if isinstance(eos, (list, tuple)) else [eos]
+                eos_ids.append(getattr(getattr(self.vision_processor, "tokenizer", None),
+                                       "eos_token_id", None))
+                if _bi_cat_cut(trimmed[0].tolist(), max_new_tokens, eos_ids):
+                    raise BackendTruncated(
+                        f"Model thị giác dừng vì hết {max_new_tokens} token mà chưa tự kết thúc: "
+                        "đầu ra cụt, không dùng được để lấy số"
+                    )
             return self.vision_processor.batch_decode(
                 trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )[0].strip()
