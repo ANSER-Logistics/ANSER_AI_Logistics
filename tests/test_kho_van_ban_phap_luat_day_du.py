@@ -14,6 +14,8 @@ thúc một câu. Nó là chốt tối thiểu, không thay cho việc đối ch
 
 from __future__ import annotations
 
+import hashlib
+import html
 import re
 import zipfile
 from pathlib import Path
@@ -44,8 +46,38 @@ def _van_ban(p: Path) -> str:
     return extract(p.read_bytes(), p.name).text.strip()
 
 
+def _chu_chuan(p: Path) -> str:
+    """Chữ để so hai tài liệu có CÙNG nội dung không: giải mã thực thể XML (`&#39;` là dấu `'`) và gộp khoảng trắng."""
+    return " ".join(html.unescape(_van_ban(p)).split())
+
+
 def test_chot_chong_xanh_suong_co_du_tai_lieu():
     assert len(_tai_lieu()) >= 5, f"chỉ thấy {len(_tai_lieu())} tài liệu trong {DOCS}"
+
+
+def test_khong_con_ban_converted():
+    """Mười tệp "(Converted - ...)" đã xoá: so từng từ thì giống hệt bản gốc (#141 chỉ chặn nạp trùng, không xoá tệp)."""
+    con = sorted(p.name for p in DOCS.glob("*Converted*"))
+    assert not con, f"còn bản Converted: {con}"
+
+
+def test_khong_co_hai_van_ban_trung_noi_dung():
+    """
+    Hai tệp cùng chữ dưới hai tên là hai nguồn: một đoạn chiếm hai chỗ trong `top_k` và tên tệp xấu lọt vào chuỗi
+    dẫn nguồn (#118). #141 chặn ở lúc nạp; test này chặn ở gốc, trong chính thư mục dữ liệu.
+    """
+    theo_ma: dict[str, list[str]] = {}
+    for p in _tai_lieu():
+        theo_ma.setdefault(hashlib.sha256(_chu_chuan(p).encode("utf-8")).hexdigest(), []).append(p.name)
+    trung = [ten for ten in theo_ma.values() if len(ten) > 1]
+    assert not trung, f"các tệp cùng nội dung: {trung}"
+
+
+def test_dau_do_bat_duoc_hai_tep_trung_noi_dung():
+    """Chứng minh test không câm: `&#39;` và `'` là cùng chữ, khoảng trắng khác nhau vẫn là cùng chữ."""
+    a = " ".join(html.unescape("Nghị định&#39;  số 18").split())
+    b = " ".join(html.unescape("Nghị định' số\n18").split())
+    assert a == b
 
 
 @pytest.mark.parametrize("p", _tai_lieu(), ids=lambda p: p.name)
