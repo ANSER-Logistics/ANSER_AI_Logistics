@@ -361,6 +361,8 @@ python offline_training/so_sanh_vlm.py q25vl7b_bf16_server=q25vl7b_bf16_server.j
 ```
 `phan_loai_loi_vlm` chấm theo ĐÁP ÁN THẬT: lệch lũy thừa của 10 (`x10^k`), nhầm cột Thành tiền thành Đơn giá, điền 0 hoặc điền số vào trường đáp án null. Danh sách `LECH_LUY_THUA_10` là cổng R1: lỗi này lọt qua `validate_invoice_total` vì mọi số lệch cùng lúc.
 
+Ca model bị cắt ở 1024 token (Brain PR #155) không còn ra số cụt: kết quả là `error` có chữ "cụt", và `phan_loai_loi_vlm` xếp nó vào `khong_doc_duoc`. Khi đọc bảng, đếm riêng số ca đó cho từng model (`grep -c cụt q25vl7b_awq.json`): đó là số đo tần suất cắt thật, chưa ai có. Model nào cụt nhiều thì đó là một lý do loại riêng, không nằm trong sáu cổng dưới đây.
+
 ### 8.4 Cổng nhận (ghi TRƯỚC khi đo, để khỏi cãi sau)
 
 1. **`LECH_LUY_THUA_10` rỗng.** Bất kỳ ca nào lệch lũy thừa của 10 là loại, bất kể điểm tổng.
