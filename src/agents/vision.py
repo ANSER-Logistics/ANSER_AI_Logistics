@@ -47,14 +47,22 @@ class VisionAgent:
         return self.PROMPTS["caption"]
 
     async def analyze_image(self, image_path: str, task_hint: str = "caption",
-                            json_schema: dict | None = None) -> str:
-        """Trả về text. task_hint ∈ {'caption', 'ocr', 'invoice', 'freight'}."""
+                            json_schema: dict | None = None,
+                            phai_tron_ven: bool = False) -> str:
+        """
+        Trả về text. task_hint ∈ {'caption', 'ocr', 'invoice', 'freight'}.
+
+        `phai_tron_ven`: người gọi sẽ lấy SỐ từ đầu ra (mọi đường trích hoá đơn). Đầu ra cụt
+        ở `max_tokens` thì trả "Error analyzing image: ..." thay vì nửa chuỗi, vì nửa chuỗi
+        đi qua `repair_json` thành một object hợp lệ mang con số cụt (xem `BackendTruncated`).
+        """
         prompt = self._prompt_for(task_hint)
         th = (task_hint or "").lower()
         max_tokens = 1024 if any(k in th for k in ("ocr", "invoice", "freight")) else 512
         try:
             return await self.engine.generate_vision(
-                image_path, prompt, max_new_tokens=max_tokens, json_schema=json_schema
+                image_path, prompt, max_new_tokens=max_tokens, json_schema=json_schema,
+                phai_tron_ven=phai_tron_ven,
             )
         except Exception as exc:
             logger.exception("Vision inference failed: %s", exc)
@@ -89,7 +97,7 @@ class VisionAgent:
                             json_schema: dict | None = None) -> dict:
         """Đọc ảnh -> dict. Trả {'error': ...} nếu hỏng — KHÔNG bịa số."""
         raw = await self.analyze_image(image_path, task_hint=task_hint,
-                                       json_schema=json_schema)
+                                       json_schema=json_schema, phai_tron_ven=True)
         if isinstance(raw, str) and raw.startswith("Error"):
             return {"error": raw}
         try:

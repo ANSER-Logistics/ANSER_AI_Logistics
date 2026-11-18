@@ -86,6 +86,17 @@ class BackendError(RuntimeError):
     """Server vLLM trả lỗi có cấu trúc (4xx/5xx)."""
 
 
+class BackendTruncated(BackendError):
+    """
+    Model dừng vì hết `max_tokens`, không phải vì tự kết thúc: đầu ra CỤT.
+
+    Chỉ có nghĩa với đầu ra mà người đọc sẽ lấy SỐ từ đó. JSON cụt giữa chừng
+    `"total": 5519` (tờ in 55192) mà đi qua `json_repair` thì thành một object
+    hợp lệ với một con số trông bình thường, và mọi phép kiểm nhất quán sau đó
+    chạy trên số sai (R1: số tiền sai mà trông đúng là loại lỗi tệ nhất).
+    """
+
+
 # ---------------------------------------------------------------------------
 # Điều tiết tải
 # ---------------------------------------------------------------------------
@@ -262,6 +273,9 @@ HEALTH_TIMEOUT_S = 2.0
 # "position", dấu ngoặc giữa các node); phạt lặp sẽ cấm đúng các token grammar
 # đòi, model bị dồn vào nhánh grammar kém hơn — hỏng im lặng (SRS §3.3 bẫy 3).
 REPETITION_PENALTY_GRAMMAR = 1.0
+
+# `finish_reason` của vLLM khi model KHÔNG tự kết thúc: hết max_tokens, hoặc request bị huỷ giữa chừng.
+_LY_DO_DUNG_CUT = frozenset({"length", "abort"})
 
 
 @dataclass
@@ -799,9 +813,17 @@ class VLLMServerClient:
     async def vision(
         self, anh: bytes, mime: str, prompt: str,
         max_tokens: int = 512, json_schema: Optional[dict[str, Any]] = None,
+        phai_tron_ven: bool = False,
     ) -> str:
         """
         Ảnh + câu lệnh qua `/v1/chat/completions` của vllm-vision (#14).
+
+        `phai_tron_ven=True` (người gọi sẽ đọc SỐ từ đầu ra, tức mọi đường trích
+        hoá đơn): server báo `finish_reason` là `length` hay `abort` thì ném
+        `BackendTruncated` thay vì trả nửa chuỗi. Mặc định tắt: chú thích ảnh và
+        OCR chữ thô cụt thì vẫn đọc được phần đầu, và cụt là chuyện thường ở tờ dài.
+        Server không gửi `finish_reason` thì coi là không biết và không chặn
+        (vLLM thật luôn gửi).
 
         Ảnh đi dưới dạng `image_url` là data URI base64 — cách vLLM nhận ảnh
         trong `messages`. Đi chung `_post` với đường text: cùng timeout, cùng
@@ -832,11 +854,19 @@ class VLLMServerClient:
             payload["guided_json"] = json_schema
         data = await self._post("/v1/chat/completions", payload)
         try:
-            return _chuoi_tra_ve(data["choices"][0]["message"]["content"])
-        except (KeyError, IndexError, TypeError) as exc:
+            chu = _chuoi_tra_ve(data["choices"][0]["message"]["content"])
+            ly_do_dung = data["choices"][0].get("finish_reason")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
             raise BackendError(
                 f"vllm-vision trả nội dung không đọc được: {str(data)[:200]}"
             ) from exc
+        if phai_tron_ven and ly_do_dung in _LY_DO_DUNG_CUT:
+            # Không kèm nội dung vào thông báo: đó là chữ đọc từ ảnh hoá đơn (dữ liệu khách).
+            raise BackendTruncated(
+                f"vllm-vision dừng vì '{ly_do_dung}' sau khi sinh tối đa {max_tokens} token: "
+                "đầu ra cụt, không dùng được để lấy số"
+            )
+        return chu
 
     async def aclose(self):
         if self._client is not None:

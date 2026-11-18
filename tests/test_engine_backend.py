@@ -64,7 +64,7 @@ class _VllmGia:
     """Trả lời đúng hình dạng vLLM OpenAI-compatible, ghi lại mọi request."""
 
     def __init__(self, noi_dung: str = '  {"tool": "vat"}  ', ma: int = 200,
-                 so_token: int | None = 7):
+                 so_token: int | None = 7, finish_reason: str | None = None):
         self.requests: list[tuple[str, dict]] = []
         # `usage.completion_tokens` như vLLM thật (#16). None = server không trả
         # `usage` — để kiểm Brain ghi "không biết" chứ không ghi 0.
@@ -114,7 +114,11 @@ class _VllmGia:
                 if ma != 200:
                     self._tra(ma, {"error": "loi gia"})
                 elif self.path == "/v1/chat/completions":
-                    self._tra(200, {"choices": [{"message": {"content": noi_dung}}], **usage})
+                    # `finish_reason` như vLLM thật (stop / length / abort); None = server không gửi.
+                    lua_chon = {"message": {"content": noi_dung}}
+                    if finish_reason is not None:
+                        lua_chon["finish_reason"] = finish_reason
+                    self._tra(200, {"choices": [lua_chon], **usage})
                 elif self.path == "/v1/completions":
                     self._tra(200, {"choices": [{"text": noi_dung}], **usage})
                 else:
