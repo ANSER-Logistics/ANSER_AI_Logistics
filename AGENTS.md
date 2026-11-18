@@ -299,58 +299,130 @@ Trọng tâm phản biện — 4 câu hỏi hỏi mọi lần:
 - Đổi định dạng workflow ⇒ cập nhật `tests/` trong cùng PR.
 - Trước khi tuyên bố "xong": chạy `pytest`, dán kết quả. Test fail thì nói rõ là fail — không mô tả vòng vo.
 
-### 5.4. Mở PR và issue: điền đủ metadata GitHub (thêm 18/11/2026)
+### 5.4. Mở PR và issue: điền đủ mọi trường GitHub (thêm 18/11/2026)
 
-**Áp cho mọi AI (Claude, Codex, Gemini, Copilot) và người.** Đo 18/11/2026: trong 15 PR gần nhất, **14 cái không có label, 15 cái không có assignee, không cái nào có milestone**; chỉ reviewer có, vì CODEOWNERS tự gắn team `brain`. Các issue gần đây không cái nào có Type hay label. Hậu quả: bảng project và bộ lọc không dùng được, và người duyệt phải tự đoán PR này là sửa lỗi hay thêm tính năng.
+**Áp cho mọi AI (Claude, Codex, Gemini, Copilot) và người.** Mục đích: thành viên mở bảng project là biết ngay việc nào của ai, gấp cỡ nào, nặng cỡ nào, đang ở đâu, mà không phải mở từng issue ra đọc.
 
-Điền **mọi trường dưới đây ngay lúc tạo**, đừng để người khác điền hộ:
+Đo 18/11/2026: trong 15 PR gần nhất, 14 cái không có label, 15 cái không có assignee. Các issue gần đây không cái nào có Type hay label. Chỉ reviewer có, vì CODEOWNERS tự gắn team `brain`.
 
-| Trường GitHub | PR | Issue | Cách đặt |
+#### Phải điền những gì
+
+Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/issues/126): Assignee `wikiepeidia`, Label `documentation`, Type `Task`, Priority `Low`, Effort `Medium`, Project `Brain — Giao viec` với Status `Todo`.
+
+| Trường | Issue | PR | Giá trị hợp lệ (đo 18/11/2026) |
 |---|---|---|---|
-| **Title** | `loại(phạm vi): mô tả`, ví dụ `fix(r1): …`, `docs(ai): …`, `feat(#91): …` | Nói việc cần làm. Việc giao cho người ghi rõ thời lượng và "chỉ bình luận" nếu đúng vậy (xem #100) | `--title` |
-| **Body** | Tóm tắt · thay đổi · kiểm tra (**dán kết quả `pytest`**, §5.3) · bảy mục §7: chi phí VNĐ/tháng, chỉ số, số PR bên `anser-brain-docs` nếu đổi hành vi (§4.2), R2 | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải **tự đứng được**, người đọc không cần mở repo Brain để hiểu | `--body-file` |
-| **Base** | **Nhánh tính năng đang tích hợp**, không phải `main` (§6.0) | — | `--base` |
-| **Draft** | Mở **draft** nếu chưa qua `pytest` + `ruff` hoặc đang chờ phản biện (§5.2) | — | `--draft` |
-| **Assignee** | Người làm: bản thân (`@me`) | Người sẽ làm việc đó. Việc giao cho người thì gắn đúng người đó (§5.0) | `--assignee` |
-| **Reviewers** | CODEOWNERS tự gắn team `brain`. **Thêm** người cụ thể khi cần chuyên môn (ví dụ người sở hữu phần đang sửa). Việc chạm hợp đồng với Body thì thêm team `body`. **Không tự thêm mình**, không tự duyệt | — | `--reviewer` |
-| **Labels** | Đúng **một** label loại: `bug` (sửa lỗi) · `enhancement` (thêm/đổi tính năng) · `documentation` (chỉ tài liệu/cấu hình AI) · `question` | Như PR, thêm `good first issue` / `help wanted` khi cần. `duplicate`, `invalid`, `wontfix` chỉ người duyệt gắn lúc đóng | `--label` |
-| **Type** | (PR không có) | Đúng một trong `Task` (việc khác, tài liệu, hỗ trợ) · `Bug` · `Feature`. Cho cùng nghĩa với label | REST, xem dưới |
-| **Milestone** | Hiện repo **chưa có milestone nào**: để trống, không tự tạo. Khi có thì gắn | như PR | `--milestone` |
-| **Project** | Gắn vào **org Project số 6** (§5.0: giao việc và trả việc đều qua project) | như PR | `--project` |
-| **Project fields** | Đặt các trường của project (Status, Priority, …) nếu có. **Đọc danh sách thật, đừng nhớ**: `gh project field-list 6 --owner ANSER-Logistics` | như PR | `gh project item-edit` |
-| **Linked issue** | `Closes #N` nếu PR làm xong việc, `Refs #N` nếu mới một phần. Có thể là issue ở repo khác (`org/repo#N`) | Việc con: gắn làm **sub-issue** của issue cha | body / REST |
-| **Auto-merge, tự merge** | **Cấm.** Chỉ chủ dự án gộp (§6.0). Repo đang tắt auto-merge, đừng bật | — | — |
+| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả (`@me`) | Login thành viên |
+| **Labels** | Đúng một | Đúng một | `bug` (sửa lỗi), `enhancement` (thêm/đổi tính năng), `documentation` (tài liệu, cấu hình AI), `question`. Issue thêm được `good first issue`, `help wanted`. `duplicate`, `invalid`, `wontfix` chỉ người duyệt gắn lúc đóng |
+| **Type** | Bắt buộc | PR không có trường này | `Task` (việc khác, tài liệu, hỗ trợ), `Bug`, `Feature`. Cùng nghĩa với label |
+| **Priority** | Bắt buộc | Bắt buộc | `Urgent`, `High`, `Medium`, `Low` |
+| **Effort** | Bắt buộc | Bắt buộc | `High`, `Medium`, `Low` |
+| **Start date**, **Target date** | Khi việc có hạn | Khi PR có hạn | `YYYY-MM-DD` |
+| **Project** | `Brain — Giao viec` (org Project số 6) | như issue | Mọi việc phải có mặt ở đây (§5.0) |
+| **Project Status** | `Todo` khi mới mở | Trạng thái đúng lúc mở | Danh sách đầy đủ: lệnh `field-list` bên dưới. Ngoài `Todo` chưa đo được |
+| **Reviewers** | — | Team `brain` do CODEOWNERS tự gắn. **Thêm** người cụ thể khi cần chuyên môn; chạm hợp đồng với Body thì thêm team `body`. **Không tự thêm mình** | Login thành viên, `ANSER-Logistics/brain`, `ANSER-Logistics/body` |
+| **Base** | — | Nhánh tính năng đang tích hợp, **không phải `main`** (§6.0) | |
+| **Draft** | — | Mở draft khi chưa qua `pytest` + `ruff` hoặc đang chờ phản biện (§5.2) | |
+| **Milestone** | Repo chưa có milestone nào: để trống, không tự tạo | như issue | |
+| **Liên kết** | Việc con gắn làm **sub-issue** của việc cha. Việc bị chặn thì gắn **blocked by** | `Closes #N` (xong việc) hoặc `Refs #N` (một phần) trong body | |
+| **Title, body** | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải tự đứng được | `loại(phạm vi): mô tả`. Body có tóm tắt, thay đổi, **kết quả `pytest`** (§5.3), và các mục §7 (chi phí VNĐ/tháng, chỉ số, PR bên `anser-brain-docs` nếu đổi hành vi) | |
+| **Tự merge, auto-merge** | — | **Cấm.** Chỉ chủ dự án gộp (§6.0) | |
 
-Danh sách giá trị hợp lệ lệch được (ai đó thêm label, đổi type), nên **lấy từ GitHub lúc cần**:
+**Chọn Priority và Effort thế nào.** Chưa có thang chính thức. Theo cách chủ dự án đã gắn: #126 là việc hỗ trợ 30–45 phút, chỉ bình luận, được gắn Priority `Low`, Effort `Medium`. Không chắc thì hỏi người giao việc. **Không để trống.**
+
+#### Lệnh để gắn tất cả
+
+`gh issue create` và `gh pr create` không có cờ cho Type, Priority, Effort hay ngày. Phần đó gắn bằng REST.
 
 ```bash
-gh label list -R ANSER-Logistics/ANSER_AI_Logistics
+R=ANSER-Logistics/ANSER_AI_Logistics
+```
+
+**Issue:**
+
+```bash
+# 1. Tạo issue, kèm assignee, label, project
+URL=$(gh issue create -R $R --title "…" --body-file issue.md \
+  --assignee <login> --label documentation --project "Brain — Giao viec")
+N=${URL##*/}
+
+# 2. Type
+gh api -X PATCH repos/$R/issues/$N -f type=Task
+
+# 3. Priority, Effort (thêm Start date / Target date nếu có hạn)
+gh api -X POST repos/$R/issues/$N/issue-field-values --input - <<'JSON'
+{"issue_field_values": [
+  {"field_id": 49418578, "value": "Low"},
+  {"field_id": 49418584, "value": "Medium"}
+]}
+JSON
+```
+
+**PR:**
+
+```bash
+URL=$(gh pr create --base <nhánh tính năng> --title "docs(ai): …" --body-file pr.md \
+  --assignee @me --label documentation --reviewer <login nếu cần> \
+  --project "Brain — Giao viec" [--draft])
+N=${URL##*/}
+
+gh api -X POST repos/$R/issues/$N/issue-field-values --input - <<'JSON'
+{"issue_field_values": [
+  {"field_id": 49418578, "value": "Low"},
+  {"field_id": 49418584, "value": "Low"}
+]}
+JSON
+```
+
+PR không có Type. Priority và Effort gắn được lên PR qua cùng endpoint (đã chạy thử trên PR #144 ngày 18/11/2026). Giao diện PR có thể không hiện mục Fields, nhưng giá trị vẫn được lưu.
+
+**Project Status** (cần scope `project`, xem dưới):
+
+```bash
+PID=$(gh project view 6 --owner ANSER-Logistics --format json -q .id)
+ITEM=$(gh project item-add 6 --owner ANSER-Logistics --url "$URL" --format json -q .id)
+gh project field-list 6 --owner ANSER-Logistics --format json   # lấy id của trường Status và id của lựa chọn Todo
+gh project item-edit --project-id "$PID" --id "$ITEM" --field-id <id Status> --single-select-option-id <id Todo>
+```
+
+**Liên kết** (REST cần `id` dạng số của issue, không phải số `#N`):
+
+```bash
+gh api -X POST repos/$R/issues/<cha>/sub_issues -F sub_issue_id=$(gh api repos/$R/issues/<con> -q .id)
+gh api -X POST repos/$R/issues/<N>/dependencies/blocked_by -F issue_id=$(gh api repos/$R/issues/<việc chặn> -q .id)
+```
+
+#### Lấy giá trị hợp lệ từ GitHub, đừng nhớ
+
+Các `field_id` ở trên (Priority `49418578`, Effort `49418584`, Start date `49418580`, Target date `49418582`) đo ngày 18/11/2026. Chúng đổi nếu ai đó tạo lại trường. Gửi sai `field_id` thì lệnh báo lỗi, nên đối chiếu lại khi lệnh hỏng:
+
+```bash
+gh api orgs/ANSER-Logistics/issue-fields -q '.[] | "\(.id) \(.name) \([.options[]?.name] | join("/"))"'
+gh label list -R $R
 gh api orgs/ANSER-Logistics/issue-types -q '.[].name'
-gh api orgs/ANSER-Logistics/teams -q '.[].slug'          # hiện có: body, brain
+gh api orgs/ANSER-Logistics/teams -q '.[].slug'
 ```
 
-Lệnh mẫu:
+#### Kiểm lại sau khi tạo
+
+Lệnh có thể thành công mà vẫn thiếu trường (ví dụ project bị bỏ vì thiếu scope), nên đọc lại:
 
 ```bash
-gh pr create --base <nhánh tính năng> --title "fix(r1): …" --body-file pr.md \
-  --assignee @me --label bug --reviewer <người cụ thể nếu cần> --project "<tên Project 6>" [--draft]
-
-gh issue create --title "…" --body-file issue.md \
-  --assignee <login> --label enhancement --project "<tên Project 6>"
-# gh 2.91 không có cờ cho Issue Type và sub-issue, dùng REST:
-gh api -X PATCH repos/ANSER-Logistics/ANSER_AI_Logistics/issues/<N> -f type=Task
+gh api repos/$R/issues/$N -q '{type: .type.name, labels: [.labels[].name], assignees: [.assignees[].login]}'
+gh api repos/$R/issues/$N/issue-field-values -q '[.[] | "\(.issue_field_name)=\(.single_select_option.name // .value)"]'
+gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # với PR
 ```
 
-Tên Project 6 lấy bằng `gh project view 6 --owner ANSER-Logistics --format json -q .title`.
+#### Khi token `gh` thiếu scope
 
-**Cần scope `project` mới đọc/ghi được Project.** Đo 18/11/2026: token `gh` của máy dev chỉ có `gist, notifications, read:org, repo, workflow`, nên `--project`, `gh pr edit --add-project` và `--json projectItems` đều báo lỗi scope. Gặp lỗi đó thì **dừng ở bước Project, không bỏ qua im lặng**: tạo PR/issue với mọi trường còn lại, ghi dòng *"chưa gắn Project vì token thiếu scope `project`"* vào body, và báo người dùng chạy `gh auth refresh -s project`. Giá trị Status/Priority của project chưa kiểm được bằng máy, nên mục "Project fields" ở bảng trên là quy tắc, chưa phải danh sách đã đo.
+Đo 18/11/2026: token trên máy dev chỉ có `gist, notifications, read:org, repo, workflow`. Thiếu `project` thì `--project`, `gh project …` và `--json projectItems` đều báo lỗi scope. Gặp lỗi đó thì:
 
-**Kiểm lại sau khi tạo**, vì lệnh có thể thành công mà thiếu trường:
+1. Vẫn gắn mọi trường còn lại.
+2. Ghi vào body: *"Chưa gắn Project vì token thiếu scope `project`."*
+3. Báo người dùng chạy `gh auth refresh -s project`.
 
-```bash
-gh pr view <N> --json labels,assignees,reviewRequests,baseRefName,isDraft
-gh api repos/ANSER-Logistics/ANSER_AI_Logistics/issues/<N> -q '{type: .type.name, labels: [.labels[].name], assignees: [.assignees[].login]}'
-```
+**Không bỏ qua im lặng.** Việc không có trên Project là việc không ai thấy (§5.0).
+
+Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`, và danh sách lựa chọn của trường Status. Lệnh `issue-field-values` đã chạy thật.
 
 ---
 

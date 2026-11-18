@@ -34,10 +34,10 @@ Deterministic logic must have unit tests. If you change `prompts.py` or `workflo
 
 ## Opening PRs and issues
 
-Fill every GitHub field when you create it (full rules and commands: AGENTS.md §5.4):
+Fill every GitHub field when you create it, so members can read the project board without opening each item. Full table and commands: AGENTS.md §5.4. Example of a complete issue: #126.
 
-- **PR:** base = the integration feature branch, never `main`; title `type(scope): summary`; assignee = you; exactly one label (`bug`, `enhancement`, `documentation`, `question`); reviewers (the `brain` team is added by CODEOWNERS; add a specific person when needed, never yourself); add to org Project 6; `Closes #N` or `Refs #N`; open as draft until `pytest` and `ruff` pass. Paste the `pytest` result in the body.
-- **Issue:** assignee, one label, one Issue Type (`Task`, `Bug` or `Feature`), org Project 6, self-contained body.
+- **Issue:** assignee, exactly one label (`bug`, `enhancement`, `documentation`, `question`), Issue Type (`Task`, `Bug`, `Feature`), Priority (`Urgent`, `High`, `Medium`, `Low`), Effort (`High`, `Medium`, `Low`), Start/Target date when there is a deadline, Project `Brain — Giao viec` with Status `Todo`, sub-issue or blocked-by links.
+- **PR:** base = the integration feature branch, never `main`; title `type(scope): summary`; assignee = you; one label; Priority and Effort; reviewers (the `brain` team is added by CODEOWNERS; add a specific person when needed, never yourself); Project `Brain — Giao viec`; `Closes #N` or `Refs #N`; draft until `pytest` and `ruff` pass; paste the `pytest` result in the body.
+- `gh issue create` / `gh pr create` cannot set Type, Priority, Effort or dates. Use `gh api -X PATCH repos/ANSER-Logistics/ANSER_AI_Logistics/issues/<N> -f type=Task` and `POST .../issues/<N>/issue-field-values` (field IDs: `gh api orgs/ANSER-Logistics/issue-fields`).
 - Never merge your own PR or turn on auto-merge.
-- Get valid labels, types and teams from GitHub (`gh label list`, `gh api orgs/ANSER-Logistics/issue-types`), do not guess.
-- If the `gh` token lacks the `project` scope, say so in the PR body and tell the user. Do not skip silently.
+- If the `gh` token lacks the `project` scope, set every other field, say so in the body, and tell the user to run `gh auth refresh -s project`. Do not skip silently.
