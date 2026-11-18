@@ -132,12 +132,18 @@ _SO_TIEN = re.compile(
 # `loc_truy_van_web`:
 #   - chữ số + "trăm" ("5 trăm nghìn" = 500.000; `_SO_TIEN` đòi đơn vị dính liền chữ số);
 #   - từ chỉ số viết KHÔNG DẤU + đơn vị lớn ("hai ty ruoi", "ba ty", "mot trieu ruoi") —
-#     bộ đọc chữ chỉ nhận "tỷ" có dấu dù "trieu"/"nghin" không dấu thì nhận.
+#     bộ đọc chữ chỉ nhận "tỷ" có dấu dù "trieu"/"nghin" không dấu thì nhận;
+#   - "củ" (tiếng lóng: 1 củ = 1 triệu), có dấu hoặc không: "nợ 3 củ", "nợ hai củ". Đo 19/11/2026: "mức phạt khi nợ 3 củ" đi
+#     NGUYÊN VĂN tới bộ tìm kiếm ngoài, vì bước xoá số ở `loc_truy_van_web` chỉ bắt số từ hai chữ số trở lên ("\d[\d.,]*\d") nên chữ số
+#     đơn "3" còn nguyên, và chốt chặn cuối không biết từ "củ". Số công nợ của khách ra ngoài là đúng thứ R2 cấm. CỐ Ý KHÔNG thêm "chai"
+#     (chai dầu nhớt) hay "lít" (lít xăng, "28.500 đồng/lít"): câu hỏi giá công khai về hai thứ đó là chức năng thật, mà chốt chặn này
+#     bỏ CẢ lần tra web khi khớp.
 _NUM_WORD = (r"(?:một|mot|hai|ba|bốn|bon|tư|năm|nam|sáu|sau|bảy|bay|tám|tam|chín|chin|"
              r"mười|muoi|mươi|chục|chuc)")
 _SO_CHU_CON_SOT = re.compile(
     r"\d[\d.,]*\s*(?:trăm|tram)(?![^\W\d_])"
-    rf"|(?<![^\W\d_]){_NUM_WORD}\s+(?:tỷ|tỉ|ty|ti|triệu|trieu|trăm|tram|nghìn|nghin|ngàn|ngan)(?![^\W\d_])",
+    r"|\d[\d.,]*\s*(?:củ|cu)(?![^\W\d_])"
+    rf"|(?<![^\W\d_]){_NUM_WORD}\s+(?:tỷ|tỉ|ty|ti|triệu|trieu|trăm|tram|nghìn|nghin|ngàn|ngan|củ|cu)(?![^\W\d_])",
     re.IGNORECASE,
 )
 

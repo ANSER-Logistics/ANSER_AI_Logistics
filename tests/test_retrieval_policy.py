@@ -428,3 +428,47 @@ def test_ty_le_chan_nham_tren_cau_hoi_cong_khai_co_san(monkeypatch):
         f"{len(khac)}/{len(cong_khai)} câu công khai bị lớp tên riêng đổi, {len(chan)} bị chặn: "
         + "; ".join(f"{c[:70]!r} -> {m[:70]!r}" for c, _, m in khac[:5])
     )
+
+
+# --------------------------------------------------------------------------
+# Số tiền nói tắt kiểu "củ" (1 củ = 1 triệu): R2 fail-closed (đo 19/11/2026)
+# --------------------------------------------------------------------------
+# Trước đó "mức phạt khi nợ 3 củ" đi NGUYÊN VĂN tới bộ tìm kiếm ngoài: bước xoá số chỉ bắt số từ hai chữ số trở lên, nên chữ số đơn "3"
+# còn nguyên, và chốt chặn cuối không biết từ "củ".
+
+@pytest.mark.parametrize("cau", [
+    "mức phạt khi nợ 3 củ",
+    "nợ 3 cu",                       # không dấu
+    "nợ ba củ",
+    "nợ hai củ rưỡi",
+    "phạt chậm nộp khi nợ 3 CỦ",     # viết hoa
+    "nợ 3củ",                        # dính liền
+])
+def test_so_tien_noi_tat_cu_bi_chan_ca_lan_tra_web(cau, caplog):
+    with caplog.at_level(logging.WARNING):
+        assert loc_truy_van_web(cau) == ""
+
+
+def test_so_co_dau_phay_da_bi_xoa_tu_buoc_dau_nen_khong_con_con_so():
+    """'2,5 củ' có từ hai chữ số trở lên nên bước xoá số cũ đã bỏ nó: chỉ còn chữ 'củ' trơ trọi, không còn con số nào để lộ."""
+    ra = loc_truy_van_web("nợ 2,5 củ tiền thuế")
+    assert "2,5" not in ra and "2" not in ra
+
+
+@pytest.mark.parametrize("cau", [
+    "củ cải trắng giá bao nhiêu",                 # "củ" không đi sau số
+    "giá 1 lít xăng hôm nay",                     # lít xăng: câu hỏi giá công khai là chức năng thật
+    "giá 2 chai dầu nhớt",                        # chai dầu nhớt
+    "Nghị định 72/2024 giảm thuế",
+    "cu li là gì",                                # "cu" không đi sau số
+])
+def test_chan_cu_khong_chan_oan_cau_hoi_cong_khai(cau):
+    assert loc_truy_van_web(cau) != ""
+
+
+def test_dau_do_cu_nay_khong_con_bi_loc_sot():
+    """Chứng minh test không câm: bộ lọc cũ (không biết 'củ') trả nguyên câu; bản mới trả rỗng."""
+    from src.core.retrieval_policy import _SO_CHU_CON_SOT
+
+    assert _SO_CHU_CON_SOT.search("mức phạt khi nợ 3 củ") is not None
+    assert _SO_CHU_CON_SOT.search("giá 2 chai dầu nhớt") is None
