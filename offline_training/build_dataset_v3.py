@@ -42,6 +42,7 @@ sys.path.insert(0, str(ROOT))
 
 from offline_training.dgen_common import GENERATED_DIR, load_jsonl
 from offline_training.make_n8n_pairs import _stage_catalog_dir, wrap_as_answer
+from offline_training.ro_ri_truong_thieu import loc_dong_ro_ri
 from src.core.prompts import Prompts
 from src.core.workflow_schema import validate_workflow
 
@@ -354,6 +355,14 @@ def main() -> None:
             print(f"  ⚠ Thiếu {path} — chạy các bước sinh dữ liệu trước")
             continue
         nghi: list[tuple[str, str]] = []
+        if name == "train_extraction.jsonl":
+            # Nhãn `null` mà tin nhắn lại nhắc tới trường đó (EX0034 "ship về HP", EX0110, #91): nhãn sai, loại hẳn.
+            # Cận dưới, xem ro_ri_truong_thieu.py. Chạy TRƯỚC quét secret của dòng, nên dòng bị loại không vào manifest.
+            rows, ro_ri = loc_dong_ro_ri(rows)
+            if ro_ri:
+                reasons["extraction: nhãn null nhưng tin nhắn nhắc tới trường đó (#91)"] += len(ro_ri)
+                print(f"    ⚠ loại {len(ro_ri)} dòng trích xuất có nhãn rò: "
+                      + ", ".join(f"{r['id']}[{r['truong']}={r['khop']!r}]" for r in ro_ri[:6]) + (" …" if len(ro_ri) > 6 else ""))
         for row in rows:
             hits = scan_secrets(json.dumps(row, ensure_ascii=False))
             if hits:

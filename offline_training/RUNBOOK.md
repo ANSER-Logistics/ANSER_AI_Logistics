@@ -241,3 +241,61 @@ Bảng cho từng nhánh: điểm có khoảng Wilson, rồi ba danh sách câu.
 | Có bản local đúng, mốc sai | Ca lạ | Soát ràng buộc JSON hai bên |
 
 Dòng "**v4 so với v3: LÀM HỎNG**" kèm "mốc tham chiếu làm được x/y" cho biết trong các câu v4 làm hỏng, bao nhiêu câu là câu làm được (lỗi của model) và bao nhiêu là câu cả Claude cũng sai (nghi đề bài). `--sau-thu-lai` chuyển nhánh n8n sang kết quả sau thử lại cho lần chạy có mục đó; lần chạy không có thì bảng nói thẳng là đang dùng lần đầu. Phép đo này không thay cổng của `benchmark_v3` và không đổi model đang chạy.
+
+---
+
+## 7. Làm `anser-v5` (#91, chủ dự án chốt 19/11/2026)
+
+**Vì sao.** `anser-v4` sửa bóc yêu cầu (62 lên 94/98) và diễn giải (14 lên 24/27, hết cắt cụt) nhưng làm hỏng n8n (33 xuống 22/34), thử lại không cứu được câu nào, và DeepSeek làm đúng cả 34: lỗi ở model. 8 trong 12 lỗi là nhánh "không" của IF nối tới một node `noOp` không tồn tại. Đo trên dữ liệu có thể kiểm: 36 workflow mẫu thật có 36 node IF, **tất cả là mệnh đề bảo vệ** (`Valid?`, `Authorized?` rồi `Trả 400`), 31 trong 36 có cả hai nhánh nối. Đề đo thì phần lớn là **bộ lọc nghiệp vụ** ("Có hàng nào dưới ngưỡng?", rồi dựng, rồi gửi) nơi kế hoạch không có bước nào cho nhánh "không". Dữ liệu chưa bao giờ dạy: *kế hoạch im lặng về nhánh không thì để nó trống*.
+
+**Hai việc dữ liệu đã làm sẵn trong mã:**
+1. `make_n8n_pairs.py --bo-loc N`: thêm N mẫu "bộ lọc nghiệp vụ" (`make_n8n_bo_loc.py`), 70% nhánh không **trống**, 30% nhánh không **có bước riêng** để model học phép đối chiếu hai chiều. Mẫu hoàn toàn hư cấu, qua `validate_workflow`, không dùng lại bước nào của bộ đo (assert, không phải cảnh báo). **Khuyến nghị N = 60**: 90 làm mẫu tổng hợp chiếm 75% số mẫu đúng khuôn runtime; liều này là một siêu tham số, ghi lại giá trị đã dùng.
+2. `build_dataset_v3.py` tự **loại dòng `train_extraction` có nhãn rò** (nhãn `null` mà tin nhắn nhắc tới trường đó, như EX0034 và EX0110) và in danh sách.
+
+Đã thử và bỏ: bỏ node lá khỏi workflow thật. 14 trong 15 node lá đó là `Respond 400`; dạy bỏ nó là dạy một webhook không trả lời khi bị từ chối.
+
+### 7.0 Ba việc rẻ trước khi tốn giờ GPU
+
+1. **Đọc 5 ca v4 chạm trần token** (`finish=length`, "Unterminated string"): dán lên #91 trường nào chứa chuỗi bị lặp. Nghi lỗ hở grammar (`parameters` và `connections` không giới hạn độ dài chuỗi); chưa kiểm. Nếu chuỗi lặp nằm ở một trường cụ thể thì có cách chặn không cần train.
+2. **Chạy bộ dò nhãn rò trên dữ liệu thật** để có tỷ lệ: `python -m offline_training.ro_ri_truong_thieu --json ro_ri.json` (đọc `generated/train_extraction.jsonl` và `eval_extraction.jsonl`). Dán tỷ lệ theo trường. Số này là **cận dưới**.
+3. **Chép danh sách 11 mẫu narration cắt giữa chữ** đã bỏ tay khi dựng v4 (mã hoặc cách nhận biết), để v5 bỏ cùng những mẫu đó. Chưa có luật máy cho việc này.
+
+### 7.1 Dựng dữ liệu
+
+```bash
+export ANSER_GENERATED_DIR=/content/drive/.../generated_v5
+# chép từ generated_v4: train_extraction, train_narration, train_agent (đã bỏ tay 11 mẫu narration như v4) và cả bốn eval_*.jsonl
+python offline_training/make_n8n_pairs.py --bo-loc 60
+python offline_training/build_dataset_v3.py          # in "loại N dòng trích xuất có nhãn rò"
+python offline_training/preflight_check.py
+```
+Đọc `dataset_manifest.json`: `n8n_bo_loc` phải là 60. So `by_source` với v4: số `v2_report` không được phình lên (thêm mẫu v3 nâng trần 55% cho mẫu v2, nên một phần mẫu v2 bị trần giữ lại có thể được nạp).
+
+### 7.2 Huấn luyện, gộp, lượng tử hoá
+
+Cùng cấu hình v3 và v4 (Qwen3-8B, QLoRA r=32, lr 1e-4, 2 epoch, seq 8192, lô hiệu dụng 16, `liger-kernel==0.5.10` đã ghim ở #137): **chỉ dữ liệu đổi**. Ghi seed. Gộp và AWQ như v4. Ước tính 4-5 giờ Colab L4 (train khoảng 1,9, gộp và lượng tử hoá khoảng 0,5, đo khoảng 0,7, cộng cài đặt); không gọi API ngoài.
+
+### 7.3 Đo (cùng điều kiện với bảng 18/11: cùng phiên, cùng bản vLLM, cùng commit)
+
+Làm theo mục 6, thêm `anser-v5`. **Không chạy lại v3, v4 và DeepSeek** nếu bốn tập đo không đổi: dùng `v3.json`, `v4.json`, `deepseek.json` đã có. Hai câu đề đã biết là nhãn sai bỏ khi đọc, không sửa tệp:
+
+```bash
+cat > bo_ma.txt <<'EOT'
+EX0034  # tin nhắn "ship về HP" có nơi đến nhưng nhãn destination là null
+EX0110  # tin nhắn "giao nội thành HN" có nơi đến nhưng nhãn destination là null
+EOT
+python -m offline_training.bang_nhieu_lan_chay --lan v3=v3.json --lan v4=v4.json --lan v5=v5.json \
+    --lan deepseek=deepseek.json --tham-chieu deepseek --sau-thu-lai --bo-ma-tep bo_ma.txt
+```
+Thêm vào `bo_ma.txt` mọi mã eval mà bộ dò gắn cờ **sau khi đọc nguyên văn từng dòng**, mỗi dòng một lý do.
+
+### 7.4 Cổng nhận v5 (chủ dự án vẫn là người đổi model production)
+
+1. **n8n:** v5 đạt ít nhất 32/34 **và** làm hỏng không quá 1 câu mà v3 làm đúng (so theo cặp). Nêu cả bảng lần đầu và bảng sau thử lại.
+2. **Bóc yêu cầu và diễn giải:** không tệ hơn v4 theo hướng ngược (p dưới 0,05 cho chiều "v5 tệ hơn"); diễn giải 0 câu cắt cụt ở trần 2.048.
+3. **Agentic:** không tệ hơn v3.
+4. **Chi phí vận hành:** cùng 8 tỷ tham số, cùng AWQ 4-bit (R3, mục tiêu T0 khoảng 750.000đ/tháng).
+
+### 7.5 Nếu n8n của v5 vẫn thua v3
+
+Theo thứ tự rẻ đến đắt: (a) đọc 5 ca chạm trần (mục 7.0) và nếu là lỗ hở grammar thì chặn bằng giới hạn độ dài chuỗi, đo trước; (b) hai LoRA trên một model gốc (n8n dùng adapter v3 đóng băng; chưa xác minh LoRA trên nền AWQ); (c) train lại **cùng dữ liệu, seed khác** để tách phương sai huấn luyện khỏi hiệu ứng dữ liệu. Lý do của (c): v3 đo ra 25/34 trên vLLM 0.10.2 và 33/34 trên 0.11.2, tức một lần đo đã dao động cỡ 8 câu vì bản backend; một lần huấn luyện cũng có thể dao động như vậy. Đừng so v5 với bảng đo ở bản vLLM khác.

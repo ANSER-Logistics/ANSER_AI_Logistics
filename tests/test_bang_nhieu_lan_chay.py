@@ -142,3 +142,59 @@ def test_nhan_trung_hoac_dang_sai_bi_tu_choi(tmp_path):
     with pytest.raises(SystemExit):
         main(["--lan", "khong_co_dau_bang"])
     assert b._ma([]) == "(không có)"
+
+
+# ---------------------------------------------------------------------------
+# Bỏ câu nhãn sai khỏi điểm (#91: EX0034, EX0110) — bỏ khi ĐỌC, có lý do, nói rõ trong bảng
+# ---------------------------------------------------------------------------
+
+def test_bo_ma_bo_khoi_moi_lan_chay_va_noi_ro_trong_bang():
+    v3 = _lc("v3", n8n=_muc(IDS, [True, True, True, False]))
+    v4 = _lc("v4", n8n=_muc(IDS, [True, False, False, False]))
+    out = bang([v3, v4], set(), bo_ma={"C": "nhãn sai: tin nhắn có nơi đến"})
+    assert "3 câu chung" in out
+    assert "đã BỎ khỏi điểm: C (nhãn sai: tin nhắn có nơi đến)" in out
+    assert "v4 so với v3:  sửa được 0, LÀM HỎNG 1" in out, "C bị bỏ nên v4 chỉ còn làm hỏng B"
+
+
+def test_khong_bo_ma_thi_giu_nguyen_ket_qua_cu():
+    v3 = _lc("v3", n8n=_muc(IDS, [True, True, True, False]))
+    v4 = _lc("v4", n8n=_muc(IDS, [True, False, False, False]))
+    assert bang([v3, v4], set()) == bang([v3, v4], set(), bo_ma={})
+    assert "đã BỎ" not in bang([v3, v4], set())
+
+
+def test_bo_ma_khong_co_trong_bo_de_thi_khong_noi_da_bo():
+    v3 = _lc("v3", n8n=_muc(IDS, [True] * 4))
+    v4 = _lc("v4", n8n=_muc(IDS, [True] * 4))
+    assert "đã BỎ" not in bang([v3, v4], set(), bo_ma={"ZZZ": "không có trong đề"})
+
+
+def test_doc_bo_ma_dung_dang_va_bat_buoc_co_ly_do(tmp_path):
+    from offline_training.bang_nhieu_lan_chay import doc_bo_ma
+
+    p = tmp_path / "bo.txt"
+    p.write_text("# chú thích\n\nEX0034  # ship về HP nhưng nhãn null\nEX0110 # giao nội thành HN, nhãn null\n", encoding="utf-8")
+    assert doc_bo_ma(str(p)) == {"EX0034": "ship về HP nhưng nhãn null", "EX0110": "giao nội thành HN, nhãn null"}
+    p.write_text("EX0034\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="lý do"):
+        doc_bo_ma(str(p))
+    p.write_text("EX0034 #   \n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="lý do"):
+        doc_bo_ma(str(p))
+    with pytest.raises(SystemExit):
+        doc_bo_ma(str(tmp_path / "khong_co.txt"))
+
+
+def test_main_nhan_bo_ma_tep(tmp_path, capsys):
+    def ghi(ten, per_row):
+        f = tmp_path / f"{ten}.json"
+        f.write_text(json.dumps({"model": ten, "rang_buoc": "guided_json", "sections": {"n8n": _muc(IDS, per_row)}}),
+                     encoding="utf-8")
+        return f"{ten}={f}"
+
+    bo = tmp_path / "bo.txt"
+    bo.write_text("D  # đề mơ hồ\n", encoding="utf-8")
+    assert main(["--lan", ghi("v3", [True, True, True, False]), "--lan", ghi("v4", [True, False, True, False]),
+                 "--bo-ma-tep", str(bo)]) == 0
+    assert "đã BỎ khỏi điểm: D (đề mơ hồ)" in capsys.readouterr().out

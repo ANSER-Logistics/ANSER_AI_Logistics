@@ -36,6 +36,13 @@ Chủ DN nhắn Brain (đang lái xe): "báo giá xe 5 tấn Hữu Nghị đi H�
 Credential Gmail (OAuth **của khách**) cấu hình trực tiếp trong node
 "Gửi email khách cuối" — làm một lần khi onboard.
 
+**n8n 2.x chặn đọc `$env` trong node theo mặc định.** Các luồng ở đây đọc biến ở bảng trên bằng
+`$env`, nên n8n phải chạy với `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Đo ngày 18/11/2026 trên n8n 2.48.5
+(#80): thiếu biến này thì log ghi `access to env vars denied`, Brain không nhận lời gọi nào, webhook
+trả 500, và **nhánh báo lỗi cũng không chạy** (lỗi xảy ra ở chính node gọi Brain, trước khi có cổng
+lỗi). Nghĩa là thiếu biến này thì chủ DN không nhận cảnh báo nào. Chưa kiểm n8n bên Body có đặt biến
+này không.
+
 ## Khi báo giá bị từ chối vì giá dầu cũ
 
 `/tools/quote` trả **422** khi giá dầu được dùng để điều chỉnh mà đã cũ từ 7 ngày trở lên
@@ -59,9 +66,11 @@ Dựng cảnh báo lỗi (code) → Báo chủ DN báo giá lỗi (Discord) → 
   chạy n8n. Node này chỉ chép — **không có ngưỡng hay phân loại lỗi nào ở n8n** (R4: ngưỡng
   giá dầu thuộc Brain).
 - Webhook gốc được trả lời **HTTP 200** với `{ok: false, status: "error", stage, error}` và
-  **không có `draft_id`**. Phía Brain (`chat.py::_handle_logistics_quote`) coi thiếu `draft_id`
-  là "chưa xác nhận" nên không bao giờ nói "đã tạo nháp". Cố ý KHÔNG trả 4xx/5xx: Brain gọi
-  `raise_for_status()` và sẽ nói "lỗi kết nối n8n" — sai, vì n8n vẫn sống.
+  **không có `draft_id`**. Phía Brain (`chat.py::_handle_logistics_quote`) không bao giờ nói "đã
+  tạo nháp" khi thiếu `draft_id`: có `ok: false` kèm `error` thì chuyển đúng lý do đó cho người hỏi
+  (bước nào lỗi, vì sao, "chưa tạo và chưa gửi khách"); không có lý do thì nói "chưa xác nhận được".
+  Cố ý KHÔNG trả 4xx/5xx: Brain gọi `raise_for_status()` và sẽ nói "lỗi kết nối n8n" — sai, vì n8n
+  vẫn sống.
 - **Không còn thử lại** (`retryOnFail` đã bỏ). n8n thử lại MỌI lỗi, không lọc được theo mã;
   mà lỗi 4xx của Brain (giá dầu cũ, thiếu tuyến, sai trường) không tự khỏi — thử lại chỉ gửi
   đúng yêu cầu đó thêm một lần và nhận đúng lỗi đó. Lỗi mạng/5xx thoáng qua thì chủ DN nhắn

@@ -83,7 +83,34 @@ def _ma(ds: list[str]) -> str:
     return s + (f" … (+{len(ds) - TOI_DA_MA_IN})" if len(ds) > TOI_DA_MA_IN else "")
 
 
-def bang(lan_chay: list[LanChay], tham_chieu: set[str], sau_thu_lai: bool = False) -> str:
+def doc_bo_ma(duong: str) -> dict[str, str]:
+    """
+    Tệp danh sách câu BỎ KHỎI ĐIỂM, mỗi dòng `MÃ  # lý do`. Bắt buộc có lý do: bỏ một câu mà không ghi vì sao là chỉnh điểm
+    trong im lặng. Dòng trống và dòng bắt đầu bằng `#` bỏ qua.
+    """
+    ra: dict[str, str] = {}
+    try:
+        dong = Path(duong).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        sys.exit(f"Không có tệp {duong} (--bo-ma-tep).")
+    for i, d in enumerate(dong, 1):
+        d = d.strip()
+        if not d or d.startswith("#"):
+            continue
+        ma, _, ly_do = d.partition("#")
+        if not ma.strip() or not ly_do.strip():
+            sys.exit(f"{duong}:{i}: dòng phải có dạng `MÃ  # lý do` (thiếu lý do thì không được bỏ câu): {d!r}")
+        ra[ma.strip()] = ly_do.strip()
+    return ra
+
+
+def bang(lan_chay: list[LanChay], tham_chieu: set[str], sau_thu_lai: bool = False,
+         bo_ma: dict[str, str] | None = None) -> str:
+    """
+    `bo_ma`: `{mã câu: lý do}` bỏ khỏi MỌI lần chạy trước khi tính. Dùng khi một câu đề đã biết là nhãn sai (ví dụ EX0034,
+    EX0110 ở #91): bỏ khi ĐỌC kết quả nên không phải đo lại model cũ và không sửa nhãn tại chỗ. Bảng in rõ đã bỏ câu nào.
+    """
+    bo_ma = bo_ma or {}
     nhan_co = {lc.nhan for lc in lan_chay}
     la = tham_chieu - nhan_co
     if la:
@@ -99,6 +126,7 @@ def bang(lan_chay: list[LanChay], tham_chieu: set[str], sau_thu_lai: bool = Fals
                 thieu.append(lc.nhan)
                 continue
             theo_ma, thu_lai = _theo_ma(lc.sections[muc], sau_thu_lai)
+            theo_ma = {k: v for k, v in theo_ma.items() if k not in bo_ma}
             co.append((lc, theo_ma, thu_lai))
         if len(co) < 2:
             out.append(f"\n[{muc}] chỉ {len(co)} lần chạy có nhánh này — không so được")
@@ -109,6 +137,9 @@ def bang(lan_chay: list[LanChay], tham_chieu: set[str], sau_thu_lai: bool = Fals
         out.append(f"\n{'─' * 70}\n[{muc}]  {len(ma_chung)} câu chung cho {len(co)} lần chạy")
         if thieu:
             out.append(f"  (thiếu nhánh này: {', '.join(thieu)})")
+        da_bo = sorted(k for k in bo_ma if any(k in lc.sections[muc].get("row_ids", []) for lc, _, _ in co))
+        if da_bo:
+            out.append("  đã BỎ khỏi điểm: " + "; ".join(f"{k} ({bo_ma[k]})" for k in da_bo))
         if not ma_chung:
             out.append("  không có câu nào chung — hai bộ đề khác nhau?")
             continue
@@ -179,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--lan", action="append", type=_tach_lan, required=True, help="nhan=file.json (lặp lại)")
     p.add_argument("--tham-chieu", default="", help="các nhãn là mốc tham chiếu, cách nhau bằng dấu phẩy")
     p.add_argument("--sau-thu-lai", action="store_true")
+    p.add_argument("--bo-ma-tep", default="",
+                   help="tệp các câu bỏ khỏi điểm, mỗi dòng `MÃ  # lý do` (bắt buộc có lý do)")
     a = p.parse_args(argv)
 
     nhan = [n for n, _ in a.lan]
@@ -194,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {lc.nhan:<12} {lc.model}   (ràng buộc: {lc.rang_buoc}){vai}")
     print("=" * 70)
     try:
-        print(bang(lan_chay, tham_chieu, a.sau_thu_lai))
+        print(bang(lan_chay, tham_chieu, a.sau_thu_lai, doc_bo_ma(a.bo_ma_tep) if a.bo_ma_tep else None))
     except ValueError as exc:
         sys.exit(str(exc))
     print(f"\n{'=' * 70}")

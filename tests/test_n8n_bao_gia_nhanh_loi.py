@@ -447,8 +447,84 @@ async def test_chat_py_noi_chua_xac_nhan_khi_n8n_tra_phan_hoi_loi(monkeypatch):
 
     out = await chat_mod._handle_logistics_quote("báo giá...", "req-test")
 
-    assert "chưa xác nhận" in out
+    # #80: n8n đã nói vì sao, nên người hỏi nhận ĐÚNG lý do đó, không bị bảo đi tìm một nháp không tồn tại.
+    assert LOI_GIA_DAU in out
+    assert "chưa được tạo" in out and "chưa gửi khách" in out
     assert "Đã tạo nháp" not in out
+    assert "danh sách nháp" not in out
+
+
+async def _hoi_voi_phan_hoi_n8n(monkeypatch, than):
+    """Chạy `_handle_logistics_quote` với webhook n8n trả `than` (HTTP 200)."""
+    from src.api import dependencies
+    from src.api.routes import chat as chat_mod
+    from src.core import utils as utils_mod
+
+    async def fake_extract(msg, history=None):
+        return json.dumps({
+            "origin": "Hữu Nghị", "destination": "Bắc Ninh", "vehicle_type": "3T",
+            "cargo_type": "Hàng khô", "pickup_date": "2026-11-20",
+            "customer_name": "Công ty A", "customer_email": "a@example.test",
+        })
+
+    class FakeManager:
+        extract_quote_request = staticmethod(fake_extract)
+
+    class FakeResp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return than
+
+    class FakeClient:
+        async def post(self, url, json=None, timeout=None):
+            return FakeResp()
+
+    monkeypatch.setattr(dependencies.runtime, "manager", FakeManager())
+    monkeypatch.setenv("N8N_QUOTE_WEBHOOK_URL", "http://n8n.local/webhook/logistics-quote")
+    monkeypatch.setattr(utils_mod.HttpClientPool, "get_client", staticmethod(lambda: FakeClient()))
+    return await chat_mod._handle_logistics_quote("báo giá...", "req-test")
+
+
+@pytest.mark.asyncio
+async def test_phan_hoi_loi_co_ly_do_thi_noi_buoc_va_ly_do(monkeypatch):
+    out = await _hoi_voi_phan_hoi_n8n(monkeypatch, {
+        "ok": False, "status": "error", "stage": "tính báo giá", "error": LOI_GIA_DAU})
+    assert out.startswith("Chưa tạo được báo giá (bước tính báo giá): " + LOI_GIA_DAU)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("than", [
+    {"ok": False, "status": "error", "stage": "tính báo giá"},                 # không có lý do
+    {"ok": False, "error": "   \n  "},                                           # lý do toàn khoảng trắng
+    {"ok": "false", "error": "chuỗi, không phải bool"},                         # không phải ok False thật
+    {"status": "error", "error": "thiếu ok"},
+    [],
+])
+async def test_khong_co_ly_do_hop_le_thi_giu_cau_chua_xac_nhan_cu(monkeypatch, than):
+    out = await _hoi_voi_phan_hoi_n8n(monkeypatch, than)
+    assert "chưa xác nhận" in out and "Đã tạo nháp" not in out
+
+
+@pytest.mark.asyncio
+async def test_co_draft_id_thi_van_la_xac_nhan_du_co_truong_loi_la(monkeypatch):
+    """Không đổi nhánh thành công: có `draft_id` thì xác nhận như trước, bất kể `ok`/`error`."""
+    out = await _hoi_voi_phan_hoi_n8n(monkeypatch, {"draft_id": "QD-1", "ok": False, "error": "x"})
+    assert "QD-1" in out and "Chưa tạo được" not in out
+
+
+def test_loi_tu_n8n_gop_khoang_trang_va_cat_do_dai():
+    from src.api.routes import chat as chat_mod
+
+    buoc, ly_do = chat_mod._loi_tu_n8n({"ok": False, "stage": " tính\nbáo  giá ",
+                                         "error": "dòng 1\n\n  dòng 2\t" + "x" * 2000})
+    assert buoc == "tính báo giá"
+    assert "\n" not in ly_do and "\t" not in ly_do and ly_do.startswith("dòng 1 dòng 2 ")
+    assert len(ly_do) == 500
+    assert len(chat_mod._loi_tu_n8n({"ok": False, "stage": "b" * 99, "error": "e"})[0]) == 40
 
 
 def test_n8n_2x_boc_sach_loi_cua_brain_khong_de_lop_boc_json():
@@ -480,3 +556,64 @@ def test_n8n_2x_message_khong_theo_mau_thi_giu_nguyen():
     """Không đoán: `message` không có dạng `<mã> - <json>` thì chép nguyên văn."""
     ra = _canh_bao({"message": "getaddrinfo ENOTFOUND brain", "name": "AxiosError"})
     assert ra["phan_hoi"]["error"] == "getaddrinfo ENOTFOUND brain"
+
+
+# ---------------------------------------------------------------------------
+# Chuỗi lý do đến từ ngoài tiến trình: đầu vào thù địch hoặc sai kiểu (kiểm kỹ #146, 19/11/2026)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("sai_kieu", [{"detail": "x"}, ["a", "b"], 422, True, 3.14])
+def test_loi_khong_phai_chuoi_thi_coi_nhu_khong_co_ly_do(sai_kieu):
+    """Trước đây bị `str()` thành `"{'detail': 'x'}"` rồi hiện cho người dùng."""
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": sai_kieu}) is None
+
+
+def test_buoc_khong_phai_chuoi_thi_bo_buoc_giu_ly_do():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "stage": {"a": 1}, "error": "lỗi thật"}) == ("", "lỗi thật")
+
+
+def test_ky_tu_dieu_khien_va_dao_chieu_chu_bi_bo():
+    from src.api.routes import chat as chat_mod
+
+    _, ly_do = chat_mod._loi_tu_n8n({"ok": False, "error": "a\x00b\x07c\x1b[31mđỏ‮def​x"})
+    assert ly_do == "abc[31mđỏdefx"
+    assert not any(ord(c) < 32 for c in ly_do) and "‮" not in ly_do
+
+
+def test_xuong_dong_unicode_thanh_mot_dau_cach():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": "a b c\u0085d\te\nf"})[1] == "a b c d e f"
+
+
+def test_giu_nguyen_tieng_viet_co_dau_ca_dang_to_hop():
+    """Bỏ nhóm Cf không được làm hỏng chữ Việt: cả dạng dựng sẵn (NFC) lẫn dạng tổ hợp (NFD) đều là Ll/Mn."""
+    import unicodedata
+
+    from src.api.routes import chat as chat_mod
+
+    cau = "Giá dầu lấy ngày 2026-11-01, cách 17 ngày (tối đa 6)."
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": cau})[1] == cau
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": unicodedata.normalize("NFD", cau)})[1] == unicodedata.normalize("NFD", cau)
+
+
+def test_chuoi_khong_lo_khong_ton_cpu():
+    """Vài chục triệu ký tự: cắt trước khi duyệt, nên vẫn nhanh (trước đây duyệt hết)."""
+    import time
+
+    from src.api.routes import chat as chat_mod
+
+    t0 = time.perf_counter()
+    r = chat_mod._loi_tu_n8n({"ok": False, "error": "x" * 30_000_000})
+    assert time.perf_counter() - t0 < 0.5
+    assert len(r[1]) == 500
+
+
+def test_chuoi_toan_khoang_trang_hoac_ky_tu_bi_bo_thi_la_khong_co_ly_do():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": " \t\n ​‮ \x00"}) is None
