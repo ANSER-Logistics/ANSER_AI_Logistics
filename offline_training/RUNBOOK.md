@@ -299,3 +299,88 @@ Thêm vào `bo_ma.txt` mọi mã eval mà bộ dò gắn cờ **sau khi đọc n
 ### 7.5 Nếu n8n của v5 vẫn thua v3
 
 Theo thứ tự rẻ đến đắt: (a) đọc 5 ca chạm trần (mục 7.0) và nếu là lỗ hở grammar thì chặn bằng giới hạn độ dài chuỗi, đo trước; (b) hai LoRA trên một model gốc (n8n dùng adapter v3 đóng băng; chưa xác minh LoRA trên nền AWQ); (c) train lại **cùng dữ liệu, seed khác** để tách phương sai huấn luyện khỏi hiệu ứng dữ liệu. Lý do của (c): v3 đo ra 25/34 trên vLLM 0.10.2 và 33/34 trên 0.11.2, tức một lần đo đã dao động cỡ 8 câu vì bản backend; một lần huấn luyện cũng có thể dao động như vậy. Đừng so v5 với bảng đo ở bản vLLM khác.
+
+---
+
+## 8. Chọn model thị giác cho L4 (#124, chủ dự án chốt 19/11/2026)
+
+**Vì sao.** Mặc định hiện nay `Qwen3-VL-2B` chỉ đúng hết 3/28 ca: 18/18 ca sai tổng và 20 ca có lỗi lũy thừa của 10 (đọc `55.192.500` thành `55192`). Đáp án thật xác nhận (chấm lại bằng `vlm_hoadon.cham` khớp 28/28 với số của Thành): `Qwen2.5-VL-7B` (bf16) không có ca nào lệch lũy thừa của 10; `Qwen3-VL-4B` có 1 ca (VH0019).
+
+### 8.1 Ba con số quyết định chọn gì (tính ngày 19/11/2026 từ API công khai của Hugging Face)
+
+| Model | Trọng số | Ghi chú |
+|---|---|---|
+| `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` | 6,45 GiB | bản bf16 là 15,45 GiB. Thẻ Qwen: DocVQA 94,9 xuống 94,6, MMMU 58,4 xuống 55,6 sau lượng tử hoá |
+| `Qwen/Qwen3-VL-4B-Instruct-FP8` | 5,61 GiB | bản bf16 là 8,27 GiB. L4 là Ada (sm_89): FP8 W8A8 gốc; RTX 3090 (Ampere): W8A16 weight-only qua Marlin (tài liệu vLLM 0.11.2) |
+| `5CD-AI/Vintern-1B-v3_5` | 3,5 GiB tệp (fp32), khoảng 1,8 GiB khi nạp bf16 | MIT; chuyên tiếng Việt (vi-MTVQA 41,9) nhưng DocVQA 78,8 thấp hơn bản gốc 84,8; **cần `trust_remote_code`**; thẻ không xác nhận vLLM |
+
+Đồng host với server text (Qwen3-8B AWQ, 5,68 GiB) trên một GPU: `python offline_training/ke_hoach_vram.py` (đã hiểu ngữ cảnh cố định và overhead riêng cho server thị giác). Ngữ cảnh TỐI ĐA còn lại cho server text, vision `--max-model-len=8192`, và **overhead của vision là ĐOÁN (2,5 / 3,5 / 4,5 GiB), chưa đo**:
+
+| | L4 22,5 GiB | RTX 3090 24 GiB |
+|---|---|---|
+| Qwen2.5-VL-7B AWQ | 20.480 / 12.288 / 6.144 | 30.720 / 22.528 / 16.384 |
+| Qwen3-VL-4B FP8 | 20.480 / 14.336 / 8.192 | 32.768 / 24.576 / 18.432 |
+| Qwen3-VL-4B bf16 | 4.096 / không vừa / không vừa | 12.288 / 6.144 / không vừa |
+| Qwen2.5-VL-7B bf16, Qwen3-VL-8B FP8 | **không vừa** | **không vừa** |
+| Vintern-1B | 32.768 | 32.768 |
+
+Đo 18/11 chạy 0 lỗi 400 ở ngữ cảnh text 14.336; compose production đặt 32.768. Hai ứng viên lượng tử hoá đồng host được nhưng **sát trên L4**: con số then chốt là overhead thật của bộ mã hoá ảnh, chỉ biết khi chạy.
+
+### 8.2 Thứ tự chạy (khoảng 2-2,5 giờ Colab L4)
+
+Mỗi model **một mình trên GPU**, qua **vLLM server** (đường production), cùng bản vLLM và cùng commit, cùng 28 ảnh (`make_vlm_invoice_eval.py --n 28` với seed mặc định cho ra đúng bộ 28 ca của bảng 18/11).
+
+| # | Model | Vai trò |
+|---|---|---|
+| 1 | `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` | **ứng viên chính** |
+| 2 | `Qwen/Qwen3-VL-4B-Instruct-FP8` | ứng viên phụ |
+| 3 | `Qwen/Qwen2.5-VL-7B-Instruct` (bf16) | **đối chứng đường chạy**: 26/28 đo trong tiến trình bằng transformers; chạy qua server để tách "đổi đường" khỏi "lượng tử hoá" |
+| 4 | `Qwen/Qwen3-VL-4B-Instruct` (bf16) | đối chứng như trên (18/28 trong tiến trình) |
+| 5 | `5CD-AI/Vintern-1B-v3_5` | **tuỳ chọn**: nếu `vllm serve --trust-remote-code` không khởi động được sau 15 phút thì ghi lại lỗi và bỏ |
+
+Không chạy: `Qwen3-VL-8B-FP8` và các bản bf16 ở cột đồng host (không vừa); `Qwen3-VL-2B` (đã loại bằng 3/28).
+
+```bash
+python offline_training/make_vlm_invoice_eval.py --n 28 --out /content/vlm_hoadon
+T=q25vl7b_awq   # đổi theo từng model
+vllm serve Qwen/Qwen2.5-VL-7B-Instruct-AWQ --served-model-name anser-vision --max-model-len 8192 \
+    --gpu-memory-utilization 0.85 --limit-mm-per-prompt '{"image":2}' --port 8002 --disable-log-requests > vllm_$T.log 2>&1 &
+until curl -sf localhost:8002/health; do sleep 5; done
+nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -l 1 > vram_$T.csv &    # VRAM đỉnh = số lớn nhất trong tệp
+ENV=LOCAL VLLM_VISION_BASE_URL=http://127.0.0.1:8002 VLLM_VISION_MODEL=anser-vision \
+    python offline_training/do_vlm_hoa_don.py --dir /content/vlm_hoadon --json $T.json
+```
+`ENV=LOCAL` là có chủ ý: có `VLLM_VISION_BASE_URL` thì vision đi qua server ở mọi ENV, còn tiến trình đo không nạp model nào (đã kiểm với một server giả, 19/11). Hết mỗi model thì tắt server (`kill %1`) và đợi `nvidia-smi` về gần 0 trước khi bật cái sau. Với Vintern thêm `--trust-remote-code --dtype bfloat16 --revision <mã commit đã đọc code>`: **đọc mã tuỳ chỉnh trong repo của nó trước khi chạy** (chạy mã từ xa), và chỉ trong Colab.
+
+### 8.3 Đọc kết quả
+
+```bash
+python -m offline_training.phan_loai_loi_vlm --de /content/vlm_hoadon/eval_vlm_hoadon.jsonl \
+    --ket-qua q25vl7b_awq.json --ket-qua q3vl4b_fp8.json --ket-qua q25vl7b_bf16_server.json --ket-qua q3vl4b_bf16_server.json --chan
+python offline_training/so_sanh_vlm.py q25vl7b_bf16_server=q25vl7b_bf16_server.json q25vl7b_awq=q25vl7b_awq.json ...
+```
+`phan_loai_loi_vlm` chấm theo ĐÁP ÁN THẬT: lệch lũy thừa của 10 (`x10^k`), nhầm cột Thành tiền thành Đơn giá, điền 0 hoặc điền số vào trường đáp án null. Danh sách `LECH_LUY_THUA_10` là cổng R1: lỗi này lọt qua `validate_invoice_total` vì mọi số lệch cùng lúc.
+
+### 8.4 Cổng nhận (ghi TRƯỚC khi đo, để khỏi cãi sau)
+
+1. **`LECH_LUY_THUA_10` rỗng.** Bất kỳ ca nào lệch lũy thừa của 10 là loại, bất kể điểm tổng.
+2. **Chính xác:** đúng hết ít nhất 22/28 và không tệ hơn mốc 3B theo hướng ngược (McNemar, `so_sanh_vlm.py`). Bản lượng tử hoá không tệ hơn bản bf16 của chính nó chạy qua server (đối chứng 3 và 4).
+3. **Đồng host:** server text và server thị giác khởi động cùng lúc trên L4 (kế hoạch mục 8.5), ngữ cảnh text **ít nhất 14.336** và vision ít nhất 8.192, cả hai trả lời đồng thời 10 phút không OOM và không lỗi 400, VRAM đỉnh dưới 92%.
+4. **Tốc độ:** p95 giây mỗi ảnh (in cuối `do_vlm_hoa_don.py`) không quá 30 giây qua server trên L4.
+5. **Giấy phép:** đọc tệp `LICENSE` gốc của đúng model được chọn (mới đọc thẻ tag trên Hugging Face), và ghi lại.
+6. **Chọn:** trong các model qua đủ năm cổng, chọn trọng số nhỏ hơn; ngang nhau thì chọn model có số ca đúng hết cao hơn.
+
+**Chưa có luật cho trường hợp "không model nào qua"**: nếu vậy `Qwen2.5-VL-7B` bf16 (không đồng host được) cho thấy năng lực nhưng cần GPU thứ hai hoặc xử lý ảnh theo lô ngoài giờ cao điểm; chủ dự án quyết, không tự suy ra.
+
+### 8.5 Thử đồng host thật (sau khi có kết quả 8.3, với ứng viên qua cổng 1 và 2)
+
+```bash
+huggingface-cli download <text AWQ> --local-dir /content/models/text
+huggingface-cli download <ứng viên vision> --local-dir /content/models/vision
+python offline_training/ke_hoach_vram.py --model /content/models/text --ten anser-v3 \
+    --model /content/models/vision --ten anser-vision \
+    --ctx-co-dinh anser-vision=8192 --overhead-rieng anser-vision=3.5 --ctx-can-thiet 4096
+```
+Bật hai server **lần lượt** theo lệnh in ra (text trước). Server vision báo thiếu bộ nhớ lúc khởi động thì tăng `--overhead-rieng anser-vision=4.5` rồi tính lại. Ghi overhead thật = (VRAM đỉnh đo bằng `nvidia-smi`) trừ trọng số trừ KV: số này thay cho con số đoán trong bảng 8.1.
+
+**Hai chỗ cần sửa trong `deploy/docker-compose.yml` nếu chọn một trong hai ứng viên** (compose chưa từng được chạy): `--limit-mm-per-prompt=image=2` là cú pháp cũ, tài liệu vLLM 0.11.2 chỉ cho thấy dạng JSON `'{"image":2}'`; và `VISION_GPU_FRACTION=0.25` (5,6 GiB) quá nhỏ cho cả hai ứng viên (cần khoảng 0,44-0,47 theo bảng trên).
