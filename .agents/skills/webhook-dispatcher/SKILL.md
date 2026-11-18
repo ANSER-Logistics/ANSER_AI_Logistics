@@ -1,3 +1,10 @@
+---
+name: webhook-dispatcher
+description: LEGACY v1 guidance for pushing results to another service with httpx.AsyncClient and retries. Use only when adding an outbound webhook; check AGENTS.md first, parts are outdated.
+---
+
+> ⚠️ **Lỗi thời một phần (v1, trước AGENTS.md v2).** `BODY_WEBHOOK_SECRET` and pushing back to Body do not exist in the code. The real outbound webhook goes to n8n: `N8N_QUOTE_WEBHOOK_URL` with retry in `src/api/routes/chat.py`.
+
 # Skill: Webhook Dispatcher
 
 ## Goal

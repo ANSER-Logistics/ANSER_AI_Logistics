@@ -1,3 +1,10 @@
+---
+name: ocr-invoice-parser
+description: LEGACY v1 guidance for reading invoice images with a vision model and returning JSON. Use only when touching invoice OCR; check AGENTS.md first, parts are outdated.
+---
+
+> ⚠️ **Lỗi thời một phần (v1, trước AGENTS.md v2).** `ENV=COLAB`, A100 80GB, Qwen2-VL-7B and `src/server.py` are v1. Real code: `src/api/routes/documents.py` (`ocr_endpoint`, `ocr_freight_endpoint`), `src/agents/vision.py` (`VISION_MODEL_ID`, default Qwen2.5-VL-3B), sanitizing in `src/core/sanitize.py`, freight invoice checks in `src/core/freight_invoice.py`.
+
 # Skill: OCR Invoice Parser (Qwen2-VL)
 
 ## Goal

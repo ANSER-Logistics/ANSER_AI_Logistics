@@ -1,3 +1,10 @@
+---
+name: fastapi-background-tasker
+description: LEGACY v1 guidance for turning long inference endpoints into 202 + job_id polling routes. Use only when adding a slow endpoint; check AGENTS.md first, parts are outdated.
+---
+
+> ⚠️ **Lỗi thời một phần (v1, trước AGENTS.md v2).** Models named here (Qwen2.5-Coder-32B, Qwen2-VL) are v1. Real code: `TaskRegistry` in `src/core/engine.py`, `get_task_status` in `src/api/routes/chat.py`, blocking work via `src/api/chay_ngoai_loop.py`.
+
 # Skill: FastAPI Background Tasker
 
 ## Goal

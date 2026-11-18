@@ -10,6 +10,9 @@ AGENTS.md (imported above) is the source of truth for how to work here: rules R1
 |---|---|
 | `anser-map` | Loaded automatically before exploring: which module owns what, what is stale, how to query the graph |
 | `/anser-verify` | Before saying "done", before a PR, before any push: CI + pre-commit checks, R1–R4 questions, full-history secret scan |
+| `async-data-miner`, `fastapi-background-tasker`, `ocr-invoice-parser`, `webhook-dispatcher` | v1 skills, partly outdated: read their ⚠️ block first |
+
+The same skills live in `.agents/skills/` for Codex and Gemini. Edit one copy, then copy it to the other; `tests/test_skill_dong_bo.py` fails on drift (AGENTS.md §9).
 
 ## Save tokens: query the graph before reading files
 

@@ -1,3 +1,10 @@
+---
+name: async-data-miner
+description: LEGACY v1 guidance for parallel web scraping (asyncio.gather + Semaphore) in offline data generation. Use only when writing an offline_training/ scraper; check AGENTS.md first, parts are outdated.
+---
+
+> ⚠️ **Lỗi thời một phần (v1, trước AGENTS.md v2).** `ENV=COLAB` batch rules and `merge_datasets.py` are v1. Real examples: `offline_training/legal_miner.py`, `day1_test_batch.py` (Semaphore). Scraping is allowed only for public sources (R2).
+
 # Skill: Async Data Miner (Tavily/Firecrawl)
 
 ## Goal

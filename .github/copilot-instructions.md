@@ -20,7 +20,7 @@ The full rules are in [AGENTS.md](../AGENTS.md). Architecture and SRS are in the
 - `/tools` input schemas extend `_ToolIn` (`extra="forbid"`). Tools validate their own input; tools that write data create `pending_review` records.
 - Sanitize VLM (invoice image) output with `src/core/sanitize.py` before passing it to Body.
 - Use `pathlib`. Code must run on Windows and Linux. Pin versions in `requirements.txt`.
-- Ignore `.agents/`: it describes an old setup.
+- Ignore `.agents/agents.md` and `.agents/workflows/`: they describe an old setup.
 
 ## Tests
 

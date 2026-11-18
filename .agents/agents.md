@@ -10,7 +10,7 @@
 
 ## @researcher (Gemini 3.1 Pro)
 **Role:** The Domain Specialist.
-**Responsibilities:** Utilizing the `async_data_miner` skill to scrape Vietnamese retail laws (Decree 123/2020/NĐ-CP) and omnichannel SOPs. You provide the "Ground Truth" data for the pipeline.
+**Responsibilities:** Utilizing the `async-data-miner` skill to scrape Vietnamese retail laws (Decree 123/2020/NĐ-CP) and omnichannel SOPs. You provide the "Ground Truth" data for the pipeline.
 
 ## @devops (Gemini 3.1 Pro)
 **Role:** Infrastructure Guardian.

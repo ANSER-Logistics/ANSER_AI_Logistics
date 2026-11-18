@@ -1,7 +1,6 @@
 ---
 name: anser-map
 description: Where things live in the ANSER Brain repo and how to find them cheaply. Query the graphify knowledge graph before grepping or reading whole files; lists the real module for each concern (pricing, carrier choice, VAT, inventory, receivables, reporting, tool planner, n8n format, prompts, VLM sanitizing, serving, training) and which places are stale. Use before exploring, locating code, or tracing a flow in this repo.
-user-invocable: false
 ---
 
 # ANSER map
@@ -75,7 +74,8 @@ Most connected in the graph: `audit_inventory`, `InventoryLine`, `Prompts`, `Mod
 
 ## 5. Stale or legacy
 
-- `.agents/`: v1 setup (Gemini team, `ENV=COLAB`, A100, Qwen2-VL-7B). Kept in the repo but superseded by AGENTS.md v2.
+- `.agents/agents.md`, `.agents/workflows/`: v1 setup (Gemini team, `ENV=COLAB`, A100, Qwen2-VL-7B), superseded by AGENTS.md v2. The four v1 skills (`async-data-miner`, `fastapi-background-tasker`, `ocr-invoice-parser`, `webhook-dispatcher`) carry a ⚠️ block saying what is outdated.
+- Skills live in two identical copies, `.claude/skills/` and `.agents/skills/` (Codex, Gemini). Edit one, copy to the other; `tests/test_skill_dong_bo.py` fails on drift.
 - `src/archive/`, `src/evaluate_system.py`, `Prompts.DB_SCHEMA`, `offline_training/db_schema.txt`: deleted. Do not recreate.
 - `Prompts.INVOICE_SYSTEM`: declared, never referenced (AGENTS.md R4).
 - `reconciliation.py` does not exist yet (S5).
