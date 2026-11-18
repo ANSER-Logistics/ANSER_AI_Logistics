@@ -301,7 +301,11 @@ def narration_numbers_ok(
 # (2) câu không tự mang dấu âm, và (3) mệnh đề chứa từ chỉ chiều DƯƠNG (lãi, lời, tăng,
 # dương) mà không có từ chỉ chiều ÂM (lỗ, âm, giảm, thua, hụt, sụt). Câu trung tính
 # ("khách trả dư 1.296.000" cho số dư -1.296.000) KHÔNG bị chặn: không từ nào nói ngược dấu.
-_TU_CHIEU_DUONG = re.compile(r"\b(lãi|lời|tăng|dương)\b", re.IGNORECASE)
+# "lợi nhuận" CŨNG là từ chỉ chiều dương (thêm 19/11/2026): "lợi nhuận ròng 3.200.000 đồng" cho một khoản LỖ 3,2 triệu nghe là lãi, và bản
+# trước để nó lọt vì chỉ biết lãi/lời/tăng/dương. Vẫn nằm trong luật hẹp: mệnh đề có từ chỉ chiều ÂM ("lợi nhuận ròng lỗ/âm/giảm ..."), tự mang
+# dấu trừ, hoặc con số cũng có dạng dương trong context thì KHÔNG bị chặn. Chiều ngược (số dương nói thành lỗ) cố ý chưa xử lý: tool hay trả độ
+# lớn dương cho khoản "giảm", nên chặn chiều đó sẽ chặn oan nhiều.
+_TU_CHIEU_DUONG = re.compile(r"\b(lãi|lời|lợi nhuận|tăng|dương)\b", re.IGNORECASE)
 _TU_CHIEU_AM = re.compile(r"\b(lỗ|âm|giảm|thua|hụt|sụt)\b", re.IGNORECASE)
 _HET_CAU = re.compile(r"[.;!?\n]")
 _CUA_SO_CHU = 60
