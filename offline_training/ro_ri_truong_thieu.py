@@ -218,3 +218,21 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def loc_dong_ro_ri(rows: list[dict]) -> tuple[list[dict], list[dict[str, str]]]:
+    """
+    `(dòng giữ lại, dòng bị loại)`: bỏ các dòng MỘT LƯỢT có nhãn thiếu mà tin nhắn lại nhắc tới trường đó. Dòng hai lượt và
+    dòng không đọc được giữ nguyên (không có gì để kết luận). Bị loại là nhãn mâu thuẫn với tin nhắn, nên là nhãn sai chứ
+    không phải mẫu khó; giữ lại là dạy model bỏ sót thông tin có thật. Dùng ở bước dựng dataset (`build_dataset_v3.py`).
+    """
+    giu: list[dict] = []
+    loai: list[dict[str, str]] = []
+    for row in rows:
+        td = tach_dong(row)
+        ro = truong_thieu_bi_nhac(*td) if td else []
+        if ro:
+            loai.append({"id": str(row.get("_id", "?")), "truong": ro[0][0], "khop": ro[0][1]})
+        else:
+            giu.append(row)
+    return giu, loai
