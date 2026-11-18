@@ -270,6 +270,16 @@ REQ = {"origin": "Hữu Nghị", "destination": "Bắc Ninh", "vehicle_type": "3
        "cargo_type": "Hàng khô", "customer_name": "Công ty A"}
 LOI_GIA_DAU = "Giá dầu đã cũ 9 ngày — không dùng được để điều chỉnh giá"
 
+# Hình dạng n8n 2.48.5 đưa vào cổng lỗi (#80). `code` là mã Axios cho 4xx; node không đọc nó.
+N8N2_AXIOS = {
+    "message": "422 - " + json.dumps(json.dumps({"detail": LOI_GIA_DAU}, ensure_ascii=False),
+                                     ensure_ascii=False),
+    "name": "AxiosError",
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (axios.cjs:2530:12)",
+    "code": "ERR_BAD_REQUEST",
+    "status": 422,
+}
+
 # Bốn hình dạng `json.error` có thể gặp (n8n đổi theo phiên bản) + chuỗi trần + danh sách lỗi
 # kiểm tra đầu vào của FastAPI. Mỗi hình dạng phải để lộ lời của Brain trong cảnh báo.
 HINH_DANG_LOI = {
@@ -282,6 +292,10 @@ HINH_DANG_LOI = {
     "thân là chuỗi JSON": {"httpCode": "422", "context": {"data": json.dumps({"detail": LOI_GIA_DAU},
                                                                              ensure_ascii=False)}},
     "chuỗi trần": LOI_GIA_DAU,
+    # n8n 2.48.5 (`n8nio/n8n:latest`, bản Body dùng), bắt nguyên văn khi chạy thật cho #80 ngày
+    # 18/11/2026: lỗi Axios, lời của Brain CHỈ nằm trong `message` dạng `<mã> - <JSON.stringify của
+    # thân phản hồi>`, tức thân JSON bị escape thêm một lần. Không có context/cause/description.
+    "n8n 2.x: message '<mã> - \"<json>\"'": N8N2_AXIOS,
 }
 
 
@@ -435,3 +449,34 @@ async def test_chat_py_noi_chua_xac_nhan_khi_n8n_tra_phan_hoi_loi(monkeypatch):
 
     assert "chưa xác nhận" in out
     assert "Đã tạo nháp" not in out
+
+
+def test_n8n_2x_boc_sach_loi_cua_brain_khong_de_lop_boc_json():
+    """#80, chạy thật trên n8n 2.48.5: lời của Brain từng hiện nguyên dạng
+    `422 - "{\\"detail\\":\\"Giá dầu…\\"}"` trong Discord. Phép kiểm `LOI_GIA_DAU in mo_ta` ở
+    test tham số hoá vẫn đạt với dạng thô đó (câu nằm nguyên trong chuỗi escape), nên ở đây đòi
+    SẠCH: phản hồi webhook đúng bằng lời của Brain, mô tả không còn mã kèm lớp bọc JSON."""
+    ra = _canh_bao(N8N2_AXIOS)
+    assert ra["phan_hoi"]["error"] == LOI_GIA_DAU
+    mo_ta = _mo_ta(ra)
+    assert '\\"detail' not in mo_ta and '"detail"' not in mo_ta, mo_ta
+    assert "422 - " not in mo_ta, mo_ta
+    assert "(HTTP 422)" in mo_ta, "mã HTTP vẫn phải hiện, lấy từ `status`"
+
+
+@pytest.mark.parametrize("than, mong", [
+    # 5xx của uvicorn/proxy: thân là chữ thường, không phải JSON.
+    (json.dumps("Internal Server Error"), "Internal Server Error"),
+    # FastAPI kiểm tra đầu vào: `detail` là danh sách {loc, msg}.
+    (json.dumps(json.dumps({"detail": [{"loc": ["body", "carrier_cost"], "msg": "field required"}]})),
+     "body.carrier_cost: field required"),
+])
+def test_n8n_2x_cac_than_khac_cung_boc_duoc(than, mong):
+    ra = _canh_bao({"message": "500 - " + than, "name": "AxiosError", "status": 500})
+    assert ra["phan_hoi"]["error"] == mong
+
+
+def test_n8n_2x_message_khong_theo_mau_thi_giu_nguyen():
+    """Không đoán: `message` không có dạng `<mã> - <json>` thì chép nguyên văn."""
+    ra = _canh_bao({"message": "getaddrinfo ENOTFOUND brain", "name": "AxiosError"})
+    assert ra["phan_hoi"]["error"] == "getaddrinfo ENOTFOUND brain"
