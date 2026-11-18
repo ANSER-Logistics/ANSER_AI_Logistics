@@ -22,7 +22,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
@@ -384,6 +384,27 @@ def _find_explainable(history: Optional[list]) -> Optional[str]:
     return None
 
 
+_N8N_LOI_TOI_DA = 500
+_N8N_BUOC_TOI_DA = 40
+
+
+def _loi_tu_n8n(body: Any) -> Optional[tuple[str, str]]:
+    """
+    `(bước, lý do)` khi n8n trả phản hồi lỗi `{ok: false, stage, error}`; None nếu phản hồi không có dạng đó.
+
+    Nhánh lỗi của luồng báo giá (`workflows/logistics/`) trả HTTP 200 kèm `ok: false` và lời của Brain trong
+    `error` (cố ý 200: 4xx/5xx làm Brain nói "lỗi kết nối n8n", sai). Trước #80 chat.py chỉ xét `draft_id`, nên
+    luôn khuyên "kiểm tra danh sách nháp" dù n8n đã nói rõ vì sao không có nháp (Sơn chạy thật trên n8n 2.48.5,
+    18/11/2026). Chuỗi này đến từ bên ngoài tiến trình: gộp khoảng trắng và xuống dòng, cắt độ dài.
+    """
+    if not isinstance(body, dict) or body.get("ok") is not False:
+        return None
+    ly_do = " ".join(str(body.get("error") or "").split())[:_N8N_LOI_TOI_DA]
+    if not ly_do:
+        return None
+    return " ".join(str(body.get("stage") or "").split())[:_N8N_BUOC_TOI_DA], ly_do
+
+
 async def _handle_logistics_quote(
     user_msg: str, request_id: str, history: Optional[list] = None,
     dem: Optional[DemSinh] = None,
@@ -476,6 +497,19 @@ async def _handle_logistics_quote(
         )
 
     if not draft_id:
+        loi = _loi_tu_n8n(body)
+        if loi:
+            # n8n NÓI RÕ vì sao không có nháp: chuyển lý do đó cho người hỏi thay vì bảo họ đi tìm một
+            # nháp không tồn tại (#80). Chắc chắn là chưa tạo: n8n trả `ok: false`.
+            buoc, ly_do = loi
+            logger.warning(
+                "LOGISTICS: n8n báo lỗi ở bước %r: %s", buoc, ly_do,
+                extra={"request_id": request_id},
+            )
+            return (
+                f"Chưa tạo được báo giá{f' (bước {buoc})' if buoc else ''}: {ly_do} "
+                "Báo giá này chưa được tạo và chưa gửi khách. Sửa nguyên nhân rồi nhắn báo giá lại."
+            )
         # n8n trả 200 nhưng không kèm mã nháp. Bản trước thay bằng "?" rồi vẫn nói
         # "Đã tạo nháp báo giá ?" — tuyên bố thành công mà không có gì để chỉ vào.
         # Không có mã thì không ai tìm lại được nháp, nên nói thật là chưa xác nhận.
