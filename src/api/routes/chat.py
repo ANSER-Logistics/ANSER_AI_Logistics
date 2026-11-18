@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import time
+import unicodedata
 import uuid
 from typing import Any, Optional
 
@@ -388,6 +389,20 @@ _N8N_LOI_TOI_DA = 500
 _N8N_BUOC_TOI_DA = 40
 
 
+def _lam_sach_chuoi_ngoai(x: Any, toi_da: int) -> str:
+    """
+    Chuỗi từ ngoài tiến trình thành một dòng hiển thị được. Không phải `str` thì rỗng. Cắt TRƯỚC khi duyệt (một chuỗi vài chục
+    triệu ký tự không được tốn CPU của một lượt chat), rồi bỏ ký tự thuộc nhóm Cc/Cf/Cs/Co (điều khiển, định dạng như đảo chiều
+    chữ, thay thế, dùng riêng) và gộp mọi khoảng trắng. Lấy dư gấp bốn lần giới hạn để khoảng trắng bị gộp không làm hụt nội dung.
+    """
+    if not isinstance(x, str):
+        return ""
+    dong = "".join(" " if c.isspace() else c
+                   for c in x[: toi_da * 4]
+                   if c.isspace() or unicodedata.category(c) not in ("Cc", "Cf", "Cs", "Co"))
+    return " ".join(dong.split())[:toi_da]
+
+
 def _loi_tu_n8n(body: Any) -> Optional[tuple[str, str]]:
     """
     `(bước, lý do)` khi n8n trả phản hồi lỗi `{ok: false, stage, error}`; None nếu phản hồi không có dạng đó.
@@ -395,14 +410,16 @@ def _loi_tu_n8n(body: Any) -> Optional[tuple[str, str]]:
     Nhánh lỗi của luồng báo giá (`workflows/logistics/`) trả HTTP 200 kèm `ok: false` và lời của Brain trong
     `error` (cố ý 200: 4xx/5xx làm Brain nói "lỗi kết nối n8n", sai). Trước #80 chat.py chỉ xét `draft_id`, nên
     luôn khuyên "kiểm tra danh sách nháp" dù n8n đã nói rõ vì sao không có nháp (Sơn chạy thật trên n8n 2.48.5,
-    18/11/2026). Chuỗi này đến từ bên ngoài tiến trình: gộp khoảng trắng và xuống dòng, cắt độ dài.
+    18/11/2026). Chuỗi này đến từ bên ngoài tiến trình: CHỈ nhận kiểu chuỗi (dict hay số bị in dạng Python là vô nghĩa với
+    người đọc, nên coi như không có lý do), bỏ ký tự điều khiển và ký tự định dạng (ESC, đảo chiều chữ), gộp khoảng trắng,
+    cắt độ dài.
     """
     if not isinstance(body, dict) or body.get("ok") is not False:
         return None
-    ly_do = " ".join(str(body.get("error") or "").split())[:_N8N_LOI_TOI_DA]
+    ly_do = _lam_sach_chuoi_ngoai(body.get("error"), _N8N_LOI_TOI_DA)
     if not ly_do:
         return None
-    return " ".join(str(body.get("stage") or "").split())[:_N8N_BUOC_TOI_DA], ly_do
+    return _lam_sach_chuoi_ngoai(body.get("stage"), _N8N_BUOC_TOI_DA), ly_do
 
 
 async def _handle_logistics_quote(

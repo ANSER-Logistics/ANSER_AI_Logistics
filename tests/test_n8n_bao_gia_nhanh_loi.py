@@ -556,3 +556,64 @@ def test_n8n_2x_message_khong_theo_mau_thi_giu_nguyen():
     """Không đoán: `message` không có dạng `<mã> - <json>` thì chép nguyên văn."""
     ra = _canh_bao({"message": "getaddrinfo ENOTFOUND brain", "name": "AxiosError"})
     assert ra["phan_hoi"]["error"] == "getaddrinfo ENOTFOUND brain"
+
+
+# ---------------------------------------------------------------------------
+# Chuỗi lý do đến từ ngoài tiến trình: đầu vào thù địch hoặc sai kiểu (kiểm kỹ #146, 19/11/2026)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("sai_kieu", [{"detail": "x"}, ["a", "b"], 422, True, 3.14])
+def test_loi_khong_phai_chuoi_thi_coi_nhu_khong_co_ly_do(sai_kieu):
+    """Trước đây bị `str()` thành `"{'detail': 'x'}"` rồi hiện cho người dùng."""
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": sai_kieu}) is None
+
+
+def test_buoc_khong_phai_chuoi_thi_bo_buoc_giu_ly_do():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "stage": {"a": 1}, "error": "lỗi thật"}) == ("", "lỗi thật")
+
+
+def test_ky_tu_dieu_khien_va_dao_chieu_chu_bi_bo():
+    from src.api.routes import chat as chat_mod
+
+    _, ly_do = chat_mod._loi_tu_n8n({"ok": False, "error": "a\x00b\x07c\x1b[31mđỏ‮def​x"})
+    assert ly_do == "abc[31mđỏdefx"
+    assert not any(ord(c) < 32 for c in ly_do) and "‮" not in ly_do
+
+
+def test_xuong_dong_unicode_thanh_mot_dau_cach():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": "a b c\u0085d\te\nf"})[1] == "a b c d e f"
+
+
+def test_giu_nguyen_tieng_viet_co_dau_ca_dang_to_hop():
+    """Bỏ nhóm Cf không được làm hỏng chữ Việt: cả dạng dựng sẵn (NFC) lẫn dạng tổ hợp (NFD) đều là Ll/Mn."""
+    import unicodedata
+
+    from src.api.routes import chat as chat_mod
+
+    cau = "Giá dầu lấy ngày 2026-11-01, cách 17 ngày (tối đa 6)."
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": cau})[1] == cau
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": unicodedata.normalize("NFD", cau)})[1] == unicodedata.normalize("NFD", cau)
+
+
+def test_chuoi_khong_lo_khong_ton_cpu():
+    """Vài chục triệu ký tự: cắt trước khi duyệt, nên vẫn nhanh (trước đây duyệt hết)."""
+    import time
+
+    from src.api.routes import chat as chat_mod
+
+    t0 = time.perf_counter()
+    r = chat_mod._loi_tu_n8n({"ok": False, "error": "x" * 30_000_000})
+    assert time.perf_counter() - t0 < 0.5
+    assert len(r[1]) == 500
+
+
+def test_chuoi_toan_khoang_trang_hoac_ky_tu_bi_bo_thi_la_khong_co_ly_do():
+    from src.api.routes import chat as chat_mod
+
+    assert chat_mod._loi_tu_n8n({"ok": False, "error": " \t\n ​‮ \x00"}) is None
