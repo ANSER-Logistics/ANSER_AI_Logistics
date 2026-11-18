@@ -40,8 +40,7 @@ Credential Gmail (OAuth **của khách**) cấu hình trực tiếp trong node
 `$env`, nên n8n phải chạy với `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Đo ngày 18/11/2026 trên n8n 2.48.5
 (#80): thiếu biến này thì log ghi `access to env vars denied`, Brain không nhận lời gọi nào, webhook
 trả 500, và **nhánh báo lỗi cũng không chạy** (lỗi xảy ra ở chính node gọi Brain, trước khi có cổng
-lỗi). Nghĩa là thiếu biến này thì chủ DN không nhận cảnh báo nào. Chưa kiểm n8n bên Body có đặt biến
-này không.
+lỗi). Nghĩa là thiếu biến này thì chủ DN không nhận cảnh báo nào. Đã kiểm 19/11/2026 (chỉ đọc): `frontend/docker-compose.yml` của Body dùng `n8nio/n8n:latest` và KHÔNG đặt biến này, trong khi 4/5 workflow của họ đọc `$env.N8N_INTERNAL_TOKEN`; đã nêu ở [Body#36](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/36), kèm đánh đổi bảo mật (compose nạp cả `.env.local` vào n8n, nên mở `$env` cho mọi workflow đọc mọi biến trong đó).
 
 ## Khi báo giá bị từ chối vì giá dầu cũ
 
