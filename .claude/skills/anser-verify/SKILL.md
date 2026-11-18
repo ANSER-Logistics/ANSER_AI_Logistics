@@ -17,7 +17,9 @@ mypy src offline_training
 ENV=LOCAL pytest -q
 ```
 
-Tools missing: `pip install -r requirements-dev.txt`, then `pip install -c requirements.txt fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl` (the CI install line). Do not install the full `requirements.txt` (torch/vllm are not needed in LOCAL). Pytest is about 1,300 tests, around a minute.
+Tools missing: `pip install -r requirements-dev.txt`, then `pip install -c requirements.txt fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl redis python-docx pypdf` (the CI install line). Do not install the full `requirements.txt` (torch/vllm are not needed in LOCAL). Pytest is about 2,500 tests, one to two minutes.
+
+CI runs pytest with `KIEM_SKIP_DA_KHAI=1` and `-rs`: the number of skips in each file must match `SKIP_DA_KHAI` in `tests/conftest.py`, or the run fails (#29). A dev machine usually differs from CI (other packages, no Redis), so leave the variable unset locally unless your environment matches the CI install line.
 
 Run these too when the change touches them:
 

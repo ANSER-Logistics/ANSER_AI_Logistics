@@ -34,10 +34,15 @@ jobs:
         # nhất — đo 10/11/2026: fastapi 0.162.2, bản làm tests/test_auth_bao_phu.py
         # thấy 0 endpoint và 46 ca kiểm token skip im lặng. `-c` chỉ ràng buộc gói
         # có cài, nên torch/vllm trong file đó KHÔNG bị kéo vào CI.
+        #
+        # `python-docx` + `pypdf` (#29, 18/11/2026): thiếu hai gói này thì
+        # `importorskip` bỏ nguyên test_doc_extract.py (11 test), test_knowledge_api.py
+        # (15 test) và một ca của test_chat_routing.py — 27 test chưa từng chạy
+        # trên CI mà nhãn vẫn xanh. Cả hai nhẹ, thuần Python.
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install -c requirements.txt fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl redis
+          pip install -c requirements.txt fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl redis python-docx pypdf
       # BR-07 (chu kỳ 01): cả ba thư mục, không còn danh sách file chọn tay. Bản
       # cũ chỉ soi chín file nên không thấy tám lỗi sửa ngày 22/10 — trong đó
       # một F821 làm notebook Colab ném NameError giữa phiên đo, sau khi đã nạp
@@ -78,7 +83,11 @@ jobs:
           # Chỉ test Redis đọc biến này. KHÔNG đặt REDIS_URL ở đây: phần còn lại
           # của bộ test phải chạy với TASK_REGISTRY trong RAM, đúng ENV=LOCAL.
           REDIS_TEST_URL: redis://localhost:6379/15
-        run: pytest -q
+          # Cổng "skip phải được khai" (#29): số ca skip mỗi file phải khớp
+          # SKIP_DA_KHAI trong tests/conftest.py, lệch là đỏ. `-rs` in lý do
+          # từng ca skip để người đọc log thấy ngay cái gì không chạy.
+          KIEM_SKIP_DA_KHAI: "1"
+        run: pytest -q -rs
       # Dựng lại dataset từ nguồn trong repo rồi chạy preflight. Bắt sớm việc
       # đổi prompt/schema/catalog mà quên sinh lại dữ liệu train (P4) — đúng
       # loại lỗi chỉ lộ ra sau 2 tiếng train trên Colab.
