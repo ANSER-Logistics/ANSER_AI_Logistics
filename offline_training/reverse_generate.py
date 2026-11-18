@@ -39,6 +39,7 @@ from offline_training.dgen_common import (
     get_async_client,
     load_jsonl,
 )
+from offline_training.ro_ri_truong_thieu import truong_thieu_bi_nhac
 from src.core.prompts import Prompts
 
 MODEL = "deepseek-chat"      # viết văn không cần R1 — V3 rẻ hơn ~4 lần
@@ -161,6 +162,12 @@ def verify_message(message: str, seed: dict, gt_key: str = "ground_truth") -> st
             return f"thiếu email nguyên văn {gt['customer_email']!r}"
     elif "@" in message:
         return "chứa email trong khi ground truth không có email"
+
+    # Chiều NGƯỢC (#91): trường nhãn ghi thiếu thì tin nhắn không được nhắc tới nó. Trước 19/11/2026 docstring đầu
+    # file hứa điều này nhưng mã không kiểm, nên "ship về HP" mang nhãn `destination: null` lọt qua (EX0034).
+    # Cận dưới: chỉ bắt địa danh/viết tắt trong tập đã biết, xem ro_ri_truong_thieu.py.
+    for truong, khop in truong_thieu_bi_nhac(message, gt):
+        return f"nhắc tới {_MISSING_LABELS.get(truong, truong)} ({khop!r}) trong khi phải để trống"
 
     return None
 
