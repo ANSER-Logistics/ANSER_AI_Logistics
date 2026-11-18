@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -61,12 +62,17 @@ async def chay(thu_muc: Path, toi_da: int) -> list[dict]:
     ca = _doc_ca(thu_muc)[: toi_da or None]
     for i, c in enumerate(ca, 1):
         anh = str(thu_muc / c["image"])
+        t0 = time.perf_counter()
         if c["kind"] == "retail":
             out = await runtime.vision.extract_invoice(anh)
         else:
             out = await runtime.vision.extract_freight_invoice(anh)
+        giay = time.perf_counter() - t0
         kq = cham(c, out)
         kq["out"] = out          # đầu ra thô của model, để người đọc tự soát các ca sai
+        # Thời gian một ảnh, gồm cả mã hoá ảnh và gọi server (qua vLLM thì không gồm nạp model). Ca đầu thường chậm hơn vì
+        # khởi động nóng: nhìn p50, đừng nhìn trung bình.
+        kq["giay"] = round(giay, 2)
         rows.append(kq)
         print(f"[{i}/{len(ca)}] {c['id']} {c['kind']}/{c['variant']}: "
               f"{'đúng hết' if kq.get('tat_ca_dung') else 'có sai'}", flush=True)
@@ -83,6 +89,10 @@ def main() -> None:
     rows = asyncio.run(chay(Path(args.dir), args.max))
     nhom = tong_hop(rows)
     in_bang(nhom)
+    gs = sorted(r["giay"] for r in rows if "giay" in r)
+    if gs:
+        p = lambda q: gs[min(len(gs) - 1, int(q * len(gs)))]  # noqa: E731
+        print(f"\nGiây mỗi ảnh: p50 {p(0.5):.1f}  p95 {p(0.95):.1f}  lâu nhất {gs[-1]:.1f}  (n={len(gs)})")
     if args.json:
         Path(args.json).write_text(
             json.dumps({"tong_hop": nhom, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8"

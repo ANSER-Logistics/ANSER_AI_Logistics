@@ -73,6 +73,8 @@ class MotServer:
     ten: str
     phan_gpu: float
     nhu_cau_gib: float
+    ngu_canh: int = 0          # `--max-model-len` của CHÍNH server này (mỗi server một số: vision cần ngắn hơn text)
+    overhead_gib: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -88,13 +90,13 @@ class KeHoach:
 # Đọc đặc tả từ file của model — hàm thuần trên thư mục, test được bằng thư mục giả
 # ---------------------------------------------------------------------------
 
-def doc_dac_ta(thu_muc: Path) -> DacTaMoHinh:
+def doc_dac_ta(thu_muc: Path, trong_so_gib: float | None = None) -> DacTaMoHinh:
     cfg_path = thu_muc / "config.json"
     if not cfg_path.is_file():
         raise KeHoachLoi(f"{thu_muc} không có config.json — đây có phải thư mục model không?")
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    # Một số model đa phương thức đặt cấu hình ngôn ngữ trong `text_config`.
-    cfg = cfg.get("text_config", cfg)
+    # Model đa phương thức đặt cấu hình ngôn ngữ trong `text_config` (Qwen-VL) hoặc `llm_config` (họ InternVL, ví dụ Vintern).
+    cfg = cfg.get("text_config") or cfg.get("llm_config") or cfg
 
     try:
         lop = int(cfg["num_hidden_layers"])
@@ -110,7 +112,9 @@ def doc_dac_ta(thu_muc: Path) -> DacTaMoHinh:
     file_trong_so = [p for p in thu_muc.iterdir() if p.suffix in (".safetensors", ".bin") and p.is_file()]
     if not file_trong_so:
         raise KeHoachLoi(f"{thu_muc} không có file *.safetensors hay *.bin — chưa tải xong model?")
-    trong_so = sum(p.stat().st_size for p in file_trong_so) / GIB
+    # Kích thước TỆP, không phải bộ nhớ lúc chạy: Vintern lưu fp32 (3,5 GiB) nhưng nạp bf16 thì còn khoảng một nửa. Biết thì ghi đè
+    # bằng `trong_so_gib` (CLI: --trong-so-gib ten=X).
+    trong_so = trong_so_gib if trong_so_gib is not None else sum(p.stat().st_size for p in file_trong_so) / GIB
     return DacTaMoHinh(thu_muc, trong_so, kv_byte)
 
 
@@ -137,11 +141,18 @@ def lap_ke_hoach(
     tran_tong: float = TRAN_TONG_MAC_DINH,
     cong_dau: int = 8001,
     ten: list[str] | None = None,
+    ctx_co_dinh: dict[int, int] | None = None,
+    overhead_rieng: dict[int, float] | None = None,
 ) -> KeHoach:
     """
     Tìm `max_model_len` lớn nhất (bước 2048, trong [ctx_can_thiet, ctx_toi_da]) mà TỔNG nhu cầu các server
     không vượt `tran_tong` x GPU. Không vừa ở ngay `ctx_can_thiet` thì ném `KeHoachLoi`: không có kế hoạch nào
     tốt hơn "chạy lần lượt".
+
+    `ctx_co_dinh` `{chỉ số server: ngữ cảnh}`: server đó dùng ĐÚNG số này, không bị hạ theo chuỗi tìm kiếm. Dùng khi ghép model text
+    (cần ngữ cảnh dài) với model thị giác (một ảnh cộng câu hỏi thì vài nghìn token là đủ): chỉ server text bị hạ ngữ cảnh.
+    `overhead_rieng` `{chỉ số: GiB}`: overhead riêng của server đó (vision cần thêm chỗ cho bộ mã hoá ảnh).
+    Mọi server đều cố định thì chỉ kiểm vừa hay không.
     """
     if not dac_ta:
         raise KeHoachLoi("cần ít nhất một --model")
@@ -151,31 +162,47 @@ def lap_ke_hoach(
         raise KeHoachLoi(f"--ctx-can-thiet ({ctx_can_thiet}) lớn hơn --ctx-toi-da ({ctx_toi_da})")
     if ten is not None and len(ten) != len(dac_ta):
         raise KeHoachLoi("số --ten phải bằng số --model")
+    co_dinh = dict(ctx_co_dinh or {})
+    rieng = dict(overhead_rieng or {})
+    for ten_chi_so, nguon in (("--ctx-co-dinh", co_dinh), ("--overhead-rieng", rieng)):
+        sai = [i for i in nguon if not 0 <= i < len(dac_ta)]
+        if sai:
+            raise KeHoachLoi(f"{ten_chi_so}: chỉ số server {sai} không có (có {len(dac_ta)} server)")
+    tu_do = [i for i in range(len(dac_ta)) if i not in co_dinh]
 
-    def phan_toi_thieu(d: DacTaMoHinh, nc_len: int) -> float:
+    def oh(i: int) -> float:
+        return rieng.get(i, overhead_gib)
+
+    def nc_cua(i: int, chung: int) -> int:
+        return co_dinh.get(i, chung)
+
+    def phan_toi_thieu(i: int, chung: int) -> float:
         # Làm tròn LÊN hai chữ số: `--gpu-memory-utilization` nhận hai chữ số, và làm tròn xuống sẽ cho server ít bộ
         # nhớ hơn mức nó cần. Trừ 1e-9 để 0,45 không thành 0,46 vì sai số dấu phẩy động.
-        return math.ceil(nhu_cau_gib(d, nc_len, overhead_gib) / gpu_gib * 100 - 1e-9) / 100
+        return math.ceil(nhu_cau_gib(dac_ta[i], nc_cua(i, chung), oh(i)) / gpu_gib * 100 - 1e-9) / 100
 
-    ngu_canh = ctx_toi_da
+    chung = ctx_toi_da
     chon = None
-    while ngu_canh >= ctx_can_thiet:
-        co_so = [phan_toi_thieu(d, ngu_canh) for d in dac_ta]
+    # Không có server nào để hạ ngữ cảnh thì chỉ thử MỘT lần (số chung không dùng tới).
+    while chung >= ctx_can_thiet:
+        co_so = [phan_toi_thieu(i, chung) for i in range(len(dac_ta))]
         if sum(co_so) <= tran_tong + 1e-9:
-            chon = (ngu_canh, co_so)
+            chon = (chung, co_so)
             break
-        ngu_canh -= BUOC_NGU_CANH
+        if not tu_do:
+            break
+        chung -= BUOC_NGU_CANH
     if chon is None:
-        ngu_canh = ctx_can_thiet
-        tong = sum(nhu_cau_gib(d, ngu_canh, overhead_gib) for d in dac_ta)
+        chung = ctx_can_thiet if tu_do else ctx_toi_da
+        tong = sum(nhu_cau_gib(dac_ta[i], nc_cua(i, chung), oh(i)) for i in range(len(dac_ta)))
         raise KeHoachLoi(
             f"{len(dac_ta)} server không vừa trong GPU {gpu_gib:.1f} GiB ngay cả ở ngữ cảnh tối thiểu "
-            f"{ngu_canh}: cần khoảng {tong:.1f} GiB, ngân sách {tran_tong * gpu_gib:.1f} GiB "
+            f"{chung}: cần khoảng {tong:.1f} GiB, ngân sách {tran_tong * gpu_gib:.1f} GiB "
             f"({tran_tong:.0%} GPU). Chạy LẦN LƯỢT từng model trong cùng phiên Colab (cùng bản vLLM, cùng commit) "
             f"thì vẫn đạt điều kiện đo giống nhau; hoặc hạ --ctx-can-thiet nếu chắc mọi prompt ngắn hơn."
         )
 
-    ngu_canh, co_so = chon
+    chung, co_so = chon
     # Phần dư chia đều làm KV cache thêm (nhiều chuỗi chạy song song hơn), cũng làm tròn XUỐNG để không vượt trần.
     them = math.floor((tran_tong - sum(co_so)) / len(dac_ta) * 100 + 1e-9) / 100
     servers = []
@@ -185,18 +212,21 @@ def lap_ke_hoach(
             cong=cong_dau + i,
             ten=(ten[i] if ten else f"model-{i + 1}"),
             phan_gpu=round(base + them, 2),
-            nhu_cau_gib=nhu_cau_gib(d, ngu_canh, overhead_gib),
+            nhu_cau_gib=nhu_cau_gib(d, nc_cua(i, chung), oh(i)),
+            ngu_canh=nc_cua(i, chung),
+            overhead_gib=oh(i),
         ))
-    tong_phan = sum(s.phan_gpu for s in servers)
-    return KeHoach(gpu_gib, ngu_canh, tuple(servers), tong_phan, (tran_tong - tong_phan) * gpu_gib)
+    tong_phan = sum(sv.phan_gpu for sv in servers)
+    # `max_model_len` của KeHoach là số CHUNG cho các server tự do; không có server tự do thì 0.
+    return KeHoach(gpu_gib, chung if tu_do else 0, tuple(servers), tong_phan, (tran_tong - tong_phan) * gpu_gib)
 
 
-def lenh_serve(s: MotServer, ngu_canh: int) -> str:
+def lenh_serve(s: MotServer, ngu_canh: int | None = None) -> str:
     """Đúng cờ production (`deploy/docker-compose.yml`, service `vllm-text`); chỉ đổi cổng và hai con số VRAM."""
     return " ".join([
         "vllm", "serve", shlex.quote(str(s.thu_muc)),
         f"--served-model-name={s.ten}",
-        f"--max-model-len={ngu_canh}",
+        f"--max-model-len={ngu_canh or s.ngu_canh}",
         f"--gpu-memory-utilization={s.phan_gpu:.2f}",
         f"--port={s.cong}",
         "--disable-log-requests",
@@ -223,22 +253,42 @@ def dung_luong_gpu_gib() -> float:
 
 
 def in_ke_hoach(kh: KeHoach, dac_ta: list[DacTaMoHinh], overhead_gib: float) -> str:
+    ctx_txt = f"ngữ cảnh chung: --max-model-len={kh.max_model_len}   " if kh.max_model_len else ""
     dong = [
-        f"GPU: {kh.gpu_gib:.1f} GiB   ngữ cảnh chọn: --max-model-len={kh.max_model_len}   "
-        f"tổng phần GPU: {kh.tong_phan:.2f}   dư: {kh.du_gib:.1f} GiB",
-        f"(ƯỚC TÍNH: overhead {overhead_gib:.1f} GiB mỗi server là đoán, chưa đo; vLLM sẽ báo lỗi rõ ở khởi động nếu thiếu)",
+        f"GPU: {kh.gpu_gib:.1f} GiB   {ctx_txt}tổng phần GPU: {kh.tong_phan:.2f}   dư: {kh.du_gib:.1f} GiB",
+        f"(ƯỚC TÍNH: overhead mặc định {overhead_gib:.1f} GiB mỗi server là đoán, chưa đo; vLLM sẽ báo lỗi rõ ở khởi động nếu thiếu)",
         "",
     ]
     for s, d in zip(kh.servers, dac_ta):
         dong.append(
-            f"- {s.ten}: trọng số {d.trong_so_gib:.2f} GiB + KV {kv_can_gib(d, kh.max_model_len):.2f} GiB "
-            f"(một chuỗi dài {kh.max_model_len}) + overhead = {s.nhu_cau_gib:.2f} GiB -> {s.phan_gpu:.2f} GPU"
+            f"- {s.ten}: trọng số {d.trong_so_gib:.2f} GiB + KV {kv_can_gib(d, s.ngu_canh):.2f} GiB "
+            f"(một chuỗi dài {s.ngu_canh}) + overhead {s.overhead_gib:.1f} = {s.nhu_cau_gib:.2f} GiB -> {s.phan_gpu:.2f} GPU"
         )
     dong += ["", "Khởi động LẦN LƯỢT (đợi server trước lên rồi mới bật server sau, kẻo hai bên cùng đo bộ nhớ trống):", ""]
     for s in kh.servers:
-        dong.append("  " + lenh_serve(s, kh.max_model_len) + " &")
+        dong.append("  " + lenh_serve(s) + " &")
         dong.append(f"  # đợi: until curl -sf localhost:{s.cong}/health; do sleep 5; done")
     return "\n".join(dong)
+
+
+def _tach_kv(s: str) -> tuple[str, str]:
+    if "=" not in s:
+        raise KeHoachLoi(f"phải có dạng TEN=GIÁ_TRỊ, nhận {s!r}")
+    k, v = s.split("=", 1)
+    return k.strip(), v.strip()
+
+
+def _chi_so(ten: list[str], k: str) -> int:
+    if k not in ten:
+        raise KeHoachLoi(f"không có server tên {k!r}; --ten đang là {ten}")
+    return ten.index(k)
+
+
+def _so(v: str, k: str) -> float:
+    try:
+        return float(v)
+    except ValueError as exc:
+        raise KeHoachLoi(f"giá trị của {k!r} phải là số, nhận {v!r}") from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -252,14 +302,27 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--overhead-gib", type=float, default=2.5)
     p.add_argument("--tran-tong", type=float, default=TRAN_TONG_MAC_DINH)
     p.add_argument("--cong-dau", type=int, default=8001)
+    p.add_argument("--ctx-co-dinh", action="append", default=[], metavar="TEN=N",
+                   help="server TEN dùng đúng --max-model-len=N, không bị hạ (vd model thị giác: anser-vision=8192)")
+    p.add_argument("--overhead-rieng", action="append", default=[], metavar="TEN=GIB",
+                   help="overhead riêng của server TEN (vd vision cần thêm chỗ cho bộ mã hoá ảnh: anser-vision=3.5)")
+    p.add_argument("--trong-so-gib", action="append", default=[], metavar="TEN=GIB",
+                   help="ghi đè trọng số của server TEN (tệp fp32 nhưng nạp bf16 thì nhỏ hơn: vintern=1.8)")
     a = p.parse_args(argv)
 
     try:
-        dac_ta = [doc_dac_ta(Path(m)) for m in a.model]
+        ten = a.ten or [f"model-{i + 1}" for i in range(len(a.model))]
+        if len(ten) != len(a.model):
+            raise KeHoachLoi("số --ten phải bằng số --model")
+        co_dinh = {_chi_so(ten, k): int(_so(v, k)) for k, v in map(_tach_kv, a.ctx_co_dinh)}
+        rieng = {_chi_so(ten, k): _so(v, k) for k, v in map(_tach_kv, a.overhead_rieng)}
+        ghi_de = {_chi_so(ten, k): _so(v, k) for k, v in map(_tach_kv, a.trong_so_gib)}
+        dac_ta = [doc_dac_ta(Path(m), ghi_de.get(i)) for i, m in enumerate(a.model)]
         gpu = a.gpu_gib if a.gpu_gib else dung_luong_gpu_gib()
         kh = lap_ke_hoach(
             dac_ta, gpu, ctx_toi_da=a.ctx_toi_da, ctx_can_thiet=a.ctx_can_thiet,
-            overhead_gib=a.overhead_gib, tran_tong=a.tran_tong, cong_dau=a.cong_dau, ten=a.ten,
+            overhead_gib=a.overhead_gib, tran_tong=a.tran_tong, cong_dau=a.cong_dau, ten=ten,
+            ctx_co_dinh=co_dinh, overhead_rieng=rieng,
         )
     except KeHoachLoi as exc:
         print(f"KHÔNG LẬP ĐƯỢC KẾ HOẠCH: {exc}", file=sys.stderr)

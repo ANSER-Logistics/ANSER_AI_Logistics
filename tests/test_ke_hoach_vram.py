@@ -223,3 +223,109 @@ def test_main_khong_vua_thi_thoat_2_va_noi_tren_stderr(tmp_path, capsys):
     # GPU 1 GiB: không thể vừa hai server
     assert kh.main(["--model", str(a), "--model", str(b), "--gpu-gib", "1"]) == 2
     assert "KHÔNG LẬP ĐƯỢC KẾ HOẠCH" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Ghép model text với model thị giác (#124): ngữ cảnh cố định và overhead riêng cho từng server
+# ---------------------------------------------------------------------------
+
+# Số thật lấy từ API công khai của Hugging Face ngày 19/11/2026 (kích thước tệp trọng số và config.json).
+TEXT_AWQ = DacTaMoHinh(Path("text"), 5.68, 147456)            # Qwen3-8B AWQ: 36 lớp, 8 đầu KV, head_dim 128
+VISION_7B_AWQ = DacTaMoHinh(Path("v7"), 6.45, 57344)          # Qwen2.5-VL-7B AWQ: 28 lớp, 4 đầu KV
+VISION_4B_FP8 = DacTaMoHinh(Path("v4"), 5.61, 147456)
+VISION_4B_BF16 = DacTaMoHinh(Path("v4b"), 8.27, 147456)
+VISION_7B_BF16 = DacTaMoHinh(Path("v7b"), 15.45, 57344)
+L4 = 22.49
+RTX_3090 = 24.0
+
+
+def _ghep(vision, gpu, oh=3.5, ctx_v=8192):
+    return lap_ke_hoach([TEXT_AWQ, vision], gpu, ctx_toi_da=32768, ctx_can_thiet=4096,
+                        ctx_co_dinh={1: ctx_v}, overhead_rieng={1: oh})
+
+
+def test_ctx_co_dinh_giu_nguyen_o_server_vision_va_chi_ha_server_text():
+    k = _ghep(VISION_7B_AWQ, L4)
+    assert k.servers[1].ngu_canh == 8192, "vision phải giữ đúng ngữ cảnh cố định"
+    assert 4096 <= k.servers[0].ngu_canh < 32768, "chỉ server text bị hạ"
+    assert k.max_model_len == k.servers[0].ngu_canh
+    assert k.tong_phan <= 0.92 + 1e-9
+
+
+def test_overhead_rieng_lam_vision_can_nhieu_bo_nho_hon_va_text_phai_nhuong():
+    nhe = _ghep(VISION_7B_AWQ, L4, oh=2.5)
+    nang = _ghep(VISION_7B_AWQ, L4, oh=4.5)
+    assert nang.servers[1].nhu_cau_gib > nhe.servers[1].nhu_cau_gib
+    assert nang.servers[0].ngu_canh < nhe.servers[0].ngu_canh
+
+
+def test_model_nang_khong_vua_cung_server_text_tren_l4():
+    """Số tính ngày 19/11/2026: bản bf16 của 7B (15,45 GiB) không có chỗ cạnh server text trên L4 ở bất kỳ overhead nào."""
+    with pytest.raises(KeHoachLoi, match="LẦN LƯỢT"):
+        _ghep(VISION_7B_BF16, L4, oh=2.5)
+
+
+def test_4b_bf16_khong_du_cho_text_tren_l4_voi_overhead_vua_phai():
+    with pytest.raises(KeHoachLoi):
+        _ghep(VISION_4B_BF16, L4, oh=3.5)
+
+
+def test_hai_ung_vien_luong_tu_hoa_dong_host_duoc_tren_ca_l4_va_3090():
+    for v in (VISION_7B_AWQ, VISION_4B_FP8):
+        k_l4 = _ghep(v, L4)
+        k_3090 = _ghep(v, RTX_3090)
+        assert k_3090.servers[0].ngu_canh >= k_l4.servers[0].ngu_canh, "GPU lớn hơn thì text không được kém đi"
+
+
+def test_tat_ca_server_deu_co_dinh_thi_chi_kiem_vua_hay_khong():
+    k = lap_ke_hoach([TEXT_AWQ, VISION_7B_AWQ], L4, ctx_co_dinh={0: 8192, 1: 8192})
+    assert k.max_model_len == 0 and [s.ngu_canh for s in k.servers] == [8192, 8192]
+    with pytest.raises(KeHoachLoi):
+        lap_ke_hoach([TEXT_AWQ, VISION_7B_BF16], L4, ctx_co_dinh={0: 32768, 1: 32768})
+
+
+def test_chi_so_sai_bi_chan():
+    with pytest.raises(KeHoachLoi, match="chỉ số server"):
+        lap_ke_hoach([TEXT_AWQ], L4, ctx_co_dinh={3: 8192})
+    with pytest.raises(KeHoachLoi, match="chỉ số server"):
+        lap_ke_hoach([TEXT_AWQ], L4, overhead_rieng={-1: 1.0})
+
+
+def test_overhead_va_ngu_canh_cua_tung_server_vao_lenh_serve():
+    k = _ghep(VISION_7B_AWQ, L4)
+    assert f"--max-model-len={k.servers[0].ngu_canh}" in lenh_serve(k.servers[0])
+    assert "--max-model-len=8192" in lenh_serve(k.servers[1])
+
+
+def test_doc_dac_ta_hieu_llm_config_cua_ho_internvl(tmp_path):
+    cfg = {"architectures": ["InternVLChatModel"],
+           "llm_config": {"num_hidden_layers": 24, "num_attention_heads": 14, "num_key_value_heads": 2, "hidden_size": 896},
+           "vision_config": {"num_hidden_layers": 24}}
+    d = doc_dac_ta(_model(tmp_path, ten="vintern", cfg=cfg))
+    assert d.kv_byte_moi_token == 2 * 24 * 2 * 64 * 2, "head_dim = 896/14 = 64"
+
+
+def test_ghi_de_trong_so_khi_tep_luu_fp32_ma_nap_bf16(tmp_path):
+    thu_muc = _model(tmp_path, ten="m", kich_co=(1024,))
+    assert doc_dac_ta(thu_muc).trong_so_gib == pytest.approx(1024 / 1024 ** 3)
+    assert doc_dac_ta(thu_muc, trong_so_gib=1.8).trong_so_gib == 1.8
+
+
+def test_main_nhan_ctx_co_dinh_overhead_rieng_va_trong_so(tmp_path, capsys):
+    a, b = _model(tmp_path, "a", kich_co=(10,)), _model(tmp_path, "b", kich_co=(10,))   # tệp nhỏ; trọng số thật ghi đè bên dưới
+    ma = kh.main(["--model", str(a), "--ten", "anser-v3", "--model", str(b), "--ten", "anser-vision",
+                  "--gpu-gib", "22.49", "--ctx-co-dinh", "anser-vision=8192", "--overhead-rieng", "anser-vision=3.5",
+                  "--trong-so-gib", "anser-v3=5.68", "--trong-so-gib", "anser-vision=6.45", "--ctx-can-thiet", "4096"])
+    out = capsys.readouterr().out
+    assert ma == 0
+    assert "--served-model-name=anser-vision" in out and "--max-model-len=8192" in out
+    assert "overhead 3.5" in out and "trọng số 6.45 GiB" in out
+
+
+def test_main_ten_khong_co_hoac_gia_tri_sai_thoat_2(tmp_path, capsys):
+    a, b = _model(tmp_path, "a"), _model(tmp_path, "b")
+    base = ["--model", str(a), "--ten", "x", "--model", str(b), "--ten", "y", "--gpu-gib", "22.49"]
+    assert kh.main(base + ["--ctx-co-dinh", "khong_co=8192"]) == 2
+    assert "không có server tên" in capsys.readouterr().err
+    assert kh.main(base + ["--overhead-rieng", "y=abc"]) == 2
+    assert kh.main(base + ["--ctx-co-dinh", "thieu_dau_bang"]) == 2
