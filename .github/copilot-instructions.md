@@ -31,3 +31,13 @@ ENV=LOCAL pytest -q
 ```
 
 Deterministic logic must have unit tests. If you change `prompts.py` or `workflow_schema.py`, also run `python offline_training/preflight_check.py`. If you change `/tools` input schemas, run `python offline_training/doi_chieu_hop_dong_body.py`.
+
+## Opening PRs and issues
+
+Fill every GitHub field when you create it (full rules and commands: AGENTS.md §5.4):
+
+- **PR:** base = the integration feature branch, never `main`; title `type(scope): summary`; assignee = you; exactly one label (`bug`, `enhancement`, `documentation`, `question`); reviewers (the `brain` team is added by CODEOWNERS; add a specific person when needed, never yourself); add to org Project 6; `Closes #N` or `Refs #N`; open as draft until `pytest` and `ruff` pass. Paste the `pytest` result in the body.
+- **Issue:** assignee, one label, one Issue Type (`Task`, `Bug` or `Feature`), org Project 6, self-contained body.
+- Never merge your own PR or turn on auto-merge.
+- Get valid labels, types and teams from GitHub (`gh label list`, `gh api orgs/ANSER-Logistics/issue-types`), do not guess.
+- If the `gh` token lacks the `project` scope, say so in the PR body and tell the user. Do not skip silently.

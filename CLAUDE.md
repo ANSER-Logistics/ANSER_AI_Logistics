@@ -25,6 +25,7 @@ If `graphify-out/graph.json` exists, run `graphify query "<question>"`, `graphif
 - Run tests with `ENV=LOCAL`. No GPU or model is needed.
 - Architecture, SRS and roadmap live in the private repo `ANSER-Logistics/anser-brain-docs`. Link to them with absolute URLs; a relative link to a missing file fails `tests/test_tai_lieu_khop_ma.py`.
 - `main` is production. Open PRs against the feature branch, never merge your own (AGENTS.md §6.0).
+- Opening a PR or issue: fill labels, assignee, reviewers, Issue Type, Project and linked issues at creation (AGENTS.md §5.4).
 - Most docs and identifiers are Vietnamese. Reply in the language the user writes in.
 - Body is another repo. Only propose changes there (PR or issue), never merge them (AGENTS.md §1).
 - Ask the owner before moving any secret into env or changing how secrets are managed (AGENTS.md R2b).
