@@ -42,6 +42,16 @@ Credential Gmail (OAuth **của khách**) cấu hình trực tiếp trong node
 trả 500, và **nhánh báo lỗi cũng không chạy** (lỗi xảy ra ở chính node gọi Brain, trước khi có cổng
 lỗi). Nghĩa là thiếu biến này thì chủ DN không nhận cảnh báo nào. Đã kiểm 19/11/2026 (chỉ đọc): `frontend/docker-compose.yml` của Body dùng `n8nio/n8n:latest` và KHÔNG đặt biến này, trong khi 4/5 workflow của họ đọc `$env.N8N_INTERNAL_TOKEN`; đã nêu ở [Body#36](https://github.com/ANSER-Logistics/ANSER-logistics-body/issues/36), kèm đánh đổi bảo mật (compose nạp cả `.env.local` vào n8n, nên mở `$env` cho mọi workflow đọc mọi biến trong đó).
 
+**Node webhook mang `webhookId` cố định, đừng xoá.** Đo ngày 19/11/2026 trên n8n 2.48.5 (#80), ba đường nạp:
+
+| Đường nạp | Thiếu `webhookId` | Có `webhookId` |
+|---|---|---|
+| `n8n import:workflow` rồi `n8n publish:workflow` | báo đang bật, nhưng gọi webhook **404, chưa đăng ký** | 200 |
+| REST API `POST /api/v1/workflows` rồi `/activate` (cách trang Tự động hoá của Body tạo workflow) | n8n tự sinh, chạy được | giữ nguyên giá trị, chạy được |
+| Giao diện, "Import from File" | **chưa thử** | **chưa thử** |
+
+`tests/test_workflow_webhook_id.py` kiểm mọi node webhook ở đây có `webhookId` dạng UUID, không trùng nhau. Chép một node webhook sang workflow khác thì đổi `webhookId`.
+
 ## Khi báo giá bị từ chối vì giá dầu cũ
 
 `/tools/quote` trả **422** khi giá dầu được dùng để điều chỉnh mà đã cũ từ 7 ngày trở lên
