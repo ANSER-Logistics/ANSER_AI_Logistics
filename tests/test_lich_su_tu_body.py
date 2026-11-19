@@ -213,3 +213,80 @@ def test_dau_do_bat_duoc_viec_history_roi_im_lang(ghi, monkeypatch):
     monkeypatch.setattr(chat_mod, "_lich_su_tu_request", lambda req: None)
     _hoi({"message": "tiếp", "history": [{"role": "user", "content": "từ Body"}]})
     assert ghi.history_nhan == [{"role": "user", "content": "TỪ DB"}], "đầu dò phải thấy history Body bị bỏ qua"
+
+
+# ---------------------------------------------------------------------------
+# Nửa cặp thay thế (surrogate) đứng một mình — Body cắt chuỗi theo đơn vị UTF-16
+# ---------------------------------------------------------------------------
+#
+# Body#35 cắt mỗi tin còn 4000 ký tự bằng `slice(0, 4000)` (đơn vị UTF-16). Ranh giới rơi giữa một emoji ngoài BMP
+# (📦, 🚚: hai đơn vị) thì chỉ còn nửa đầu. Đo 20/11/2026 trên mã cũ: `history[].content` có nửa cặp đó thì Brain trả
+# 500 (pydantic từ chối, rồi thân lỗi 422 chép lại giá trị không mã hoá nổi ra UTF-8); `message` thì lọt xuống model.
+# Tin lỗi nằm lại trong lịch sử trình duyệt nên hỏng cả các lượt sau. Brain thay nó bằng U+FFFD ở lược đồ; từ chối
+# bằng 422 cũng hỏng đúng hội thoại đó.
+
+EMOJI_HOP = "\U0001F4E6"   # 📦, ngoài BMP: hai đơn vị UTF-16
+
+
+def _cat_nhu_body(chu: str, so_don_vi: int) -> str:
+    """Mô phỏng `s.slice(0, n)` của JavaScript: cắt theo đơn vị UTF-16, có thể chẻ đôi một cặp thay thế."""
+    return chu.encode("utf-16-le", "surrogatepass")[: so_don_vi * 2].decode("utf-16-le", "surrogatepass")
+
+
+@pytest.mark.parametrize("vao, ra", [
+    ("a\ud83d", "a\ufffd"),                       # nửa đầu đứng một mình (đúng ca cắt giữa emoji)
+    ("\ude00b", "\ufffdb"),                       # nửa sau đứng một mình
+    ("\ud83d\ud83dx", "\ufffd\ufffdx"),         # hai nửa đầu liền nhau không ghép thành cặp
+    ("", ""),
+    ("báo giá HN đi HP", "báo giá HN đi HP"),
+    (f"giao {EMOJI_HOP} nhé", f"giao {EMOJI_HOP} nhé"),   # emoji nguyên vẹn không bị đụng
+])
+def test_bo_ky_tu_ghep_do_le(vao, ra):
+    from src.api.dependencies import bo_ky_tu_ghep_do_le
+
+    assert bo_ky_tu_ghep_do_le(vao) == ra
+    bo_ky_tu_ghep_do_le(vao).encode("utf-8")   # mã hoá được ra UTF-8: không ném
+
+
+def test_chung_minh_ca_cat_giua_emoji_that_su_tao_ra_nua_cap():
+    """Chốt chống xanh suông: nếu cách mô phỏng không chẻ đôi emoji thì các test dưới không chứng minh gì."""
+    chu = "x" * 3999 + EMOJI_HOP
+    cut = _cat_nhu_body(chu, 4000)
+    assert len(cut) == 4000 and cut[-1] == "\ud83d"
+    with pytest.raises(UnicodeEncodeError):
+        cut.encode("utf-8")
+
+
+def test_luot_hoi_thoai_va_message_duoc_lam_sach_o_luoc_do():
+    r = _req(history=[{"role": "assistant", "content": "a\ud83d"}])
+    assert r.history[0].content == "a\ufffd"
+    r.history[0].content.encode("utf-8")
+    sach = ChatRequest(user_id=1, store_id=1, message="x\ude00")
+    assert sach.message == "x\ufffd"
+
+
+def test_ca_cat_dung_4000_giua_emoji_van_vao_duoc_va_model_nhan_chuoi_ma_hoa_duoc(ghi):
+    """Đúng kịch bản của Body#35: câu trả lời dài hơn 4000 ký tự, ranh giới rơi giữa emoji."""
+    import json
+
+    tin_cat = _cat_nhu_body("x" * 3999 + EMOJI_HOP + " phần sau", 4000)
+    # Thân JSON thô như `JSON.stringify` của trình duyệt (nửa cặp thành `\ud83d`): bộ mã hoá của chính TestClient
+    # không nhận chuỗi có nửa cặp, nên không dùng `json=`.
+    than = json.dumps({"user_id": 1, "store_id": 1, "message": "tiếp",
+                       "history": [{"role": "assistant", "content": tin_cat}]}).encode("ascii")
+    resp = client.post("/chat", headers={**AI, "Content-Type": "application/json"}, content=than)
+    assert resp.status_code == 200, resp.text
+    nhan = ghi.history_nhan[0]["content"]
+    assert nhan == "x" * 3999 + "\ufffd"
+    nhan.encode("utf-8")
+
+
+def test_json_escape_roi_vao_route_duoc_lam_sach_con_cap_du_thi_giu(ghi):
+    """Đi bằng thân JSON thô như trình duyệt gửi: `\\ud83d` rời bị thay, `\\ud83d\\udce6` đủ cặp thành 📦."""
+    than = (b'{"user_id": 1, "store_id": 1, "message": "tiep", "history": ['
+            b'{"role": "user", "content": "roi \\ud83d"}, '
+            b'{"role": "assistant", "content": "du \\ud83d\\udce6"}]}')
+    resp = client.post("/chat", headers={**AI, "Content-Type": "application/json"}, content=than)
+    assert resp.status_code == 200, resp.text
+    assert client.get(f"/api/v1/task/{resp.json()['task_id']}", headers=AI).json()["status"] == "completed"
+    assert [m["content"] for m in ghi.history_nhan] == ["roi \ufffd", f"du {EMOJI_HOP}"]

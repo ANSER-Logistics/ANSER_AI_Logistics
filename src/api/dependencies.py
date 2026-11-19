@@ -8,10 +8,10 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from fastapi import Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.config import LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN
 from src.core.config import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
@@ -47,6 +47,29 @@ RUNTIME_PROFILE = os.getenv("RUNTIME_PROFILE", "full").strip().lower()
 # Request Models
 # ---------------------------------------------------------------------------
 
+_KY_TU_GHEP_DO_LE = re.compile("[\ud800-\udfff]")
+
+
+def bo_ky_tu_ghep_do_le(chu: str) -> str:
+    """
+    Thay mỗi nửa cặp thay thế (surrogate) đứng một mình bằng U+FFFD.
+
+    JSON nhận `"\\ud83d"` rời là chuỗi Python, nhưng không mã hoá được ra UTF-8. Đo 20/11/2026 trên mã trước bản
+    sửa: `history[].content` có nó thì pydantic từ chối (`string_unicode`), rồi FastAPI dựng thân lỗi 422 có chép
+    lại giá trị đó và không mã hoá nổi, nên Brain trả **500** chứ không phải 422. `message` có nó thì lọt qua và đi
+    tiếp xuống model (httpx 0.28 không mã hoá được thân JSON; `tokenizers` ném TypeError). Chưa chạy qua vLLM thật.
+
+    Nó đến được từ cách làm thường ngày: phía Body cắt chuỗi theo đơn vị UTF-16 (`slice(0, 4000)`), mà đúng ranh
+    giới rơi giữa một emoji ngoài BMP (📦, 🚚) thì chỉ còn nửa đầu. Tin đó nằm lại trong lịch sử trình duyệt nên
+    làm hỏng cả các lượt sau.
+
+    Thay thế, không từ chối: 422 ở đây cũng làm hỏng đúng hội thoại đó, vì tin lỗi vẫn nằm trong lịch sử.
+    Cặp thay thế ĐỦ (emoji nguyên vẹn) không bị đụng: `json.loads` đã gộp nó thành một ký tự trước khi tới đây.
+    Phải chạy TRƯỚC kiểm kiểu của pydantic (`mode="before"`), vì chính kiểm kiểu mới từ chối nó.
+    """
+    return _KY_TU_GHEP_DO_LE.sub("�", chu)
+
+
 class LuotHoiThoai(BaseModel):
     """
     Một tin trong lịch sử hội thoại do Body gửi kèm. CHỈ hai vai: `user` và `assistant`. Không có `system`:
@@ -54,6 +77,11 @@ class LuotHoiThoai(BaseModel):
     """
     role: Literal["user", "assistant"]
     content: str = Field(max_length=LICH_SU_TOI_DA_KY_TU)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _noi_dung_sach(cls, v: Any) -> Any:
+        return bo_ky_tu_ghep_do_le(v) if isinstance(v, str) else v
 
 
 class ChatRequest(BaseModel):
@@ -74,6 +102,11 @@ class ChatRequest(BaseModel):
     #   - có tin: dùng đúng các tin đó (chỉ MAX_HISTORY_TURNS tin cuối, mặc định 6).
     # Trường lạ khác vẫn bị bỏ qua như trước; riêng `history` nay được nhận chứ không rơi im lặng.
     history: Optional[list[LuotHoiThoai]] = Field(default=None, max_length=LICH_SU_TOI_DA_TIN)
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def _tin_nhan_sach(cls, v: Any) -> Any:
+        return bo_ky_tu_ghep_do_le(v) if isinstance(v, str) else v
 
 
 # ---------------------------------------------------------------------------
