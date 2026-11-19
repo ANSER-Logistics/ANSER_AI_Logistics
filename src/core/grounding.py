@@ -29,6 +29,8 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal
 
+from src.core.so_bang_chu import so_bang_chu
+
 logger = logging.getLogger("projecta.grounding")
 
 
@@ -250,6 +252,28 @@ def _khop_lam_tron(tho: str, hau_to: str, ctx_so: set[int]) -> bool:
     return False
 
 
+# Thang bậc từ lớn đến nhỏ, để chọn đơn vị lớn nhất không vượt giá trị khi đọc độ chính xác của số viết bằng chữ.
+_THANG_CHU = (1_000_000_000, 1_000_000, 1_000)
+
+
+def _khop_lam_tron_chu(gia_tri: int, ctx_so: set[int]) -> bool:
+    """
+    Số tiền VIẾT BẰNG CHỮ có phải là một số trong context, làm tròn đúng độ chính xác đã nói không?
+
+    Cùng luật với `_khop_lam_tron` cho "4,5 triệu", chỉ khác cách đọc độ chính xác: số chữ không có
+    dấu thập phân để đếm, nên quy về dạng số của chính nó. "hai triệu rưỡi" = 2,5 triệu (một chữ số
+    lẻ, nửa đơn vị là 50.000); "ba trăm triệu" = 300 triệu (không chữ số lẻ, nửa đơn vị là 500.000).
+    Biên đóng như `_khop_lam_tron`. Dưới một nghìn không có thang bậc để làm tròn: phải khớp chính xác.
+    """
+    don_vi = next((u for u in _THANG_CHU if u <= gia_tri), None)
+    if don_vi is None:
+        return False
+    thuong = (Decimal(gia_tri) / Decimal(don_vi)).normalize()
+    so_le = max(0, -int(thuong.as_tuple().exponent))  # type: ignore[arg-type]
+    nua_don_vi = Decimal(don_vi) * Decimal(5).scaleb(-(so_le + 1))
+    return any(x * 2 >= don_vi and abs(Decimal(x) - gia_tri) <= nua_don_vi for x in ctx_so)
+
+
 def narration_numbers_ok(
     answer: str,
     context: str,
@@ -271,6 +295,11 @@ def narration_numbers_ok(
     TRÒN đúng độ chính xác đã viết (`_khop_lam_tron`). `False` là luật độ dài cũ, giữ cho test
     và phép so sánh trước/sau; không có đường chạy nào dùng nó.
 
+    Số tiền VIẾT BẰNG CHỮ ("ba trăm triệu", "hai triệu rưỡi") cũng được kiểm (20/11/2026, R1): bộ đọc
+    ở trên chỉ thấy chữ số, nên một con số model tự tính rồi viết thành chữ lọt qua nguyên vẹn. Cùng
+    luật: khớp chính xác một số trong context, hoặc khớp sau khi làm tròn đúng độ chính xác đã nói.
+    Chữ số không có đơn vị nghìn/triệu/tỷ ("năm trăm") không phải tiền và không bị kiểm.
+
     Trả `(ok, con_số_vi_phạm | None)`.
     """
     ctx_numbers = numbers_in(context)
@@ -287,6 +316,11 @@ def narration_numbers_ok(
             if chi_kiem_so_tien and hau_to and _khop_lam_tron(tho, hau_to, ctx_so):
                 continue
             return False, chinh
+    if chi_kiem_so_tien:
+        for _, gia_tri in so_bang_chu(answer or ""):
+            if str(gia_tri) in ctx_numbers or _khop_lam_tron_chu(gia_tri, ctx_so):
+                continue
+            return False, str(gia_tri)
     return True, None
 
 
