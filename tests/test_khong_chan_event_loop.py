@@ -39,6 +39,7 @@ BM25, nên chỉ ném ra thread pool mặc định là mở ra race thật — n
 from __future__ import annotations
 
 import asyncio
+import gc
 import threading
 import time
 from collections.abc import Awaitable, Callable
@@ -82,6 +83,21 @@ async def _do_khoang_tre_lon_nhat(viec: Callable[[], Awaitable[Any]]) -> tuple[A
     Trả về (kết quả của viec, khoảng trễ lớn nhất giữa hai tick liên tiếp).
     Tick cuối được ghi SAU khi `dung` đã bật: nếu không, việc chặn loop xong ngay
     trước khi nhịp tim kịp thức sẽ làm khoảng trễ đó BIẾN MẤT khỏi số đo.
+
+    TẮT GC TỰ ĐỘNG TRONG CỬA SỔ ĐO (#129). Một lần thu gom thế hệ 2 dừng MỌI thread,
+    kể cả loop, và trong lượt chạy cả bộ nó dài hơn ngưỡng. Đo 20/11/2026, máy dev,
+    Python 3.13:
+
+      - Cả bộ (~620 nghìn đối tượng): 5 lần thế hệ 2, bốn lần vượt 150ms
+        (160, 186, 226, 372ms).
+      - Chạy riêng test tải file 800 lần: 0 đỏ, nhưng ca chậm nhất (136ms) trùng
+        ĐÚNG một lần thế hệ 2 dài 136ms; 799 ca còn lại không có lần GC dài nào và
+        chậm nhất 84ms.
+
+    Test này bắt việc chặn loop do MÃ CỦA ROUTE, không phải GC của chính tiến trình
+    test, nên GC phải nằm ngoài cửa sổ. Chỉ `disable`, không `collect` trước: một lần
+    `collect` trên heap cả bộ tốn tới ~370ms mà không cần thiết, vì tắt là đủ để
+    không lần nào chen vào. Trả lại đúng trạng thái cũ, kể cả khi `viec` ném lỗi.
     """
     mau: list[float] = []
     dung = asyncio.Event()
@@ -93,13 +109,19 @@ async def _do_khoang_tre_lon_nhat(viec: Callable[[], Awaitable[Any]]) -> tuple[A
                 return
             await asyncio.sleep(NHIP)
 
-    tac_vu = asyncio.create_task(nhip_tim())
-    await asyncio.sleep(NHIP * 5)   # cho nhịp tim vào guồng trước khi đo
+    gc_dang_bat = gc.isenabled()
+    gc.disable()
     try:
-        ket_qua = await viec()
+        tac_vu = asyncio.create_task(nhip_tim())
+        await asyncio.sleep(NHIP * 5)   # cho nhịp tim vào guồng trước khi đo
+        try:
+            ket_qua = await viec()
+        finally:
+            dung.set()
+            await tac_vu
     finally:
-        dung.set()
-        await tac_vu
+        if gc_dang_bat:
+            gc.enable()
     return ket_qua, max(b - a for a, b in zip(mau, mau[1:]))
 
 
@@ -208,6 +230,32 @@ async def test_nhip_tim_bat_duoc_viec_chan_loop():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("bat_truoc", [True, False], ids=["gc-dang-bat", "gc-dang-tat"])
+async def test_dau_do_tat_gc_trong_cua_so_va_tra_lai_nhu_cu(bat_truoc):
+    """#129: GC tắt trong lúc đo, rồi trả về ĐÚNG trạng thái trước đó, kể cả khi việc ném lỗi.
+
+    Quên bật lại thì cả phiên test chạy không GC (bộ nhớ phình mà không ai thấy); bật
+    nhầm khi người gọi đã tắt thì phá ý của người gọi.
+    """
+    trong_cua_so: list[bool] = []
+
+    async def ghi_roi_no():
+        trong_cua_so.append(gc.isenabled())
+        raise RuntimeError("việc hỏng")
+
+    (gc.enable if bat_truoc else gc.disable)()
+    try:
+        with pytest.raises(RuntimeError):
+            await _do_khoang_tre_lon_nhat(ghi_roi_no)
+        sau = gc.isenabled()
+    finally:
+        gc.enable()
+
+    assert trong_cua_so == [False], "GC vẫn bật trong cửa sổ đo"
+    assert sau is bat_truoc, f"trước {bat_truoc}, sau {sau}"
+
+
+@pytest.mark.asyncio
 async def test_nhip_tim_khong_bao_dong_gia_khi_viec_qua_thread():
     """Đối chứng của ca trên: cùng việc ngủ 0,3s nhưng qua thread thì loop phải chạy đều."""
     _, khoang = await _do_khoang_tre_lon_nhat(lambda: chay_ngoai_loop(time.sleep, TRE_CHAN))
@@ -292,16 +340,18 @@ async def test_tai_file_khong_dong_bang_loop(diem: _Diem, monkeypatch, kho_tri_t
         assert ban_dau.status_code == 200, ban_dau.text
 
         cham.tre = TRE_CHAN
-        resp, khoang = await _do_khoang_tre_lon_nhat(
-            lambda: ac.post(diem.url, **diem.yeu_cau())
-        )
+        # Dựng file xlsx TRƯỚC cửa sổ đo: openpyxl chạy trên loop, là việc của test chứ
+        # không phải của route (#129).
+        yeu_cau = diem.yeu_cau()
+        resp, khoang = await _do_khoang_tre_lon_nhat(lambda: ac.post(diem.url, **yeu_cau))
 
     assert resp.status_code == 200, resp.text
     assert len(cham.thread_ids) == 2
-    # Số đo trước (điều Body thấy), phép kiểm cơ chế sau.
-    assert khoang < NGUONG, f"event loop bị giữ {khoang:.3f}s trong lúc {diem.ten} đọc file"
+    # Cơ chế trước, số đo sau (#129): đỏ ở số đo thì đã biết chắc hàm chạy trên thread
+    # khác, nên phải tìm chỗ chặn ở nơi khác.
     assert all(t != threading.get_ident() for t in cham.thread_ids), \
         f"{diem.ham} vẫn chạy trên thread của event loop"
+    assert khoang < NGUONG, f"event loop bị giữ {khoang:.3f}s trong lúc {diem.ham} chạy ở thread khác"
 
 
 @pytest.mark.asyncio
