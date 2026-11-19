@@ -410,9 +410,10 @@ def test_moi_duong_dan_body_goi_deu_ton_tai_o_brain():
     thì mọi test của Brain vẫn xanh, mọi test của Body (không có) cũng vậy, và
     triệu chứng duy nhất là khách bấm nút rồi nhận 404.
     """
-    from fastapi.routing import APIRoute
+    from tests.bang_route import bang_route
 
-    co_that = {r.path for r in app.routes if isinstance(r, APIRoute)}
+    # Không duyệt `app.routes`: từ FastAPI 0.162 nó chỉ còn `/health` (#30).
+    co_that = {path for _, path in bang_route(app)}
     body_goi = _duong_dan_body_goi()
     assert body_goi, "không moi được đường dẫn nào từ brain.ts — regex hỏng?"
 

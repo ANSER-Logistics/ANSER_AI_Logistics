@@ -18,13 +18,16 @@ thứ 24 lại rơi ra ngoài đúng như cũ.
 
 from __future__ import annotations
 
+import pathlib
+import re
+
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient  # noqa: E402
 
 import src.api.dependencies as deps  # noqa: E402
 import src.api.main as main_mod  # noqa: E402
 from src.api.main import app  # noqa: E402
+from tests.bang_route import bang_route
 
 client = TestClient(app)
 
@@ -65,11 +68,10 @@ def _duong_di_thuc(path: str) -> str:
 
 
 def moi_endpoint():
-    for r in app.routes:
-        if not isinstance(r, APIRoute) or r.path in MO_CO_Y:
-            continue
-        for method in sorted(r.methods - {"HEAD", "OPTIONS"}):
-            yield pytest.param(method, r.path, id=f"{method} {r.path}")
+    """Lấy từ `tests/bang_route.py`, không duyệt `app.routes` (#30: FastAPI ≥0.162 ra 0)."""
+    for method, path in bang_route(app):
+        if path not in MO_CO_Y:
+            yield pytest.param(method, path, id=f"{method} {path}")
 
 
 def test_bang_route_khong_rong():
@@ -83,14 +85,33 @@ def test_bang_route_khong_rong():
     chỉ là không còn gì chứng minh điều đó.
 
     Ngưỡng 20, không phải con số chính xác: thêm hay bớt một endpoint không được
-    làm test này đỏ; chỉ mất GẦN HẾT bảng route mới đỏ. Đỏ ở đây thì xem
-    `fastapi<0.137` trong requirements.txt trước khi nghi code.
+    làm test này đỏ; chỉ mất GẦN HẾT bảng route mới đỏ. Từ #30 bảng lấy từ
+    `app.openapi()` (xem `tests/bang_route.py`), nên đỏ ở đây thì xem cách FastAPI
+    dựng OpenAPI trước khi nghi code.
     """
     so = len(list(moi_endpoint()))
     assert so >= 20, (
-        f"chỉ thấy {so} endpoint trong app.routes — bảng route bị đổi hình dạng "
+        f"chỉ thấy {so} endpoint trong bảng route — bảng route bị đổi hình dạng "
         f"(thường do nâng FastAPI), hai test kiểm token dưới đây đang không kiểm gì."
     )
+
+
+def test_khong_route_nao_an_khoi_openapi():
+    """Cái giá của việc lấy bảng route từ `openapi()` (#30), và chốt chặn nó.
+
+    Route khai `include_in_schema=False` không có trong OpenAPI, nên sẽ không nằm
+    trong hai test kiểm token dưới đây: đúng loại endpoint "ẩn" mà bộ này dựng ra
+    để bắt. Hôm nay `src/` không có chỗ nào khai thế (đo 20/11/2026). Ai cần ẩn một
+    route khỏi tài liệu thì phải thêm nó vào bộ kiểm token bằng cách khác trước.
+    """
+    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
+    co = [
+        f"{f.relative_to(goc.parent)}:{i}"
+        for f in sorted(goc.rglob("*.py"))
+        for i, dong in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"include_in_schema\s*=\s*False", dong)
+    ]
+    assert not co, f"route ẩn khỏi OpenAPI sẽ lọt khỏi bộ kiểm token: {co}"
 
 
 @pytest.mark.parametrize("method,path", list(moi_endpoint()))
