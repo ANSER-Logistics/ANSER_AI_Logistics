@@ -31,9 +31,8 @@ jobs:
         #
         # `-c requirements.txt`: cài ĐÚNG danh sách ngắn này, nhưng theo trần đã
         # ghim ở requirements.txt (issue #6). Không có nó thì CI luôn lấy bản mới
-        # nhất — đo 10/11/2026: fastapi 0.162.2, bản làm tests/test_auth_bao_phu.py
-        # thấy 0 endpoint và 46 ca kiểm token skip im lặng. `-c` chỉ ràng buộc gói
-        # có cài, nên torch/vllm trong file đó KHÔNG bị kéo vào CI.
+        # nhất, vượt trần mà không ai biết. `-c` chỉ ràng buộc gói có cài, nên
+        # torch/vllm trong file đó KHÔNG bị kéo vào CI. (fastapi: trần `<1` từ #30.)
         #
         # `python-docx` + `pypdf` (#29, 18/11/2026): thiếu hai gói này thì
         # `importorskip` bỏ nguyên test_doc_extract.py (11 test), test_knowledge_api.py
