@@ -46,6 +46,7 @@ import re
 import unicodedata
 from typing import Any, TypeGuard
 
+from src.core.so_bang_chu import so_bang_chu
 from src.core.vat_catalog import DUOC_GIAM, KHONG_GIAM, phan_loai_thue_suat
 
 logger = logging.getLogger(__name__)
@@ -108,110 +109,6 @@ def _gia_tri(m: re.Match) -> int | None:
     return v
 
 
-# Số viết bằng chữ. Không dấu chỉ nhận những chữ ít nhập nhằng; "tư", "lăm",
-# "nhăm", "mốt" chỉ là số khi đứng ngay sau "mươi".
-_CHU_SO = {
-    "không": 0, "khong": 0, "một": 1, "mot": 1, "hai": 2, "ba": 3, "bốn": 4,
-    "bon": 4, "năm": 5, "nam": 5, "sáu": 6, "sau": 6, "bảy": 7, "bẩy": 7,
-    "bay": 7, "tám": 8, "tam": 8, "chín": 9, "chin": 9,
-}
-_SAU_MUOI = {"mốt": 1, "tư": 4, "lăm": 5, "nhăm": 5, "lam": 5}
-_MUOI = {"mươi", "muoi"}
-_TRAM = {"trăm", "tram"}
-_LINH = {"linh", "lẻ"}
-_RUOI = {"rưỡi", "ruoi"}
-_DON_VI_CHU = {
-    "nghìn": 1_000, "ngàn": 1_000, "nghin": 1_000, "ngan": 1_000,
-    "triệu": 1_000_000, "trieu": 1_000_000, "tỷ": 1_000_000_000, "tỉ": 1_000_000_000,
-}
-_TU_SO = (set(_CHU_SO) | set(_SAU_MUOI) | _MUOI | {"mười"} | _TRAM | _LINH | _RUOI
-          | set(_DON_VI_CHU))
-
-
-def _gia_tri_chu(tu: list[str]) -> int | None:
-    """Một cụm số bằng chữ -> VND. None = không hợp ngữ pháp số, hoặc không có
-    đơn vị nghìn/triệu/tỷ (khi đó không coi là tiền)."""
-    tong = nhom = 0
-    cho = None                   # chữ số đang chờ: chưa biết là hàng trăm, chục hay đơn vị
-    don_vi = None                # đơn vị gần nhất đã gặp
-    truoc = None
-    for t in tu:
-        if t in _SAU_MUOI and truoc in (_MUOI | {"mười"}):
-            if cho is not None:
-                return None
-            cho = _SAU_MUOI[t]
-        elif t in _CHU_SO:
-            if cho is not None:                       # hai chữ số liền nhau: "hai ba triệu"
-                return None
-            cho = _CHU_SO[t]
-        elif t in _MUOI and cho:                      # "hai mươi"
-            nhom, cho = nhom + cho * 10, None
-        elif t == "mười" or (t in _MUOI and cho is None):   # "mười", "muoi" không dấu
-            nhom += 10
-        elif t in _TRAM:
-            if not cho:
-                return None
-            nhom, cho = nhom + cho * 100, None
-        elif t in _LINH:
-            if truoc not in _TRAM:
-                return None
-        elif t in _DON_VI_CHU:
-            v = nhom + (cho or 0)
-            if not v:
-                return None
-            don_vi = _DON_VI_CHU[t]
-            tong, nhom, cho = tong + v * don_vi, 0, None
-        elif t in _RUOI:
-            if truoc in _TRAM:
-                nhom += 50                            # "trăm rưỡi" = 150
-            elif truoc is not None and truoc in _DON_VI_CHU:
-                # `truoc is not None` dư ở lúc chạy (None không nằm trong dict)
-                # nhưng cần cho bộ kiểm kiểu: `x in dict` không thu hẹp `x`.
-                tong += _DON_VI_CHU[truoc] // 2       # "năm triệu rưỡi"
-            else:
-                return None
-        else:
-            return None
-        truoc = t
-    if not don_vi:
-        return None
-    du = nhom + (cho or 0)
-    if du:
-        # Nói tắt sau đơn vị: "năm triệu hai" = 5,2 triệu; "hai triệu năm trăm"
-        # = 2 triệu 500 nghìn.
-        tong += du * don_vi // 10 if (nhom == 0 and du < 10) else du * don_vi // 1000
-    return tong or None
-
-
-def _so_bang_chu(cau: str) -> list[tuple[int, int]]:
-    """[(vị trí, giá trị)] cho mọi cụm số viết bằng chữ có đơn vị."""
-    ra: list[tuple[int, int]] = []
-    cum: list[re.Match] = []
-
-    def chot() -> None:
-        tu = [m.group(0).lower() for m in cum]
-        i = 0
-        while i < len(tu):
-            for j in range(len(tu), i, -1):           # cụm dài nhất hợp lệ từ i
-                v = _gia_tri_chu(tu[i:j])
-                if v:
-                    ra.append((cum[i].start(), v))
-                    i = j
-                    break
-            else:
-                i += 1
-
-    for m in re.finditer(r"[^\W\d_]+", cau):
-        la_tu_so = m.group(0).lower() in _TU_SO
-        if la_tu_so and cum and not cau[cum[-1].end():m.start()].strip():
-            cum.append(m)
-            continue
-        chot()
-        cum = [m] if la_tu_so else []
-    chot()
-    return ra
-
-
 def doc_so_tien(cau: str) -> list[int]:
     """
     Mọi số tiền trong câu, theo thứ tự xuất hiện (VND, số nguyên).
@@ -247,7 +144,7 @@ def doc_so_tien(cau: str) -> list[int]:
             continue
         ra.append((m.start(), v))
         truoc = m
-    ra.extend(_so_bang_chu(q))
+    ra.extend(so_bang_chu(q))
     return [v for _, v in sorted(ra, key=lambda x: x[0])]
 
 
