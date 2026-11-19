@@ -350,6 +350,8 @@ nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -l 1 > vram_$T.
 ENV=LOCAL VLLM_VISION_BASE_URL=http://127.0.0.1:8002 VLLM_VISION_MODEL=anser-vision \
     python offline_training/do_vlm_hoa_don.py --dir /content/vlm_hoadon --json $T.json
 ```
+Cờ `--disable-log-requests` ở lệnh trên đã bị đánh dấu lỗi thời ở vLLM 0.11.2 (đọc `vllm/utils/argparse_utils.py` và `vllm/engine/arg_utils.py` ở tag v0.11.2: bản này chỉ in cảnh báo, và ghi rõ "sẽ bị gỡ ở v0.12.0"). Mặc định vLLM không ghi request, nên bỏ cờ này khỏi lệnh đo thì không đổi gì. `deploy/docker-compose.yml` vẫn dùng nó vì lý do dữ liệu khách (P2) và đã ghim `v0.11.2`: **khi nâng vLLM lên 0.12 trở lên thì phải đổi cờ đó ở compose**, nếu không container không khởi động. Đây là suy ra từ mã nguồn, chưa chạy thử trên 0.12.
+
 `ENV=LOCAL` là có chủ ý: có `VLLM_VISION_BASE_URL` thì vision đi qua server ở mọi ENV, còn tiến trình đo không nạp model nào (đã kiểm với một server giả, 19/11). Hết mỗi model thì tắt server (`kill %1`) và đợi `nvidia-smi` về gần 0 trước khi bật cái sau. Với Vintern thêm `--trust-remote-code --dtype bfloat16 --revision <mã commit đã đọc code>`: **đọc mã tuỳ chỉnh trong repo của nó trước khi chạy** (chạy mã từ xa), và chỉ trong Colab.
 
 ### 8.3 Đọc kết quả
