@@ -68,7 +68,7 @@ print('commits with hits:', len(hits))
 "
 ```
 
-Known benign (checked 16/11/2026, 8 commits): `dcc7a34`, `65dd3e3`, `57a594c`, `0764f90`, `26be70f`, `659ec27`, `7855e62` (test fixtures and docs tables about them) and `01aba0b` (removal of the already-rotated Neon password). Any other commit: stop, do not push, tell the owner. A leaked credential is dead: rotate first, clean git second. Never move a secret into env or change secret handling without asking the owner.
+Known benign (checked 20/11/2026, 15 commits; the 15/11 history rewrite gave some commits a second hash, so each appears twice): `174bcb9`, `56cc452` (the move of the docs to the private repo: lines that describe the patterns), `65dd3e3`, `d0ec94a`, `57a594c`, `9f38780`, `0764f90`, `615c398`, `a57c7c6`, `0a33c80` (docs tables and tests that quote the patterns or use placeholder fixtures such as `postgres://u:p@h`), `26be70f`, `659ec27`, `7855e62` (test fixtures) and `01aba0b` (removal of the already-rotated Neon password). Checked without printing any value: every hit is a pattern description (regex text) or a placeholder fixture, none has a real host. Any other commit: stop, do not push, tell the owner. A leaked credential is dead: rotate first, clean git second. Never move a secret into env or change secret handling without asking the owner.
 
 ## 4. Where the PR goes
 
