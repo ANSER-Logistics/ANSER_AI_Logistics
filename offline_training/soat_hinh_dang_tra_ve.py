@@ -33,6 +33,7 @@ Mỗi kết quả phải tự trả lời: **người đọc có ĐÒI khoá nà
 Bảng đầy đủ ở AGENTS.md §R1.
 """
 import ast
+import os
 import pathlib
 import sys
 
@@ -82,13 +83,35 @@ def soat_file(p):
     return ra
 
 
+# Thư mục không phải mã của dự án. `tests` bỏ vì test cố ý viết hàm trả nhiều hình dạng để thử công cụ này.
+BO_QUA = (".git", "node_modules", "__pycache__", "tests", ".venv", "venv")
+
+
+def la_moi_truong_ao(thu_muc: pathlib.Path) -> bool:
+    """
+    Môi trường ảo Python, BẤT KỂ tên. `pyvenv.cfg` do `python -m venv` và `virtualenv` ghi ở gốc; `conda-meta` là
+    của conda. Bản trước chỉ biết tên `.git`, `node_modules`...: máy dev đặt `.venv` trong repo thì công cụ đọc
+    hàng nghìn file thư viện và chết với `UnicodeDecodeError` ở file đầu tiên không phải UTF-8 (#143). Kể cả khi
+    không chết thì kết quả lẫn hàm của thư viện, và con số "đã quét" thành vô nghĩa.
+    """
+    return (thu_muc / "pyvenv.cfg").is_file() or (thu_muc / "conda-meta").is_dir()
+
+
+def cac_file_py() -> list[pathlib.Path]:
+    """Mọi `*.py` của dự án dưới `GOC`, đã bỏ `BO_QUA` và môi trường ảo. Cắt nhánh ngay lúc duyệt, không đi vào."""
+    ra: list[pathlib.Path] = []
+    for thu_muc, con, tep in os.walk(GOC):
+        goc_hien_tai = pathlib.Path(thu_muc)
+        con[:] = [c for c in con if c not in BO_QUA and not la_moi_truong_ao(goc_hien_tai / c)]
+        ra.extend(goc_hien_tai / t for t in tep if t.endswith(".py"))
+    return sorted(ra)
+
+
 def main():
     tong = 0
     da_quet = 0
-    for p in sorted(GOC.rglob("*.py")):
+    for p in cac_file_py():
         r = p.relative_to(GOC)
-        if any(x in r.parts for x in (".git", "node_modules", "__pycache__", "tests")):
-            continue
         da_quet += 1
         for ten, dong, tap, lech in soat_file(p):
             print(f"\n{r}:{dong}  {ten}()")
