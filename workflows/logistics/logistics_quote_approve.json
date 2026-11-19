@@ -9,6 +9,7 @@
         "options": {}
       },
       "id": "la-webhook",
+      "webhookId": "300eb9d2-d4a0-4f12-b4d7-92f6b8d031ec",
       "name": "Nhận lệnh duyệt",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,

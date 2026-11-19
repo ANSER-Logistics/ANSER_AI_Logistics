@@ -9,6 +9,7 @@
         "options": {}
       },
       "id": "lq-webhook",
+      "webhookId": "87def27f-ae2f-4ab7-9329-f00f97029c4f",
       "name": "Nhận yêu cầu báo giá",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
