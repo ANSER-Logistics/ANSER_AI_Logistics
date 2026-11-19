@@ -43,6 +43,57 @@ def test_soat_that_su_quet_duoc_file_tren_repo_that(capsys):
     assert da_quet > 50, f"chỉ quét {da_quet} file — đường dẫn gốc sai?"
 
 
+# ---------------------------------------------------------------------------
+# 1b. môi trường ảo trong repo không được bị quét (#143)
+# ---------------------------------------------------------------------------
+
+
+def _du_an_voi_moi_truong_ao(tmp_path, ten_venv: str, dau_hieu: str):
+    """Một dự án giả: một file của dự án và một môi trường ảo chứa file `.py` KHÔNG phải UTF-8."""
+    (tmp_path / "du_an.py").write_text(
+        "def h(x):\n    if x:\n        return {'a': 1, 'b': 2}\n    return {'a': 1}\n", encoding="utf-8")
+    venv = tmp_path / ten_venv
+    (venv / "Lib" / "site-packages" / "goi").mkdir(parents=True)
+    if dau_hieu == "pyvenv.cfg":
+        (venv / "pyvenv.cfg").write_text("home = x\n", encoding="utf-8")
+    elif dau_hieu == "conda-meta":
+        (venv / "conda-meta").mkdir()
+    (venv / "Lib" / "site-packages" / "goi" / "latin1.py").write_bytes(b"# t\xe9\xe8 kh\xf4ng ph\xe2i utf-8\n")
+    return venv
+
+
+@pytest.mark.parametrize("ten_venv, dau_hieu", [
+    (".venv", "pyvenv.cfg"),
+    ("venv", "pyvenv.cfg"),
+    ("moi_truong_dat_ten_la", "pyvenv.cfg"),     # tên bất kỳ: dấu hiệu là `pyvenv.cfg`, không phải tên
+    ("env_conda", "conda-meta"),
+    (".venv", ""),                                # không có `pyvenv.cfg` nhưng tên là `.venv`
+])
+def test_moi_truong_ao_trong_repo_khong_bi_doc(monkeypatch, tmp_path, capsys, ten_venv, dau_hieu):
+    """Trên mã cũ: `UnicodeDecodeError` ở file đầu tiên không phải UTF-8 trong môi trường ảo."""
+    _du_an_voi_moi_truong_ao(tmp_path, ten_venv, dau_hieu)
+    monkeypatch.setattr(soat, "GOC", tmp_path)
+    assert soat.main() == 0
+    out = capsys.readouterr().out
+    assert "đã quét 1 file" in out, out
+    assert "du_an.py" in out and "latin1" not in out
+
+
+def test_thu_muc_tests_van_bi_bo_qua_o_moi_do_sau(monkeypatch, tmp_path, capsys):
+    """Giữ hành vi cũ: `tests` bị bỏ ở mọi cấp, không chỉ ở gốc."""
+    (tmp_path / "pkg" / "tests").mkdir(parents=True)
+    (tmp_path / "pkg" / "tests" / "t.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "pkg" / "m.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(soat, "GOC", tmp_path)
+    assert soat.main() == 0
+    assert "đã quét 1 file" in capsys.readouterr().out
+
+
+def test_cac_file_py_tren_repo_that_khong_co_file_trong_moi_truong_ao():
+    ds = soat.cac_file_py()
+    assert ds and all(".venv" not in p.parts and "site-packages" not in p.parts for p in ds)
+
+
 def test_quet_0_file_thi_khong_bao_sach(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(soat, "GOC", tmp_path)          # thư mục trống
     assert soat.main() == 2
