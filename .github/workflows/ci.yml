@@ -20,7 +20,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs
+          # Them `python-multipart` va `openpyxl` (07/11/2026). Thieu chung thi
+          # buoc Pytest DO ngay o khau THU TEST, truoc khi chay mot ca nao:
+          #
+          #   RuntimeError: Form data requires "python-multipart" to be installed.
+          #
+          # Bon file test khong thu duoc: test_server.py, test_server_basics.py,
+          # test_pricing_and_tools.py, test_assistant_upgrades.py. Ca bon deu dung
+          # TestClient tren mot app co endpoint nhan file tai len, va FastAPI doi
+          # goi do ngay luc khai bao route chu khong phai luc goi.
+          #
+          # CI cua nhanh `main` do vi ly do nay, va khong ai thay: moi viec dang
+          # dien ra tren nhanh tinh nang, noi ci.yml da co hai goi nay tu truoc.
+          pip install fastapi httpx pydantic numpy json_repair sqlalchemy requests ddgs python-multipart openpyxl
       - name: Ruff
         run: |
           ruff check src/core/tools.py src/core/memory.py src/core/context.py tests

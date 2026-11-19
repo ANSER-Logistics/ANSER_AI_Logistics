@@ -1,0 +1,77 @@
+# .github/CODEOWNERS — ai bắt buộc phải duyệt khi PR chạm vào đâu.
+#
+# HAI ĐIỀU KIỆN, thiếu một là file này không làm gì cả:
+#
+# 1. File phải nằm trên NHÁNH MẶC ĐỊNH. Nó nằm trên nhánh tính năng từ
+#    04/11/2026 nhưng chưa lên `main`, nên gọi API `contents/.github/CODEOWNERS`
+#    trả 404 và không PR nào được tự gắn người duyệt. Đó là lý do có PR này.
+#
+# 2. Nhóm được nhắc tới PHẢI có quyền Write trở lên trên repo. Thiếu quyền thì
+#    GitHub bỏ qua dòng đó VÀ KHÔNG BÁO LỖI — file trông như đang chạy mà không
+#    chạy. Đo 07/11/2026: nhóm `brain` có quyền **write** trên repo này, nên các
+#    dòng dưới chạy thật.
+#
+#    Cùng cái bẫy đó đang bật bên repo Body: bốn dòng nhắc `@ANSER-Logistics/brain`
+#    ở đó đang bị bỏ qua vì nhóm `brain` chỉ có quyền đọc trên repo đó.
+#
+# Và để CODEOWNERS thành BẮT BUỘC (chứ không chỉ tự gắn người duyệt), cần bật
+# `Require review from Code Owners` trong ruleset của nhánh mặc định:
+# Settings → Rules → Rulesets → nhánh `main`.
+#
+# Cú pháp: dòng khớp CUỐI CÙNG thắng — ngược với `.gitignore`. Nên mẫu chung đặt
+# trước, mẫu cụ thể đặt sau.
+
+# Mặc định: mọi thứ trong Brain thuộc nhóm brain.
+*                                   @ANSER-Logistics/brain
+
+# Năm ràng buộc bất biến. Đổi chúng là đổi luật chơi của cả dự án.
+/AGENTS.md                          @ANSER-Logistics/brain
+/ARCHITECTURE.md                    @ANSER-Logistics/brain
+
+# R4 — MỘT nguồn sự thật cho định dạng workflow n8n.
+#
+# Bản trước của khối này ghi "ba nơi phải luôn khớp nhau" rồi liệt kê
+# prompts.py / agent_middleware.py / chat.py. Câu đó SAI (sửa 04/11/2026, cùng
+# lúc với AGENTS.md §R4): cả ba đã dựng từ một nguồn là `workflow_schema.py` từ
+# 27/07/2026, và chỉ dẫn "đồng bộ ba nơi" bảo người đọc bảo trì ba bản sao —
+# đúng thứ R4 cấm.
+#
+# `workflow_schema.py` mới là file đáng canh, và nó vốn không có trong danh sách.
+/src/core/workflow_schema.py        @ANSER-Logistics/brain
+/src/core/prompts.py                @ANSER-Logistics/brain
+/src/core/agent_middleware.py       @ANSER-Logistics/brain
+/src/api/routes/chat.py             @ANSER-Logistics/brain
+
+# BA ĐƯỜNG DẪN DƯỚI ĐÂY CHƯA CÓ TRÊN `main` (đo 07/11/2026):
+#   src/core/grounding.py
+#   offline_training/doi_chieu_hop_dong_body.py
+#   deploy/
+#
+# Cả ba đến cùng nhánh `feat/workflow-format-and-deterministic-core` khi nhánh
+# đó gộp vào `main`. Giữ sẵn ở đây thay vì chờ: GitHub lặng lẽ bỏ qua luật trỏ
+# vào đường dẫn không tồn tại, nên để sẵn không hại gì, mà thiếu nó thì sau khi
+# gộp xong sẽ không ai nhớ quay lại thêm.
+#
+# (`.pre-commit-config.yaml` cũng từng có trong danh sách và đã BỎ: file đó
+# không tồn tại trên bất kỳ nhánh nào — một luật canh một file chưa bao giờ có.)
+
+# R1 — tầng tất định. Sai ở đây là sai sổ sách của khách, và loại sai đó không
+# lộ ra cho tới lúc quyết toán.
+/src/core/grounding.py              @ANSER-Logistics/brain
+/src/core/mcp_server.py             @ANSER-Logistics/brain
+/src/core/saas_api.py               @ANSER-Logistics/brain
+/src/core/reporting.py              @ANSER-Logistics/brain
+/src/core/pricing.py                @ANSER-Logistics/brain
+
+# Hợp đồng với Body. Đổi một tên trường ở đây là đổi thứ bên kia đang dựa vào,
+# và TypeScript chỉ sống lúc biên dịch nên bên Body sẽ không có lỗi nào — chỉ
+# có một ô trống trên màn hình.
+/src/api/routes/tools.py            @ANSER-Logistics/brain
+/offline_training/doi_chieu_hop_dong_body.py  @ANSER-Logistics/brain
+
+# Cổng chất lượng. Nới lỏng chúng phải là một quyết định có người nhìn.
+/.github/workflows/                 @ANSER-Logistics/brain
+/.github/CODEOWNERS                 @ANSER-Logistics/brain
+/pyproject.toml                     @ANSER-Logistics/brain
+/requirements.txt                   @ANSER-Logistics/brain
+/deploy/                            @ANSER-Logistics/brain
