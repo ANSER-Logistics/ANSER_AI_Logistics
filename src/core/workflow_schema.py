@@ -40,6 +40,7 @@ cấu hình lại. Không phải sửa code. Thư mục bên Body tên `frontend
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -556,6 +557,52 @@ def _collect_sql(node: dict) -> list[str]:
         for key in ("query", "sql", "statement")
         if isinstance(params.get(key), str)
     ]
+
+
+# Liên kết tới node "không làm gì" mà workflow KHÔNG có (#91, chủ dự án đồng ý 20/11/2026).
+#
+# Đo ở anser-v4 và v5: nhánh "không" của một IF nối tới node tên `noOp`, trong khi kế hoạch im lặng về nhánh đó nên workflow không hề
+# có node ấy (v4: 8 trong 14 ca hỏng; v5: 2 trong 5). `noOp` nghĩa là "không làm gì", đúng bằng để nhánh trống. Nên bỏ liên kết
+# đó là SỬA BẰNG MÃ, không để model quyết (R1), và kết quả đúng ý kế hoạch. Hẹp có chủ ý:
+#   - chỉ bỏ liên kết có ĐÍCH không tồn tại VÀ tên đích chuẩn hoá (chữ thường, bỏ ký tự không phải chữ số hay chữ cái) là noop,
+#     nooperation hay donothing. Có node tên `noOp` thật thì giữ nguyên;
+#   - không đụng liên kết tới node không tồn tại với tên khác ("Trả 200"): đó là lỗi thật, `validate_workflow` vẫn báo;
+#   - không đổi đối tượng gốc; trả bản sao và danh sách liên kết đã bỏ để người gọi ghi nhật ký.
+_TEN_NOOP = {"noop", "nooperation", "donothing"}
+
+
+def _chuan_ten_nut(ten: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(ten).lower())
+
+
+def sua_lien_ket_noop(obj: Any) -> tuple[Any, list[str]]:
+    """(workflow_đã_sửa, ["nguồn -> đích", ...]). Đầu vào không phải workflow hình dạng đúng thì trả nguyên và danh sách rỗng."""
+    try:
+        nodes = obj["payload"]["nodes"]
+        con = obj["payload"]["connections"]
+        ten_nut = {n["name"] for n in nodes if isinstance(n, dict) and "name" in n}
+    except (TypeError, KeyError):
+        return obj, []
+    if not isinstance(con, dict):
+        return obj, []
+    moi = copy.deepcopy(obj)
+    da_bo: list[str] = []
+    for src, ra in moi["payload"]["connections"].items():
+        main = ra.get("main") if isinstance(ra, dict) else None
+        if not isinstance(main, list):
+            continue
+        for nhanh in main:
+            if not isinstance(nhanh, list):
+                continue
+            giu = []
+            for lk in nhanh:
+                dich = lk.get("node") if isinstance(lk, dict) else None
+                if isinstance(lk, dict) and dich not in ten_nut and _chuan_ten_nut(dich) in _TEN_NOOP:
+                    da_bo.append(f"{src} -> {dich}")
+                else:
+                    giu.append(lk)
+            nhanh[:] = giu
+    return (moi, da_bo) if da_bo else (obj, [])
 
 
 # Khoá trong `parameters` có dạng chỗ đặt BÍ MẬT (20/11/2026, R2b). Đo ở `anser-v4`: hai lần model tự viết
