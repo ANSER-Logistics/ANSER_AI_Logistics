@@ -441,7 +441,7 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 
 ### 5.5. Soát và sửa metadata việc cũ (thêm 20/11/2026)
 
-**Chủ dự án cho phép (20/11/2026):** agent được **tự soát và tự sửa metadata** của PR và issue thuộc về người dùng đang chạy agent, không cần hỏi từng lần. "Thuộc về" nghĩa là người đó là tác giả hoặc assignee. Mục đích: việc cũ mở trước §5.4 hay bị gắn sai vẫn hiện đúng trên bảng.
+**Chủ dự án xác nhận (20/11/2026): đúng, nhưng phải có kiểm soát** (bảy điều ở mục *Kiểm soát* dưới). Agent được **tự soát và tự sửa metadata** của PR và issue thuộc về người dùng đang chạy agent, không cần hỏi từng lần. "Thuộc về" nghĩa là người đó là tác giả hoặc assignee. Mục đích: việc cũ mở trước §5.4 hay bị gắn sai vẫn hiện đúng trên bảng.
 
 | Được tự làm | Không được |
 |---|---|
@@ -457,6 +457,18 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 - Label sai nghĩa, ví dụ PR chỉ đổi tài liệu mà gắn `enhancement`.
 
 **Issue còn mở thì không tự chuyển sang `Done`.** Người giao việc quyết khi nào việc xong. Phần của người dùng đã nộp (bình luận, PR) thì để `Cho quyet`.
+
+**Kiểm soát (bắt buộc, chủ dự án chốt 20/11/2026).** Quyền ở trên chỉ có nghĩa khi cả bảy điều sau giữ:
+
+1. **Liệt kê trước, sửa sau.** Chạy lệnh soát, in danh sách đề xuất `repo#N: trường cũ → mới`, rồi mới sửa. Lượt soát đầu tiên của một phiên chỉ liệt kê nếu người dùng chưa nói rõ "soát rồi sửa".
+2. **Có người trong phiên.** Chỉ chạy khi người dùng yêu cầu, hoặc trong phiên của họ đang mở. Không chạy ngầm theo lịch hay hàng loạt khi không ai xem.
+3. **Trần mỗi lượt: 20 mục.** Nhiều hơn thì dừng sau 20, báo còn bao nhiêu, và hỏi trước khi làm tiếp. Việc đổi hàng loạt cùng một trường (ví dụ gắn cùng một label cho cả chục PR) cũng hỏi trước.
+4. **Ghi giá trị cũ TRƯỚC khi sửa**, ngay trong báo cáo của lượt đó, để hoàn tác được bằng một lệnh. Không sửa mà không ghi được giá trị cũ.
+5. **Đọc lại sau khi sửa** bằng lệnh *Kiểm lại sau khi tạo*; nếu khác điều đã định thì báo, không sửa tiếp để "cho khớp".
+6. **Chỉ các trường ở bảng trên.** Không đổi assignee sang người khác, không gỡ reviewer, không đổi base, không bật hay tắt draft.
+7. **Thu hồi được.** Chủ dự án rút quyền này bằng cách sửa hay xoá mục 5.5; agent đọc mục này ở đầu mỗi phiên và theo bản hiện hành.
+
+Bất kỳ điều nào không rõ thì hỏi, không đoán.
 
 **Lệnh soát** (đã chạy thật 20/11/2026):
 
