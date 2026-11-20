@@ -558,6 +558,34 @@ def _collect_sql(node: dict) -> list[str]:
     ]
 
 
+# Khoá trong `parameters` có dạng chỗ đặt BÍ MẬT (20/11/2026, R2b). Đo ở `anser-v4`: hai lần model tự viết
+# `smtpPassword` thẳng vào `parameters.options` của node emailSend (giá trị là chuỗi rác lặp), thay vì dùng mục
+# credentials của n8n. Giá trị rác vô hại, nhưng chỗ đó là chỗ người dùng sẽ điền mật khẩu THẬT, và workflow nằm
+# nguyên văn trong n8n và trong lịch sử chat. Bí mật chỉ được nằm trong credentials của n8n.
+_KHOA_BI_MAT = re.compile(
+    r"pass(?:word|wd|phrase)?$|secret|api[_-]?key|private[_-]?key|access[_-]?token|auth[_-]?token|bearer",
+    re.IGNORECASE,
+)
+
+
+def _khoa_bi_mat(obj: Any, duong: str = "") -> str | None:
+    """Đường dẫn tới khoá giống chỗ đặt bí mật có GIÁ TRỊ chữ khác rỗng và không phải biểu thức n8n, hoặc None."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            tai = f"{duong}.{k}" if duong else str(k)
+            if _KHOA_BI_MAT.search(str(k)) and isinstance(v, str) and v.strip() and not v.lstrip().startswith("="):
+                return tai
+            thay = _khoa_bi_mat(v, tai)
+            if thay:
+                return thay
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            thay = _khoa_bi_mat(v, f"{duong}[{i}]")
+            if thay:
+                return thay
+    return None
+
+
 def validate_workflow(obj: Any) -> tuple[bool, str]:
     """
     Kiểm tra workflow n8n. Trả (ok, lý_do_lỗi).
@@ -629,6 +657,14 @@ def validate_workflow(obj: Any) -> tuple[bool, str]:
 
         if not isinstance(node.get("parameters"), dict):
             return False, f'node "{nname}" thiếu "parameters" (object, có thể rỗng {{}})'
+
+        cho_bi_mat = _khoa_bi_mat(node["parameters"])
+        if cho_bi_mat:
+            return False, (
+                f'node "{nname}" ghi bí mật thẳng vào parameters ("{cho_bi_mat}"). '
+                "Mật khẩu, khoá API, token KHÔNG được nằm trong workflow: dùng mục credentials của n8n "
+                "và để parameters không chứa giá trị đó."
+            )
 
         if catalog[ntype].get("trigger"):
             trigger_count += 1
