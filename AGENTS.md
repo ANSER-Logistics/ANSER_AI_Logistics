@@ -437,7 +437,7 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 
 **Không bỏ qua im lặng.** Việc không có trên Project là việc không ai thấy (§5.0).
 
-Đã chạy thật: `issue-field-values` (18/11/2026), và `gh project view/field-list/item-add/item-edit` cùng danh sách Status (20/11/2026). Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`.
+Đã chạy thật: `issue-field-values` (18/11/2026); `gh project view/field-list/item-add/item-edit`, danh sách Status và `-f type=…` (20/11/2026). Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `sub_issues`, lệnh `blocked_by`.
 
 ### 5.5. Soát và sửa metadata việc cũ (thêm 20/11/2026)
 
