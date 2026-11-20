@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from fastapi import Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from src.api import hmac_auth
 from src.core.config import LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN
 from src.core.config import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
 
@@ -282,10 +283,16 @@ def thieu_token_o_trien_khai() -> bool:
     Từ 20/11/2026 (chủ dự án chốt) `lifespan` TỪ CHỐI KHỞI ĐỘNG khi hàm này trả `True`; `/health.auth_missing_in_deployment` vẫn
     còn cho các lời gọi không qua lifespan (TestClient không dùng `with`). Trước đó chỉ cảnh báo.
     """
+    if hmac_auth.dang_cuong_che() and hmac_auth.nap_khoa():
+        return False                       # `enforce`: cổng là HMAC (khoá đã kiểm lúc khởi động), token cũ không còn bắt buộc
     return os.getenv("ENV", "").strip().upper() != "LOCAL" and not API_AUTH_TOKEN
 
 
 def require_api_token(x_api_token: Optional[str]) -> None:
+    if hmac_auth.da_xac_thuc.get():
+        return                             # `auth_guard` đã xác thực yêu cầu này bằng HMAC (chế độ `enforce`)
+    if hmac_auth.dang_cuong_che():
+        raise HTTPException(status_code=401, detail="Unauthorized")   # enforce: không có HMAC thì không có đường vào
     if not API_AUTH_TOKEN:
         return
     if x_api_token != API_AUTH_TOKEN:
@@ -317,6 +324,23 @@ async def auth_guard(x_api_token: Optional[str] = Header(None)) -> None:
     thành lớp thứ hai. Cổng thật nằm ở đây; `tests/test_auth_bao_phu.py` canh
     rằng KHÔNG endpoint nào thoát ra ngoài cổng này.
     """
+    require_api_token(x_api_token)
+
+
+async def auth_guard_hmac(x_api_token: Optional[str] = Header(None)) -> None:
+    """
+    Cổng thật (xem `auth_guard`) theo `API_HMAC_MODE` (A6, `src/api/hmac_auth.py`).
+
+    Việc đọc thân và kiểm chữ ký nằm ở `HmacMiddleware` (ASGI thuần, đăng ký ở `main.py`): dependency không đọc thân được an toàn
+    (multipart ném `Stream consumed`). Ở đây chỉ còn quyết định theo kết quả của middleware:
+
+    - `off` và `log`: token cũ vẫn là cổng (chế độ `log` chỉ ghi nhận HMAC).
+    - `enforce`: phải có cờ `da_xac_thuc` do middleware đặt; không có thì 401. Dù ai đó gỡ middleware khỏi `main.py`, cổng vẫn đóng.
+    """
+    if hmac_auth.dang_cuong_che():
+        if not hmac_auth.da_xac_thuc.get():
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        return
     require_api_token(x_api_token)
 
 

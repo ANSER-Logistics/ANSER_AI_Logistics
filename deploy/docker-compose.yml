@@ -173,6 +173,12 @@ services:
       # compose và đối chiếu với tên biến mà code gọi os.getenv.
       API_AUTH_TOKEN: ${API_TOKEN:?thiếu API_TOKEN trong .env}
       VLLM_API_KEY: ${VLLM_API_KEY:-}
+      # HMAC từng yêu cầu (A6, src/api/hmac_auth.py). off = như cũ; log = vẫn bắt token cũ, chỉ ghi nhận chữ ký; enforce = bắt
+      # buộc chữ ký, token cũ hết là đường vào. Khoá mỗi bên gọi một biến API_HMAC_KEY_<ID> (key id = <id> chữ thường, "_" thành
+      # "-"), từ 32 ký tự; xoay khoá bằng cách đặt thêm API_HMAC_KEY_BODY_2. RỖNG = tắt khoá đó. Khoá là BÍ MẬT: chỉ trong .env.
+      API_HMAC_MODE: ${API_HMAC_MODE:-off}
+      API_HMAC_KEY_BODY: ${API_HMAC_KEY_BODY:-}
+      API_HMAC_KEY_N8N: ${API_HMAC_KEY_N8N:-}
       # Bốn biến dưới đây ĐỔI HÀNH VI THẬT, và trước 04/11/2026 không có mặt
       # ở compose lẫn .env.example — nên đặt chúng trong .env KHÔNG có tác
       # dụng gì, vì chúng không tới được container.

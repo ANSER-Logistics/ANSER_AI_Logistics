@@ -48,7 +48,8 @@ DOC_QUA_FSTRING = {
 }
 
 # Biến do thư viện/hệ điều hành đọc, không phải code mình.
-NGOAI_CODE = {"ENV", "PYTHONPATH", "PYTHONUNBUFFERED", "TZ"}
+# `API_HMAC_KEY_*`: `hmac_auth.nap_khoa()` đọc mọi biến có tiền tố đó (một biến một bên gọi), nên regex `getenv("TÊN")` không thấy.
+NGOAI_CODE = {"ENV", "PYTHONPATH", "PYTHONUNBUFFERED", "TZ", "API_HMAC_KEY_BODY", "API_HMAC_KEY_N8N"}
 
 
 def _env_cua_brain() -> list[str]:
