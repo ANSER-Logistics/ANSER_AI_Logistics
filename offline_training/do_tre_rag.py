@@ -218,7 +218,8 @@ def chay(lan: int, device: str) -> dict[str, Any]:
     khac = [t - sum(so[b][i] for b in BUOC if i < len(so[b])) for i, t in enumerate(so["tong"])]
 
     # Ngưỡng cắt thật, đọc từ model, không đoán (PCBoiz 19/11 đoán 8192 từ config).
-    max_len = getattr(ce, "max_length", None) or getattr(ce, "max_seq_length", None)
+    # `max_seq_length` trước: sentence-transformers 5.7 báo `max_length` sắp bỏ (đo Colab 20/11, cả hai ra 8192).
+    max_len = getattr(ce, "max_seq_length", None) or getattr(ce, "max_length", None)
     nguong = {
         "crossencoder_max_length": max_len,
         "tokenizer_model_max_length": getattr(tok, "model_max_length", None),
