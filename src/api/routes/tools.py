@@ -115,9 +115,16 @@ class _ToolIn(BaseModel):
     `"5000000"` dạng chuỗi — thứ JSON thật hay có — cũng bị từ chối, tức đổi
     một lỗi im lặng lấy một lỗi ồn ào ở chỗ KHÁC. Bật từng chỗ khi có bằng
     chứng, không bật theo cảm giác.
+
+    `allow_inf_nan=False` Ở ĐÂY thì khác: áp cho MỌI trường số của MỌI schema (20/11/2026). Một con số vô cực hay NaN không bao giờ là
+    đầu vào hợp lệ của một khoản tiền, và pydantic mặc định cho qua. `Infinity` làm `finding()` ném `OverflowError` (`round(inf)`), route chỉ
+    bắt `ValueError`, nên `/tools/partner-audit` trả HTTP 500; `NaN` ra 422 với lời lẽ khó hiểu. Chỉ `VatItem` và vài trường khác từng có
+    `allow_inf_nan=False` viết tay, còn lại (`PartnerIn.balance`, `opening_value`, `cogs`...) hở. Đổi sang 422 nói rõ "số hữu hạn".
+    Body gửi từ TypeScript thì `JSON.stringify` đổi cả hai thành `null` (tức "chưa biết"), nên rủi ro thực thấp; vẫn đóng vì Brain
+    không nên tin phía gọi.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 class SurchargeIn(_ToolIn):
