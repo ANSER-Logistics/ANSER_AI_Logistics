@@ -88,6 +88,8 @@ def main():
     # 2. PREPARE ENVIRONMENT
     env = os.environ.copy()
     env["DATABASE_URL"] = _require_env("DATABASE_URL")
+    # Máy chủ demo mở ra URL công khai (ngrok): Brain từ chối khởi động khi thiếu token, nên bắt buộc ngay từ đây với thông báo rõ.
+    env["API_AUTH_TOKEN"] = _require_env("API_AUTH_TOKEN")
 
     # CRITICAL FIX: Add project_root to PYTHONPATH
     # This tells Python/Uvicorn: "Look for modules in this folder first"
