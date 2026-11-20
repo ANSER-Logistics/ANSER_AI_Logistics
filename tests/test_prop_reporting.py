@@ -395,7 +395,7 @@ def test_phu_gia_von_tinh_theo_doanh_thu_va_nam_trong_0_den_100(ban, muc):
         pct = p["cogs_coverage_pct"]
         assert _khop_pct(pct, k.dt_co_von, k.dt, 1), k.nhan
         assert pct is None or 0 <= pct <= 100
-    tong = sum(round(k.dt) for k in mau)
+    tong = sum(k.dt for k in mau)   # chưa làm tròn: mẫu số làm tròn từng ra 125% (xem mục 6)
     assert _khop_pct(out["explain"]["cogs_coverage_pct"], sum(k.dt_co_von for k in mau), Fraction(tong), 1)
 
 
@@ -686,3 +686,22 @@ def test_phu_gia_von_nam_trong_0_den_100_ca_khi_co_dong_tra_hang_am(ban, muc):
     out = _chay(ban, [], muc)
     for pct in [p["cogs_coverage_pct"] for p in out["periods"]] + [out["explain"]["cogs_coverage_pct"]]:
         assert pct is None or 0 <= pct <= 100
+
+
+# ===========================================================================
+# 6. Hồi quy: phủ giá vốn không vượt 100% vì làm tròn (Hypothesis tìm ra khi chạy cùng test_prop_pricing)
+# ===========================================================================
+
+def test_phu_gia_von_khong_vuot_100_khi_doanh_thu_le_duoi_mot_dong():
+    """Doanh thu 1,25 có giá vốn: tử chưa tròn / mẫu đã tròn từng ra 125%."""
+    out = build_report(ReportRequest(granularity="month", periods_back=1, top_n=1, expenses=[], sales=[
+        SaleLine(date="2025-01-01", revenue=1.25, product="Gạo", quantity=1.0, cogs=0.0)]))
+    assert out["explain"]["cogs_coverage_pct"] == 100.0
+
+
+def test_doanh_thu_duoi_nua_dong_van_la_co_doanh_thu():
+    """Doanh thu 0,4 làm tròn về 0 không được rơi vào nhánh 'không có doanh thu'."""
+    out = build_report(ReportRequest(granularity="month", periods_back=1, top_n=1, expenses=[], sales=[
+        SaleLine(date="2025-01-01", revenue=0.4, product="Gạo", quantity=1.0, cogs=0.1)]))
+    assert out["explain"]["confidence"] != "không có dữ liệu"
+    assert out["explain"]["cogs_coverage_pct"] == 100.0

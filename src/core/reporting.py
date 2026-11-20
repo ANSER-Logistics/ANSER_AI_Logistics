@@ -245,7 +245,9 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
         prev_revenue, prev_net = b["revenue"], net_profit
 
     # --- độ tin cậy dựa trên phủ giá vốn của TOÀN báo cáo -------------------
-    total_revenue = sum(p["revenue"] for p in periods)
+    # Doanh thu CHƯA làm tròn: `periods[i]["revenue"]` đã round() về đồng nguyên, còn `total_with_cogs` thì chưa;
+    # lấy tử chưa tròn chia mẫu đã tròn ra 125% (doanh thu 1,25) hoặc rơi vào nhánh "không có doanh thu" (0,4).
+    total_revenue = sum(buckets[k]["revenue"] for k in ordered)
     total_with_cogs = sum(buckets[k]["revenue_with_cogs"] for k in ordered)
     if not total_revenue:
         # Có kỳ (vì có chi phí) nhưng KHÔNG có doanh thu nào: không đo được phủ giá
