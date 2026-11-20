@@ -15,10 +15,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.api import hmac_auth
 from src.api.dependencies import (
     API_AUTH_TOKEN,
     RUNTIME_PROFILE,
-    auth_guard,
+    auth_guard_hmac,
     runtime,
     thieu_token_o_trien_khai,
 )
@@ -46,6 +47,7 @@ ALLOWED_ORIGINS = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup — khởi tạo model là lười; chỉ kiểm cấu hình xác thực.
+    hmac_auth.kiem_cau_hinh()     # chế độ lạ, thiếu khoá hay khoá ngắn: từ chối khởi động (không in giá trị khoá)
     if thieu_token_o_trien_khai():
         # Cùng sự cố 13/08/2026: compose đặt sai TÊN biến token, Brain chạy mở mà không ai thấy. Trước 20/11/2026 chỉ
         # log CRITICAL và `/health.degraded`; chủ dự án chốt TỪ CHỐI KHỞI ĐỘNG: một dịch vụ mở cho bất kỳ ai tới được địa chỉ
@@ -85,6 +87,8 @@ app = FastAPI(
     openapi_url="/openapi.json" if _TAI_LIEU_TU_SINH else None,
 )
 
+# HMAC (A6): đăng ký TRƯỚC các middleware khác để nằm TRONG cùng (chạy sau request-id, CORS). `/health` không cần chữ ký.
+app.add_middleware(hmac_auth.HmacMiddleware, mien=frozenset({"/health"}))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -241,6 +245,8 @@ async def health():
             # xảy ra với compose ngày 13/08/2026. Một dòng ở /health biến lỗi
             # câm thành lỗi nhìn ra ngay.
             "auth_enabled": bool(API_AUTH_TOKEN),
+            # HMAC (A6): chế độ, key id (KHÔNG có khoá) và bộ đếm theo lý do. Chỉ THÊM khoá.
+            "hmac": hmac_auth.thong_ke(),
             # Chạy như bản triển khai (ENV khác LOCAL) mà không có token: kéo `degraded` lên và có dòng CRITICAL
             # lúc khởi động. Chỉ THÊM khoá; xem `thieu_token_o_trien_khai`.
             "auth_missing_in_deployment": auth_thieu,
@@ -266,7 +272,7 @@ from src.api.routes.tools import router as tools_router
 # `/health` KHÔNG nằm trong danh sách này (nó gắn thẳng vào `app`): nó phải trả
 # lời được cả khi người hỏi chưa có token — đó là chỗ để biết Brain sống hay
 # chết, và để nhìn `auth_enabled`.
-_CAN_TOKEN = [Depends(auth_guard)]
+_CAN_TOKEN = [Depends(auth_guard_hmac)]
 
 app.include_router(chat_router, dependencies=_CAN_TOKEN)
 app.include_router(documents_router, dependencies=_CAN_TOKEN)
