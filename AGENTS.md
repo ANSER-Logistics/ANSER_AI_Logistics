@@ -318,7 +318,7 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 | **Effort** | Bắt buộc | Bắt buộc | `High`, `Medium`, `Low` |
 | **Start date**, **Target date** | Khi việc có hạn | Khi PR có hạn | `YYYY-MM-DD` |
 | **Project** | `Brain — Giao viec` (org Project số 6) | như issue | Mọi việc phải có mặt ở đây (§5.0) |
-| **Project Status** | `Todo` khi mới mở | Trạng thái đúng lúc mở | Danh sách đầy đủ: lệnh `field-list` bên dưới. Ngoài `Todo` chưa đo được |
+| **Project Status** | Theo bảng *Status theo vòng đời* bên dưới | như issue | `Todo`, `In Progress`, `Cho quyet`, `Done` (đo 20/11/2026) |
 | **Reviewers** | — | Team `brain` do CODEOWNERS tự gắn. **Thêm** người cụ thể khi cần chuyên môn; chạm hợp đồng với Body thì thêm team `body`. **Không tự thêm mình** | Login thành viên, `ANSER-Logistics/brain`, `ANSER-Logistics/body` |
 | **Base** | — | Nhánh tính năng đang tích hợp, **không phải `main`** (§6.0) | |
 | **Draft** | — | Mở draft khi chưa qua `pytest` + `ruff` hoặc đang chờ phản biện (§5.2) | |
@@ -375,14 +375,29 @@ JSON
 
 PR không có Type. Priority và Effort gắn được lên PR qua cùng endpoint (đã chạy thử trên PR #144 ngày 18/11/2026). Giao diện PR có thể không hiện mục Fields, nhưng giá trị vẫn được lưu.
 
-**Project Status** (cần scope `project`, xem dưới):
+**Project Status** (cần scope `project`, xem dưới). Đã chạy thật ngày 20/11/2026:
 
 ```bash
+STATUS=Todo   # hoặc "In Progress", "Cho quyet", "Done" — xem bảng dưới
 PID=$(gh project view 6 --owner ANSER-Logistics --format json -q .id)
 ITEM=$(gh project item-add 6 --owner ANSER-Logistics --url "$URL" --format json -q .id)
-gh project field-list 6 --owner ANSER-Logistics --format json   # lấy id của trường Status và id của lựa chọn Todo
-gh project item-edit --project-id "$PID" --id "$ITEM" --field-id <id Status> --single-select-option-id <id Todo>
+FID=$(gh project field-list 6 --owner ANSER-Logistics --format json -q '.fields[] | select(.name=="Status") | .id')
+OID=$(gh project field-list 6 --owner ANSER-Logistics --format json -q ".fields[] | select(.name==\"Status\") | .options[] | select(.name==\"$STATUS\") | .id")
+gh project item-edit --project-id "$PID" --id "$ITEM" --field-id "$FID" --single-select-option-id "$OID"
 ```
+
+Chỉ dùng cờ `-q` có sẵn của `gh`, không cần cài `jq` (máy dev Windows không có).
+
+**Status theo vòng đời.** Project là **private** (chỉ thành viên org thấy). Bốn trạng thái, gắn theo thực trạng **lúc gắn**:
+
+| Status | Issue | PR |
+|---|---|---|
+| `Todo` | Mới mở, chưa ai bắt đầu | — |
+| `In Progress` | Đang làm | Đang là draft |
+| `Cho quyet` | Đã nộp phần mình (bình luận, PR), chờ chủ dự án hay người giao quyết | Mở, sẵn sàng duyệt, chờ người duyệt |
+| `Done` | Xong hoặc đã đóng | Đã gộp hoặc đã đóng |
+
+**Đọc trạng thái thật trước khi gắn Status**, nhất là khi gắn bù cho việc cũ: `gh pr view <N> --json state,isDraft` hay `gh issue view <N> --json state`. Sự cố 20/11/2026: agent gắn bù PR #144 lên bảng với `Cho quyet` trong khi PR đã gộp từ trước; đúng ra phải là `Done`.
 
 **Liên kết** (REST cần `id` dạng số của issue, không phải số `#N`):
 
@@ -414,7 +429,7 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 
 #### Khi token `gh` thiếu scope
 
-Đo 18/11/2026: token trên máy dev chỉ có `gist, notifications, read:org, repo, workflow`. Thiếu `project` thì `--project`, `gh project …` và `--json projectItems` đều báo lỗi scope. Gặp lỗi đó thì:
+`gh auth login` mặc định **không** cấp scope `project`. Thiếu nó thì `--project`, `gh project …` và `--json projectItems` đều báo lỗi scope. Cấp một lần: `gh auth refresh -h github.com -s project`, rồi kiểm `gh auth status` thấy `project` trong `Token scopes`. Agent không tự làm được bước này (phải duyệt trên trình duyệt). Gặp lỗi đó thì:
 
 1. Vẫn gắn mọi trường còn lại.
 2. Ghi vào body: *"Chưa gắn Project vì token thiếu scope `project`."*
@@ -422,7 +437,7 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 
 **Không bỏ qua im lặng.** Việc không có trên Project là việc không ai thấy (§5.0).
 
-Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`, và danh sách lựa chọn của trường Status. Lệnh `issue-field-values` đã chạy thật.
+Đã chạy thật: `issue-field-values` (18/11/2026), và `gh project view/field-list/item-add/item-edit` cùng danh sách Status (20/11/2026). Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`.
 
 ---
 
