@@ -47,12 +47,18 @@ ALLOWED_ORIGINS = [
 async def lifespan(app: FastAPI):
     # Startup — khởi tạo model là lười; chỉ kiểm cấu hình xác thực.
     if thieu_token_o_trien_khai():
-        # Cùng sự cố 13/08/2026: compose đặt sai TÊN biến token, Brain chạy mở mà không ai thấy. Nó không
-        # làm gì lỗi nên chỉ log và `/health` mới lộ ra. CRITICAL để dòng này không chìm giữa log thường.
+        # Cùng sự cố 13/08/2026: compose đặt sai TÊN biến token, Brain chạy mở mà không ai thấy. Trước 20/11/2026 chỉ
+        # log CRITICAL và `/health.degraded`; chủ dự án chốt TỪ CHỐI KHỞI ĐỘNG: một dịch vụ mở cho bất kỳ ai tới được địa chỉ
+        # của nó không phải trạng thái chạy được, và log không ai đọc thì không cứu được ai. Fail-closed như BR-34:
+        # mọi `ENV` khác `LOCAL` (kể cả rỗng hay gõ sai) đều bị coi là triển khai.
         logger.critical(
-            "API_AUTH_TOKEN TRỐNG khi ENV=%r (khác LOCAL): MỌI route nghiệp vụ đang MỞ cho bất kỳ ai tới "
-            "được Brain. Đặt API_AUTH_TOKEN, hoặc ENV=LOCAL nếu chỉ chạy trên máy dev.",
+            "API_AUTH_TOKEN TRỐNG khi ENV=%r (khác LOCAL): từ chối khởi động, vì MỌI route nghiệp vụ sẽ MỞ cho bất kỳ ai tới "
+            "được Brain.",
             os.getenv("ENV", ""),
+        )
+        raise RuntimeError(
+            "Từ chối khởi động: API_AUTH_TOKEN trống khi ENV khác LOCAL (mọi route nghiệp vụ sẽ mở cho bất kỳ ai). "
+            "Đặt API_AUTH_TOKEN, hoặc ENV=LOCAL nếu chỉ chạy trên máy dev."
         )
     yield
     # Shutdown — close the shared HTTP client pool
