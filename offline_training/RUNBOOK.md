@@ -388,3 +388,56 @@ python offline_training/ke_hoach_vram.py --model /content/models/text --ten anse
 Bật hai server **lần lượt** theo lệnh in ra (text trước). Server vision báo thiếu bộ nhớ lúc khởi động thì tăng `--overhead-rieng anser-vision=4.5` rồi tính lại. Ghi overhead thật = (VRAM đỉnh đo bằng `nvidia-smi`) trừ trọng số trừ KV: số này thay cho con số đoán trong bảng 8.1.
 
 **Hai chỗ cần sửa trong `deploy/docker-compose.yml` nếu chọn một trong hai ứng viên** (compose chưa từng được chạy): `--limit-mm-per-prompt=image=2` là cú pháp cũ, tài liệu vLLM 0.11.2 chỉ cho thấy dạng JSON `'{"image":2}'`; và `VISION_GPU_FRACTION=0.25` (5,6 GiB) quá nhỏ cho cả hai ứng viên (cần khoảng 0,44-0,47 theo bảng trên).
+
+
+## 9. Chọn hướng sau v5: hai LoRA trên nền AWQ, hay hai server (#91, 20/11/2026)
+
+Chủ dự án (20/11): "kiểm kĩ lại trên nền AWQ". Mục này ghi cái đã xác minh bằng ĐỌC NGUỒN (chưa chạy GPU) và phép kiểm rẻ nhất để quyết.
+
+### 9.1 Đã xác minh từ nguồn (vLLM tag v0.11.2, Hugging Face, `train_v3.py`)
+
+| Điều | Kết quả | Nguồn |
+|---|---|---|
+| Qwen3 hỗ trợ LoRA | Có: `Qwen3ForCausalLM(nn.Module, SupportsLoRA, ...)`, có `packed_modules_mapping` | `vllm/model_executor/models/qwen3.py` |
+| LoRA chạy trên lớp tuyến tính lượng tử | Có, ở mức mã: lớp LoRA gọi `base_layer.quant_method.apply`, không riêng kiểu lượng tử nào; `awq_marlin.py` không có đoạn nào chặn LoRA | `vllm/lora/layers/base_linear.py`, `awq_marlin.py` |
+| Có test upstream cho AWQ + LoRA | Có, nhưng chỉ TinyLlama-1.1B với `quantization="awq"` tường minh. **Không** có Qwen3, **không** có `awq_marlin` | `tests/lora/test_quant_model.py` |
+| Hạng LoRA | `--max-lora-rank` mặc định **16**; adapter v3 và v5 train `LORA_R=32`. Quên cờ này thì server từ chối adapter | `vllm/config/lora.py`, `train_v3.py:58` |
+| Nền AWQ có sẵn | `Qwen/Qwen3-8B-AWQ` (Apache-2.0, AWQ 4-bit, `group_size` 128, `version: gemm`) là AWQ của bản GỐC, không phải bản đã gộp | API Hugging Face |
+| Adapter train trên nền nào | NF4 của bitsandbytes (`train_v3.py`, `BitsAndBytesConfig`), rồi production **gộp vào bf16 rồi mới AWQ** (`merge_and_quantize.py`) | mã |
+
+**Điều chưa ai biết, và là điều quyết định:** adapter rời đặt lên nền AWQ-của-bản-gốc là một tổ hợp lượng tử hoá KHÁC cả lúc train (NF4) lẫn lúc production đang chạy (gộp rồi AWQ). Hai nền lệch nhau một nhiễu lượng tử; v3 đạt 33/34 ở dạng gộp rồi AWQ, và không có lý do để chắc adapter rời giữ được con số đó. Đọc nguồn không trả lời được câu này, chỉ chạy được.
+
+**Brain cũng phải đổi:** `VLLMServerClient` chỉ có một `model` (`serving.py:666`, từ `VLLM_MODEL`) cho mọi lời gọi text. Hai LoRA nghĩa là chọn tên model theo tác vụ (n8n dùng adapter v3, còn lại dùng v5): một biến env tuỳ chọn cho nhánh n8n, mặc định bằng `VLLM_MODEL`, nhỏ và giữ R5. **Chưa làm**, vì chỉ có nghĩa khi phép kiểm dưới đây qua.
+
+### 9.2 Phép kiểm rẻ nhất (Colab L4, khoảng 30 đến 40 phút, không train)
+
+Bước 1, khởi động (cờ `--max-lora-rank 32` bắt buộc; thử với `--quantization awq` tường minh VÀ để vLLM tự chọn, vì để vLLM tự chọn có thể lên `awq_marlin` (suy ra từ cách vLLM nâng cấp kernel AWQ, mình chưa kiểm ở v0.11.2), tổ hợp upstream không test):
+
+```bash
+vllm serve Qwen/Qwen3-8B-AWQ --served-model-name base --enable-lora --max-lora-rank 32     --lora-modules v3=/content/drive/.../anser-v3-lora v5=/content/drive/.../anser-v5-lora     --max-model-len 14336 --gpu-memory-utilization 0.60 --port 8003
+```
+
+Qua bước 1 khi: server lên không lỗi, `GET /v1/models` liệt kê `base`, `v3`, `v5`. Lỗi ở đây (từ chối `awq_marlin`, hoặc hạng) là kết quả hợp lệ: ghi nguyên văn và dừng, hướng hai LoRA đóng.
+
+Bước 2, chất lượng: chạy `benchmark_v3` nhánh n8n (34 câu, cùng cách như mục 6) với `--model v3` trên server này, và so theo cặp với `v3.json` đã có (bản gộp rồi AWQ, 33/34). **Qua** khi adapter v3 rời trên nền AWQ làm hỏng không quá 1 câu so với `v3.json`. Chạy tiếp nhánh bóc yêu cầu và diễn giải với `--model v5` để biết v5 rời có còn 91/95 và 26/27 không.
+
+Bước 3 (không bắt buộc): VRAM và độ trễ lúc phục vụ hai adapter cùng lúc (`--max-loras 2`), p95 ms mỗi token so với server gộp.
+
+### 9.3 Phương án không cần LoRA: hai server
+
+Thành đã chạy v3, v4 và DeepSeek cạnh nhau trên một L4 (mục 6: `--max-model-len=14336 --gpu-memory-utilization=0.46`), nên hai server 8B AWQ trên cùng GPU là đường đã chạy được, không phải phỏng đoán. Brain gọi n8n vào server giữ v3, phần còn lại vào server giữ v5. Cái giá: trọng số 5,7 GiB mỗi bản, và ngữ cảnh mỗi server nhỏ hơn compose hiện nay (32.768); n8n và bóc yêu cầu không cần dài, nhưng phải đo cái nào cần. `python offline_training/ke_hoach_vram.py` tính trước. Cần cùng thay đổi nhỏ ở Brain (chọn địa chỉ và tên model theo tác vụ) và không có rủi ro chất lượng của bước 9.2.
+
+**Khuyến nghị của agent (chủ dự án quyết):** chạy 9.2 bước 1 trước. Nó rẻ, và kết quả đóng hoặc mở cả hướng hai LoRA. Nếu bước 1 hay bước 2 trượt thì chọn 9.3, không cần train gì thêm.
+
+## 10. Dữ liệu v6 (#91): hai họ rút từ ca hỏng thật của v5
+
+`make_n8n_pairs.py --bo-loc 60 --v6 40` thêm hai họ mẫu từ `make_n8n_v6.py` (hư cấu, qua `validate_workflow`, không dùng lại bước nào của bộ đo, có test):
+
+| Họ | Nhắm vào | Vì sao |
+|---|---|---|
+| C `tinh_roi_loc`: lấy, TÍNH, IF, dựng, gửi | `gia_canh_bao_bien_mong`, `no_bao_cao_tap_trung` (nhánh "không" nối tới `noOp` không có) | Cả hai đề có bước tính nằm giữa lấy dữ liệu và IF. Họ `bo_loc` của v5 luôn là lấy rồi IF ngay, nên model chưa thấy khuôn này |
+| B `gui_tung`: bước có chữ "từng" là MỘT node | `no_doi_chieu_ncc` (trùng tên node) | n8n chạy mỗi node trên từng dòng dữ liệu, nên "gửi từng X" là một node; model sinh hai node cùng tên |
+
+**Hai lỗi còn lại KHÔNG sửa bằng dữ liệu v6:** `hd_luu_tru_hoa_don` (model lặp trong chuỗi tự do của `parameters`: lỗ hở grammar, xem #91) và `gia_cap_nhat_bang_gia_khach` (nối tới `Trả 200` không có). Lỗi sau cần biết n8n làm gì khi nhánh thành công của webhook không có node Respond; chưa kiểm trên n8n thật, nên chưa có mẫu dạy (dạy một hành vi n8n chưa kiểm là dạy bừa). Việc kiểm giao Sơn (có instance n8n) ở #91.
+
+**Liều và đo.** Cùng cấu hình v3, v4, v5, chỉ dữ liệu đổi; ghi `n8n_v6` trong `dataset_manifest.json`. Liều 40 là điểm xuất phát, không phải kết quả đo: `bo_loc` 60 cộng v6 40 là 100 mẫu hư cấu trong khoảng 1.230 mẫu train của v6 (v5: 1.188), nên theo dõi `by_source` như mục 7.1. Đo như mục 7.3 và nêu bảng so với v3, v4, v5 theo cặp.

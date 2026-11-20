@@ -145,6 +145,9 @@ def main() -> None:
     parser.add_argument("--bo-loc", type=int, default=0, metavar="N",
                         help="thêm N mẫu n8n 'bộ lọc nghiệp vụ' (IF là câu hỏi, nhánh không để trống hoặc có bước riêng; "
                              "make_n8n_bo_loc.py, #91 v5). Mặc định 0: không đổi dataset hiện có")
+    parser.add_argument("--v6", type=int, default=0, metavar="N",
+                        help="thêm N mẫu n8n cho anser-v6: họ 'lấy -> tính -> IF' và họ 'gửi từng X' "
+                             "(make_n8n_v6.py, #91). Mặc định 0: không đổi dataset hiện có")
     args = parser.parse_args()
 
     _stage_catalog_dir()
@@ -188,6 +191,16 @@ def main() -> None:
             else:
                 skipped.append((m["_id"], f"validate_workflow: {why}"))
 
+    if args.v6:
+        from offline_training.make_n8n_v6 import sinh as sinh_v6
+        from src.core.workflow_schema import get_node_catalog as lay_catalog
+        for m in sinh_v6(lay_catalog(), args.v6):
+            ok, why = validate_workflow(m["answer"])
+            if ok:
+                pairs.append(m)
+            else:
+                skipped.append((m["_id"], f"validate_workflow: {why}"))
+
     rng = random.Random(args.seed)
     rng.shuffle(pairs)
     eval_pairs, train_pairs = pairs[:N_EVAL], pairs[N_EVAL:]
@@ -206,6 +219,9 @@ def main() -> None:
             "kiểm lại, file eval_n8n.jsonl không được ghi từ đây."
         )
 
+    n_v6 = sum(1 for p in train_pairs if p.get("_source") == "n8n_v6")
+    if n_v6:
+        print(f"  trong đó {n_v6} mẫu v6 (họ 'lấy -> tính -> IF' và 'gửi từng X', #91)")
     n_bl = sum(1 for p in train_pairs if p.get("_source") == "n8n_bo_loc")
     print(f"✓ {train_path} — {len(train_pairs)} cặp train" + (f", trong đó {n_bl} mẫu 'bộ lọc nghiệp vụ' (#91)" if n_bl else ""))
     print("  eval n8n do make_n8n_eval.py sinh riêng (không cắt khỏi tập train)")
