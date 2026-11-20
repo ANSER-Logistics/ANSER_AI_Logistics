@@ -25,6 +25,7 @@ hơn không có: người ta sẽ thêm `noqa` cho qua, rồi lần sau không a
 
   ✓ quy tắc 3  không `print`, dùng `logger`
   ✓ quy tắc 4  không nuốt exception
+  ✓ R5         không tên GPU trong CHUỖI của mã (docstring và chú thích được nhắc tên máy đo, mã thì không)
 
   ✗ quy tắc 7  "prompt chỉ sống trong prompts.py" — đã thử và BỎ. Mẫu khả dĩ là
                tìm `{"role": "system"}` ngoài prompts.py, nhưng nó bắt
@@ -45,6 +46,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 
 import pytest
 
@@ -275,3 +277,42 @@ def test_prompt_khai_chua_dung_dung_la_chua_dung(ten):
         f"soát lại khối [LƯỢC ĐỒ] trong nó vì giờ nó đến được người dùng."
     )
     assert PROMPT_CHUA_DUNG[ten].strip(), f"'{ten}' phải kèm lý do"
+
+
+# ---------------------------------------------------------------------------
+# R5 — không ghim phần cứng (AGENTS §2, R5)
+# ---------------------------------------------------------------------------
+# Chỉ soi CHUỖI LITERAL ngoài docstring. Chú thích và docstring được nhắc tên GPU (số đo "trên L4" cần nói máy nào đo); thứ R5 cấm là
+# tên GPU nằm trong GIÁ TRỊ mà mã dùng để chạy (so sánh `== "A100"`, đường dẫn, mặc định cấu hình). Nền đo 20/11/2026: 0 vi phạm,
+# nên phép kiểm này không cần danh sách ngoại lệ, và vi phạm đầu tiên là một dòng đỏ thật.
+_TEN_GPU = re.compile(r"\b(A100|H100|V100|L4|T4|RTX\s?\d{3,4}|GTX\s?\d{3,4}|3090|4090)\b")
+
+
+def _chuoi_ngoai_docstring(cay: ast.AST):
+    docstring = set()
+    for nut in ast.walk(cay):
+        if isinstance(nut, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and nut.body:
+            dau = nut.body[0]
+            if isinstance(dau, ast.Expr) and isinstance(dau.value, ast.Constant) and isinstance(dau.value.value, str):
+                docstring.add(id(dau.value))
+    for nut in ast.walk(cay):
+        if isinstance(nut, ast.Constant) and isinstance(nut.value, str) and id(nut) not in docstring:
+            yield nut
+
+
+def test_r5_bat_duoc_ten_gpu_trong_chuoi_va_bo_qua_docstring():
+    """Chốt chống xanh suông: phép kiểm dưới chỉ có nghĩa nếu nó thật sự thấy tên GPU trong chuỗi và thật sự bỏ qua docstring."""
+    mau = ('"""Đo trên L4."""' + chr(10) + chr(10) + "def f():" + chr(10) + '    """Chạy trên RTX 3090."""' + chr(10)
+           + '    return "A100"' + chr(10))
+    cay = ast.parse(mau)
+    assert [n.value for n in _chuoi_ngoai_docstring(cay)] == ["A100"]
+    assert _TEN_GPU.search("A100") and _TEN_GPU.search("RTX 3090") and not _TEN_GPU.search("model-l4x")
+
+
+def test_r5_khong_ten_gpu_trong_chuoi_cua_ma():
+    xau = []
+    for p in _file_nguon():
+        for nut in _chuoi_ngoai_docstring(ast.parse(p.read_text(encoding="utf-8"))):
+            if _TEN_GPU.search(nut.value):
+                xau.append(f"{p.relative_to(GOC).as_posix()}:{nut.lineno}")
+    assert not xau, f"tên GPU trong chuỗi của mã (R5: phần cứng đọc từ env): {xau}"

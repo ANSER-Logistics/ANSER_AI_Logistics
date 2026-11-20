@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./src/data/*.png)",
+      "Read(./src/data/*.jpg)",
+      "Read(./src/data/*.jpeg)",
+      "Read(./src/data/*.pdf)",
+      "Read(./src/data/ai_metrics_log.jsonl)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./deploy/.env)"
+    ]
+  }
+}
