@@ -45,9 +45,9 @@ def _wf_hop_le() -> str:
 
 
 def _wf_noi_toi_node_khong_co() -> str:
-    """Đúng dạng lỗi của v4: nhánh nối tới `noOp` mà không có node nào mang tên đó."""
+    """Nhánh nối tới một node không có. Từ 20/11/2026 `noOp` KHÔNG còn dùng được làm ví dụ: nó được sửa trước khi kiểm (`sua_lien_ket_noop`); lỗi thật là tên khác, như `Trả 200` của v5."""
     d = json.loads(_wf_hop_le())
-    d["payload"]["connections"]["Lich"]["main"][0][0]["node"] = "noOp"
+    d["payload"]["connections"]["Lich"]["main"][0][0]["node"] = "Trả 200"
     return json.dumps(d)
 
 
@@ -123,7 +123,7 @@ def test_chi_sinh_lai_cau_hong_va_dua_dung_ly_do_cua_tung_cau():
     chats, schema, tran, nhiet = nha.nhan[0]
     assert len(chats) == 2, "chỉ hai câu hỏng được sinh lại, câu A đã đạt thì giữ nguyên"
     assert schema == {"type": "object"} and tran == 2048 and nhiet == 0.0
-    assert 'trỏ tới node không tồn tại: "noOp"' in chats[0][1]["content"], "câu B phải nhận đúng lỗi của B"
+    assert 'trỏ tới node không tồn tại: "Trả 200"' in chats[0][1]["content"], "câu B phải nhận đúng lỗi của B"
     assert "tb" in chats[0][1]["content"] and "tc" in chats[1][1]["content"]
 
     assert tl["n_thu_lai"] == 2 and tl["n_sua_duoc"] == 1
