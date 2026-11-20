@@ -8,6 +8,7 @@ dùng `respondToWebhook` bị chấm hỏng oan (v3 ra 32/34 "cách cũ" trong k
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -18,9 +19,15 @@ from src.core import workflow_schema
 @pytest.fixture
 def catalog_sach(monkeypatch, tmp_path):
     monkeypatch.setattr(make_n8n_pairs, "GENERATED_DIR", tmp_path)   # _catalog/ ghi vào thư mục tạm
-    monkeypatch.delenv("N8N_TEMPLATES_DIR", raising=False)
+    cu = os.environ.pop("N8N_TEMPLATES_DIR", None)
     workflow_schema.reload_catalog()
     yield tmp_path
+    # `_stage_catalog_dir()` gán thẳng `os.environ` (không qua monkeypatch), nên phải trả lại biến TRƯỚC khi nạp lại
+    # catalog; để sót thì test sau (`test_training_pipeline_v3`, so dấu vân tay catalog) thấy catalog của thư mục tạm.
+    if cu is None:
+        os.environ.pop("N8N_TEMPLATES_DIR", None)
+    else:
+        os.environ["N8N_TEMPLATES_DIR"] = cu
     workflow_schema.reload_catalog()
 
 
