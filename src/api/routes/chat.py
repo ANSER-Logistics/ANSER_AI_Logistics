@@ -48,7 +48,7 @@ from src.core.schemas import RetailChatResponse
 from src.core.serving import DemSinh
 from src.core.tool_planner import plan_tools, vao_vong_agentic
 from src.core.utils import extract_json_block
-from src.core.workflow_schema import validate_workflow
+from src.core.workflow_schema import sua_lien_ket_noop, validate_workflow
 
 logger = logging.getLogger("projecta.api.chat")
 
@@ -176,6 +176,17 @@ _extract_json_block = extract_json_block
 # prompt dạy n8n và dữ liệu train lại là Make.com — ba định dạng mâu thuẫn
 # (ARCHITECTURE.md §11.1). Xoá bản sao ở đây là một phần của việc sửa lỗi đó.
 _validate_workflow = validate_workflow
+
+
+def _sua_noop(obj, request_id: str):
+    """
+    Bỏ liên kết tới node `noOp` không tồn tại (xem `workflow_schema.sua_lien_ket_noop`) TRƯỚC khi kiểm. Ghi nhật ký số liên kết đã bỏ;
+    KHÔNG ghi tên node hay nội dung (có thể là chữ của người dùng).
+    """
+    moi, da_bo = sua_lien_ket_noop(obj)
+    if da_bo:
+        logger.info("Workflow: bỏ %d liên kết tới node noOp không tồn tại", len(da_bo), extra={"request_id": request_id})
+    return moi
 
 
 async def _fetch_report_lines(store_id, request_id: str):
@@ -914,6 +925,7 @@ async def chat_endpoint(
             else:
                 raw = dem.cong(await runtime.coder.write_code(user_msg, ke_hoach_wf))
                 obj, err = _extract_json_block(raw)
+                obj = _sua_noop(obj, request_id)
 
                 ok = False
                 if obj is not None:
@@ -929,6 +941,7 @@ async def chat_endpoint(
                     raw = dem.cong(await runtime.coder.write_code(
                         user_msg, ke_hoach_wf, feedback=loi_lan_truoc(err)))
                     obj, err = _extract_json_block(raw)
+                    obj = _sua_noop(obj, request_id)
                     if obj is not None:
                         ok, err = _validate_workflow(obj)
 

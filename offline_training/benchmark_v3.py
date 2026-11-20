@@ -202,7 +202,7 @@ def score_extraction(rows: list[dict], outputs: list[str]) -> dict:
 
 
 def score_n8n(rows: list[dict], outputs: list[str],
-              finishes: list[str] | None = None) -> dict:
+              finishes: list[str] | None = None, sua_noop: bool = True) -> dict:
     """
     Tỷ lệ workflow model sinh ra qua được `validate_workflow()`.
 
@@ -223,19 +223,30 @@ def score_n8n(rows: list[dict], outputs: list[str],
 
     Cắt cụt đếm RIÊNG, không tính là một loại "workflow sai": nó sửa bằng nới
     trần token, còn workflow sai cấu trúc thì sửa bằng dữ liệu huấn luyện.
+
+    `sua_noop=True` (MẶC ĐỊNH từ 20/11/2026, chủ dự án đồng ý): chấm SAU bước sửa liên kết `noOp` không tồn tại, đúng như `/chat` làm
+    trước khi kiểm (`workflow_schema.sua_lien_ket_noop`; phép đo và lúc chạy là MỘT). Số câu được sửa nằm ở `n_sua_noop`/`sua_noop`.
+    Bảng cũ (v3, v4, v5 chấm trước ngày đó) KHÔNG sửa: muốn so công bằng thì chấm lại đầu ra thô bằng `cham_lai_n8n.py`, hoặc chạy
+    với `--khong-sua-noop` để tái tạo cách chấm cũ.
     """
-    from src.core.workflow_schema import validate_workflow
+    from src.core.workflow_schema import sua_lien_ket_noop, validate_workflow
 
     finishes = finishes or [""] * len(outputs)
     per_row: list[bool] = []
     failures: list[tuple[str, str]] = []
     n_cut = 0
+    da_sua: list[str] = []
 
     for row, raw, finish in zip(rows, outputs, finishes):
         if finish == "length":
             n_cut += 1
         try:
-            ok, why = validate_workflow(json.loads(raw))
+            obj = json.loads(raw)
+            if sua_noop:
+                obj, bo = sua_lien_ket_noop(obj)
+                if bo:
+                    da_sua.append(str(row.get("_id", "?")))
+            ok, why = validate_workflow(obj)
         except Exception as exc:
             ok, why = False, f"JSON lỗi: {exc}"
         per_row.append(bool(ok))
@@ -252,6 +263,8 @@ def score_n8n(rows: list[dict], outputs: list[str],
         "valid_rate": n_valid / n,
         "n_cat_cut": n_cut,
         "failures": failures,
+        "n_sua_noop": len(da_sua),
+        "sua_noop": da_sua,
     }
 
 
@@ -270,7 +283,7 @@ def chat_thu_lai_n8n(system: str, row: dict, why: str) -> list[dict]:
 
 
 def thu_lai_n8n(nha: Any, rows: list[dict], ket_qua: dict, system: str,
-                json_schema: dict, max_tokens: int, temperature: float = 0.0) -> dict:
+                json_schema: dict, max_tokens: int, temperature: float = 0.0, sua_noop: bool = True) -> dict:
     """
     n8n "sau một lần thử lại": đúng cái `/chat` làm khi workflow trượt `validate_workflow` (chat.py:
     thử lại ĐÚNG 1 lần, kèm lý do lỗi cụ thể), nên gần số khách nhận hơn con số một lần của `score_n8n`.
@@ -296,7 +309,7 @@ def thu_lai_n8n(nha: Any, rows: list[dict], ket_qua: dict, system: str,
     chats = [chat_thu_lai_n8n(system, rows[k], ly_do.get(str(rows[k].get("_id", "?")), ""))
              for k in hong]
     outs, fins = nha.sinh(chats, json_schema, max_tokens, temperature)
-    sau = score_n8n([rows[k] for k in hong], outs, fins)
+    sau = score_n8n([rows[k] for k in hong], outs, fins, sua_noop=sua_noop)
     for j, k in enumerate(hong):
         per_row[k] = sau["per_row"][j]
     return {
@@ -1016,6 +1029,8 @@ def main() -> None:
     )
     parser.add_argument("--skip", nargs="*", default=[],
                         choices=["extraction", "n8n", "narration", "agent"])
+    parser.add_argument("--khong-sua-noop", action="store_true",
+                        help="chấm n8n KHÔNG qua bước sửa liên kết noOp (cách chấm trước 20/11/2026), để so với bảng cũ")
     parser.add_argument("--thu-lai-n8n", action="store_true",
                         help="đo thêm n8n SAU MỘT LẦN THỬ LẠI như `/chat` production (kèm lý do lỗi "
                              "cụ thể). Chỉ in và ghi thêm mục `thu_lai`; cổng vẫn theo lần thử đầu. "
@@ -1161,8 +1176,10 @@ def main() -> None:
             n8n_tran = tran_token("BENCH_N8N_MAX_TOKENS", MAX_WORKFLOW_TOKENS)
             outputs, finishes = nha.sinh(
                 chats, n8n_schema, max_tokens=n8n_tran, temperature=0.0)
-            result = score_n8n(rows, outputs, finishes)
+            result = score_n8n(rows, outputs, finishes, sua_noop=not args.khong_sua_noop)
             ghi_tho("n8n", rows, outputs, finishes, result.get("failures", ()))
+            if result.get("n_sua_noop"):
+                print(f"    (đã sửa liên kết noOp ở {result['n_sua_noop']} câu: {', '.join(result['sua_noop'])})")
             print(f"\n[n8n] hợp lệ {result['n_valid']}/{result['n']}"
                   f" ({result['valid_rate'] * 100:.0f}%)  (lần thử đầu — số của cổng)")
             if result["n_cat_cut"]:
@@ -1171,7 +1188,7 @@ def main() -> None:
             for _id, why in result["failures"][:10]:
                 print(f"  ✗ {_id}: {why}")
             if args.thu_lai_n8n:
-                tl = thu_lai_n8n(nha, rows, result, system, n8n_schema, n8n_tran)
+                tl = thu_lai_n8n(nha, rows, result, system, n8n_schema, n8n_tran, sua_noop=not args.khong_sua_noop)
                 ghi_tho("n8n_thu_lai",
                         [{"_id": m} for m in tl["ma"]], tl["outputs"], tl["finishes"],
                         tl["failures"])
