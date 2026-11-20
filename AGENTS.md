@@ -439,6 +439,35 @@ gh pr view $N --json labels,assignees,reviewRequests,baseRefName,isDraft   # v�
 
 Đã chạy thật: `issue-field-values` (18/11/2026), và `gh project view/field-list/item-add/item-edit` cùng danh sách Status (20/11/2026). Chưa kiểm bằng máy, lấy từ tài liệu GitHub: lệnh `-f type=…`, lệnh `sub_issues`, lệnh `blocked_by`.
 
+### 5.5. Soát và sửa metadata việc cũ (thêm 20/11/2026)
+
+**Chủ dự án cho phép (20/11/2026):** agent được **tự soát và tự sửa metadata** của PR và issue thuộc về người dùng đang chạy agent, không cần hỏi từng lần. "Thuộc về" nghĩa là người đó là tác giả hoặc assignee. Mục đích: việc cũ mở trước §5.4 hay bị gắn sai vẫn hiện đúng trên bảng.
+
+| Được tự làm | Không được |
+|---|---|
+| Thêm, sửa label, Type, Priority, Effort, Start/Target date, Project và Status | Sửa title, body, code, hay bình luận của bất kỳ ai |
+| Gắn chính người dùng làm assignee trên việc của họ | Đóng, mở lại, gộp, xoá PR hay issue |
+| Làm trên mọi repo của org, theo **bộ label của chính repo đó**: Body có bộ riêng (ví dụ `việc nhẹ`, `cần thêm ý kiến`), không gắn label của Brain sang | Tạo label, type, trường mới: đó là đổi cấu hình repo/org (§1) |
+| | Sửa item của người khác: chỉ báo người dùng, hoặc bình luận đề xuất trên item đó |
+
+**Thế nào là sai:**
+
+- Thiếu trường bắt buộc ở §5.4 (label, Type, Priority, Effort, assignee, Project).
+- Status lệch thực trạng theo bảng *Status theo vòng đời*: PR đã gộp hay đã đóng mà chưa `Done`; issue đã đóng mà chưa `Done`; PR draft mà không phải `In Progress`.
+- Label sai nghĩa, ví dụ PR chỉ đổi tài liệu mà gắn `enhancement`.
+
+**Issue còn mở thì không tự chuyển sang `Done`.** Người giao việc quyết khi nào việc xong. Phần của người dùng đã nộp (bình luận, PR) thì để `Cho quyet`.
+
+**Lệnh soát** (đã chạy thật 20/11/2026):
+
+```bash
+gh search prs    --owner ANSER-Logistics --author   @me --json number,repository,state,isDraft,labels --limit 100
+gh search issues --owner ANSER-Logistics --assignee @me --json number,repository,state,labels --limit 100
+gh project item-list 6 --owner ANSER-Logistics --limit 500 --format json   -q '.items[] | "\(.content.repository)#\(.content.number) \(.status)"'
+```
+
+Sửa bằng chính các lệnh ở §5.4, rồi đọc lại bằng lệnh *Kiểm lại sau khi tạo*. Cuối lượt, báo người dùng từng thay đổi theo dạng `repo#N: trường cũ → mới`. Không sửa im lặng.
+
 ---
 
 ## 6. Version control & sao lưu
