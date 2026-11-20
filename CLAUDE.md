@@ -27,6 +27,7 @@ If `graphify-out/graph.json` exists, run `graphify query "<question>"`, `graphif
 - `main` is production. Open PRs against the feature branch, never merge your own (AGENTS.md §6.0).
 - Opening a PR or issue: fill every field at creation (assignee, label, Issue Type, Priority, Effort, Project `Brain — Giao viec` + Status, reviewers, links). Type and fields need `gh api`; commands in AGENTS.md §5.4.
 - You may fix metadata on the user's own PRs and issues (author or assignee) without asking; report each change (AGENTS.md §5.5).
+- Look things up instead of guessing, and use any installed skill that fits the task (project skills first). No customer data in queries or external tools; ask before anything that costs money or acts outside the repo (AGENTS.md §5.6).
 - Most docs and identifiers are Vietnamese. Reply in the language the user writes in.
 - Body is another repo. Only propose changes there (PR or issue), never merge them (AGENTS.md §1).
 - Ask the owner before moving any secret into env or changing how secrets are managed (AGENTS.md R2b).
