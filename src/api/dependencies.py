@@ -279,8 +279,8 @@ def thieu_token_o_trien_khai() -> bool:
     tự sinh (BR-34, `main.py`). Gõ sai thì báo thừa một cảnh báo, không im lặng bỏ qua một cổng mở.
 
     Đọc `ENV` và token LÚC GỌI để `/health` và test thấy đúng giá trị hiện tại.
-    Chỉ CẢNH BÁO (log CRITICAL + `/health.degraded`), KHÔNG chặn khởi động: chặn là việc để sau, khi mở tunnel
-    cho khách thật (compose đã có `${API_TOKEN:?}` cho đường triển khai chính).
+    Từ 20/11/2026 (chủ dự án chốt) `lifespan` TỪ CHỐI KHỞI ĐỘNG khi hàm này trả `True`; `/health.auth_missing_in_deployment` vẫn
+    còn cho các lời gọi không qua lifespan (TestClient không dùng `with`). Trước đó chỉ cảnh báo.
     """
     return os.getenv("ENV", "").strip().upper() != "LOCAL" and not API_AUTH_TOKEN
 
