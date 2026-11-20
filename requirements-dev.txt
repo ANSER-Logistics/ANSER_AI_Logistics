@@ -45,3 +45,9 @@ jsonschema
 # không tốn gì thêm.
 #
 # Ghi ra đây để lần sau không ai phải đo lại, và để cái skip đó thôi im lặng.
+
+# Property-based test (20/11/2026, chủ dự án chốt): `hypothesis` sinh hàng trăm đầu vào cho mỗi tính chất của các hàm tính tiền
+# (`reporting`, `pricing`, `receivables`) và co ví dụ hỏng về dạng nhỏ nhất. Bài học từ bài nói của Lauren Tan: tầng tất định phải
+# được kiểm bằng thứ tất định, không bằng vài ví dụ viết tay. Bản 6.x đã chạy xanh với Python 3.14 (đo 20/11/2026); trần <7 vì
+# major sau chưa ai thử. Test dùng `derandomize=True` để CI đỏ thì tái hiện được, không chập chờn theo hạt giống.
+hypothesis>=6.100,<7
