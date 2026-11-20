@@ -607,6 +607,7 @@ File này là nguồn sự thật cho **mọi** agent (Codex đọc nó trực t
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code | Import AGENTS.md + cách dùng skill và graph |
 | [`GEMINI.md`](GEMINI.md) | Gemini CLI | Import AGENTS.md (Gemini mặc định đọc `GEMINI.md`, không đọc `AGENTS.md`) |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
+| [`.claude/settings.json`](.claude/settings.json), [`.geminiignore`](.geminiignore) | Claude Code, Gemini CLI | **Chặn đọc** ảnh, PDF upload và nhật ký hỏi đáp ở gốc `src/data/`, và `.env` (R2, ở tầng công cụ chứ không bằng lời dặn). `tests/test_cau_hinh_ai_chan_du_lieu_khach.py` giữ hai file và `.graphifyignore` khớp nhau |
 | [`.claude/skills/`](.claude/skills/) | Claude Code | Skill dự án |
 | [`.agents/skills/`](.agents/skills/) | Codex, Gemini CLI | **Bản sao giống hệt** `.claude/skills/` — `tests/test_skill_dong_bo.py` chặn lệch và kiểm frontmatter |
 

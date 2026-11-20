@@ -1,0 +1,10 @@
+# Dữ liệu có thể là của khách — không đưa cho AI (AGENTS.md R2). Giữ khớp với .claude/settings.json và .graphifyignore.
+# src/data/docs/ là văn bản pháp luật công khai (kho RAG), được phép đọc; các tệp ảnh, PDF và nhật ký ở gốc src/data/ thì không.
+src/data/*.png
+src/data/*.jpg
+src/data/*.jpeg
+src/data/*.pdf
+src/data/ai_metrics_log.jsonl
+.env
+.env.*
+deploy/.env
