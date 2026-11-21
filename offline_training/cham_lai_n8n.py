@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from offline_training.benchmark_v3 import score_n8n  # noqa: E402
+from offline_training.make_n8n_pairs import _stage_catalog_dir  # noqa: E402
+from src.core.workflow_schema import reload_catalog  # noqa: E402
 
 
 def doc_tho(duong_dan: Path) -> dict[str, list[dict]]:
@@ -60,6 +62,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("tho", nargs="+", help="một hay nhiều file --tho của benchmark_v3")
     ap.add_argument("--json", default="", help="ghi kết quả ra file JSON")
     a = ap.parse_args(argv)
+    # Catalog node CÙNG nguồn với benchmark_v3 (workflow mẫu thật, có respondToWebhook, gmail...). Thiếu bước này thì
+    # validate_workflow rơi về catalog dự phòng 12 node và chấm hỏng oan mọi câu dùng node ngoài danh sách đó: lần chạy
+    # đầu ngày 20/11 ra v3 32/34 "cách cũ" trong khi benchmark đo 33/34 trên đúng đầu ra ấy (#175).
+    _stage_catalog_dir()
+    reload_catalog()
     tat_ca: dict[str, dict] = {}
     for f in a.tho:
         p = Path(f)

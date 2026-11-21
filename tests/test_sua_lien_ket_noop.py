@@ -10,12 +10,26 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 
 import pytest
 
 from offline_training.benchmark_v3 import score_n8n
 from offline_training.cham_lai_n8n import cham_nhanh, main
-from src.core.workflow_schema import sua_lien_ket_noop, validate_workflow
+from src.core.workflow_schema import reload_catalog, sua_lien_ket_noop, validate_workflow
+
+
+@pytest.fixture(autouse=True)
+def _tra_lai_catalog():
+    """`cham_lai_n8n.main` nạp catalog thật (đặt `N8N_TEMPLATES_DIR` thẳng vào `os.environ`, từ #175); trả lại sau mỗi test để
+    `test_training_pipeline_v3` (so vân tay catalog mặc định) không thấy biến rò."""
+    cu = os.environ.get("N8N_TEMPLATES_DIR")
+    yield
+    if cu is None:
+        os.environ.pop("N8N_TEMPLATES_DIR", None)
+    else:
+        os.environ["N8N_TEMPLATES_DIR"] = cu
+    reload_catalog()
 
 
 def _wf(dich_nhanh_khong: str | None, them_nut: list[dict] | None = None) -> dict:
