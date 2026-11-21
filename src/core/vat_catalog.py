@@ -47,6 +47,33 @@ HIEU_LUC_TU = "2025-07-01"
 HIEU_LUC_DEN = "2026-12-31"
 CAN_CU_CHUNG = "Nghị quyết 204/2025/QH15 và Nghị định 174/2025/NĐ-CP"
 
+def kiem_hieu_luc_giam_thue(ngay_hoa_don: Optional[str], co_dong_giam: bool) -> tuple[Optional[str], list[str]]:
+    """
+    Mức 8% chỉ áp cho hoá đơn LẬP trong [HIEU_LUC_TU, HIEU_LUC_DEN]. Trả `(lỗi, cảnh báo)`.
+
+    - Có dòng tính 8% mà ngày lập NGOÀI khoảng: lỗi (câu chữ nêu căn cứ). Hoá đơn lập 01/01/2027 mà tính 8% là sai thuế, không phải chuyện
+      làm tròn; người dùng phải thấy ngay chứ không nhận một con số trông hợp lệ (R1).
+    - Có dòng 8% mà KHÔNG có ngày: cảnh báo (không kiểm được hiệu lực), không đoán.
+    - Ngày sai khuôn (chỉ nhận `YYYY-MM-DD`, như ngày trong Google Sheet, quyết định 12/11/2026): lỗi.
+    Không dòng nào tính 8% thì không có gì để kiểm về hiệu lực của mức giảm.
+
+    Căn cứ chưa kiểm bản chính thức (chờ kế toán, `HIEU_LUC_*` là cách đọc của nhóm nghiên cứu); đổi hạn thì đổi hai hằng trên, một chỗ (R4).
+    """
+    if ngay_hoa_don is None:
+        return None, (["Chưa có ngày lập hoá đơn: không kiểm được hiệu lực của mức thuế 8%."] if co_dong_giam else [])
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", ngay_hoa_don):
+        return "invoice_date phải dạng YYYY-MM-DD", []
+    try:
+        import datetime as _dt
+        _dt.date.fromisoformat(ngay_hoa_don)
+    except ValueError:
+        return f"invoice_date không phải ngày hợp lệ: {ngay_hoa_don}", []
+    if co_dong_giam and not (HIEU_LUC_TU <= ngay_hoa_don <= HIEU_LUC_DEN):
+        return (f"mức thuế 8% chỉ áp cho hoá đơn lập từ {HIEU_LUC_TU} đến {HIEU_LUC_DEN} ({CAN_CU_CHUNG}); "
+                f"hoá đơn lập ngày {ngay_hoa_don} phải tính mức 10%"), []
+    return None, []
+
+
 DUOC_GIAM = "được giảm 8%"
 KHONG_GIAM = "không được giảm, giữ 10%"
 CHUA_XAC_DINH = "chưa xác định"

@@ -268,6 +268,9 @@ class VatRequest(BaseModel):
     items: list[VatItem]
     stated_total: float = Field(..., allow_inf_nan=False, ge=-_TRAN_TIEN, le=_TRAN_TIEN)
     default_is_reduced: bool = False
+    # Ngày lập hoá đơn (YYYY-MM-DD). Có thì Brain kiểm hiệu lực của mức 8% theo ngày (`vat_catalog.kiem_hieu_luc_giam_thue`); vắng thì
+    # chạy như cũ kèm cảnh báo khi có dòng tính 8%. Chỉ THÊM, không đổi hợp đồng cũ.
+    invoice_date: Optional[str] = None
     # Chốt 28/10/2026: người dùng phải nói rõ. Qua /chat, giá trị này do MÃ đọc
     # từ câu (`doc_dau_vao.co_so_thue`) và ghi đè thứ model điền; câu không nói
     # thì Brain hỏi lại thay vì đoán. Mặc định False giữ hành vi cũ cho caller
@@ -490,12 +493,23 @@ async def tool_forecast_reorder(
 @router.post("/vat")
 async def tool_vat(req: VatRequest, x_api_token: Optional[str] = Header(None)):
     require_api_token(x_api_token)
-    return MCPServer.validate_invoice_total(
-        [it.model_dump() for it in req.items],
+    dong = [it.model_dump() for it in req.items]
+    co_8 = req.default_is_reduced or any(d.get("is_reduced_vat") for d in dong)
+    loi, canh_bao = vc.kiem_hieu_luc_giam_thue(req.invoice_date, co_8)
+    if loi:
+        raise HTTPException(status_code=422, detail=loi)
+    kq = MCPServer.validate_invoice_total(
+        dong,
         req.stated_total,
         default_is_reduced=req.default_is_reduced,
         prices_include_vat=req.prices_include_vat,
     )
+    # Mọi kết quả ghi ngày và căn cứ đã dùng (AGENTS §3.1c mục 3): khi luật đổi, biết kết quả cũ dựa trên gì.
+    kq["effective_date"] = req.invoice_date
+    kq["vat_basis"] = vc.CAN_CU_CHUNG
+    if canh_bao:
+        kq["warnings"] = canh_bao
+    return kq
 
 
 @router.post("/report")
