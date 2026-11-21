@@ -184,7 +184,7 @@ def cham(ca: dict[str, Any], out: Any) -> dict[str, Any]:
     la_dict = isinstance(out, dict) and "error" not in out
     kq["parse"] = la_dict
     if not la_dict:
-        kq.update(tat_ca_dung=False, tong_dung=False, dien_0=0, chep_nhieu_loan=False)
+        kq.update(tat_ca_dung=False, tong_dung=False, dien_0=0, dien_so_khac=0, chep_nhieu_loan=False)
         return kq
 
     gt = ca["gt"]
@@ -199,6 +199,7 @@ def cham(ca: dict[str, Any], out: Any) -> dict[str, Any]:
         kq["tong_dung"] = _khop_so(gt["total"], out.get("total"))
         kq["tat_ca_dung"] = kq["dong_dung"] and kq["tong_dung"]
         kq["dien_0"] = sum(1 for i in raw_items if isinstance(i, dict) and _la_so_khong(i.get("price")))
+        kq["dien_so_khac"] = 0
     else:
         for truong in ("carrier_name", "origin", "destination", "plate_number"):
             kq[truong] = _chuan(gt.get(truong)) == _chuan(out.get(truong))
@@ -217,6 +218,11 @@ def cham(ca: dict[str, Any], out: Any) -> dict[str, Any]:
             1 for truong in ("vat_rate", "subtotal", "vat_amount")
             if gt.get(truong) is None and _la_so_khong(out.get(truong))
         )
+        from offline_training.phan_loai_loi_vlm import so_sanh
+        kq["dien_so_khac"] = sum(
+            1 for truong in ("vat_rate", "subtotal", "vat_amount")
+            if so_sanh(gt.get(truong), out.get(truong)) == "dien_so"
+        )
         chinh = ("carrier_name", "origin", "destination", "plate_number", "invoice_date",
                  "khoan_dung", "vat_rate", "subtotal", "vat_amount", "total")
         kq["tat_ca_dung"] = all(kq[k] for k in chinh)
@@ -232,12 +238,13 @@ def tong_hop(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     for r in rows:
         for khoa in (f"{r['kind']}/{r['variant']}", f"{r['kind']}/all", "all"):
             g = nhom.setdefault(khoa, {"n": 0, "parse": 0, "tat_ca_dung": 0, "tong_dung": 0,
-                                       "dien_0": 0, "chep_nhieu_loan": 0})
+                                       "dien_0": 0, "dien_so_khac": 0, "chep_nhieu_loan": 0})
             g["n"] += 1
             g["parse"] += bool(r["parse"])
             g["tat_ca_dung"] += bool(r.get("tat_ca_dung"))
             g["tong_dung"] += bool(r.get("tong_dung"))
             g["dien_0"] += int(r.get("dien_0", 0))
+            g["dien_so_khac"] += int(r.get("dien_so_khac", 0))
             g["chep_nhieu_loan"] += bool(r.get("chep_nhieu_loan"))
     return nhom
 
