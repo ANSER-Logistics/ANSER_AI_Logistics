@@ -49,3 +49,5 @@ Fill every GitHub field when you create it, so members can read the project boar
 - You may check and fix metadata (labels, Type, Priority, Effort, dates, Project Status) on PRs and issues the current user authored or is assigned to, under the seven controls of AGENTS.md §5.5 (list first, a person present, at most 20 items per run, record old values first, re-read after, only the listed fields, revocable); use each repo's own label set, never edit titles, bodies or other people's items, never create labels, and report every change as `repo#N: old → new` (AGENTS.md §5.5).
 - Never merge your own PR or turn on auto-merge.
 - If the `gh` token lacks the `project` scope, set every other field, say so in the body, and tell the user to run `gh auth refresh -s project`. Do not skip silently.
+
+When finding work for the user, follow AGENTS.md §5.0a for assigned issues, review requests and mentions.
