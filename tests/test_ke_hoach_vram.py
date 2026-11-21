@@ -22,6 +22,7 @@ import pytest
 
 from offline_training import ke_hoach_vram as kh
 from offline_training.ke_hoach_vram import (
+    TRAN_TONG_MAC_DINH,
     DacTaMoHinh,
     KeHoachLoi,
     doc_dac_ta,
@@ -108,7 +109,7 @@ def test_hai_model_tren_gpu_22_5_gib_phai_ha_ngu_canh_xuong_duoi_32768():
     """Chép cờ production (32768) sang hai server là hết bộ nhớ ngay lúc khởi động; kế hoạch phải thấy điều đó."""
     k = lap_ke_hoach([_dt(5.3), _dt(5.3)], 22.5)
     assert 12288 <= k.max_model_len < 32768
-    assert k.max_model_len == 18432          # tính tay: 2 x (5,3 + 2,5 + KV 2,53 GiB) = 20,66 <= 0,92 x 22,5 = 20,7
+    assert k.max_model_len == 14336          # tính tay: 2 x (5,3 + 2,5 + KV 1,74 GiB) = 19,08 <= 0,88 x 22,5 = 19,8; trùng cấu hình Thành đã đo ở #124
 
 
 @pytest.mark.parametrize("gpu", [16.0, 22.5, 24.0, 40.0, 80.0])
@@ -120,7 +121,7 @@ def test_bat_bien_moi_server_du_bo_nho_va_tong_khong_vuot_tran(gpu, trong_so, so
         k = lap_ke_hoach([_dt(trong_so)] * so_server, gpu)
     except KeHoachLoi:
         return                                # không vừa thì từ chối là đúng; chỉ kiểm khi có kế hoạch
-    assert k.tong_phan <= 0.92 + 1e-9
+    assert k.tong_phan <= TRAN_TONG_MAC_DINH + 1e-9
     for s in k.servers:
         assert s.phan_gpu * gpu >= s.nhu_cau_gib - 1e-9, "server được cấp ÍT hơn mức nó cần"
     assert [s.cong for s in k.servers] == list(range(8001, 8001 + so_server))
@@ -239,7 +240,7 @@ L4 = 22.49
 RTX_3090 = 24.0
 
 
-def _ghep(vision, gpu, oh=3.5, ctx_v=8192):
+def _ghep(vision, gpu, oh=2.8, ctx_v=8192):   # 2,8 GiB: overhead vision ĐO THẬT (#124, 20/11/2026), thay cho 3,5 là con số đoán
     return lap_ke_hoach([TEXT_AWQ, vision], gpu, ctx_toi_da=32768, ctx_can_thiet=4096,
                         ctx_co_dinh={1: ctx_v}, overhead_rieng={1: oh})
 
@@ -249,12 +250,12 @@ def test_ctx_co_dinh_giu_nguyen_o_server_vision_va_chi_ha_server_text():
     assert k.servers[1].ngu_canh == 8192, "vision phải giữ đúng ngữ cảnh cố định"
     assert 4096 <= k.servers[0].ngu_canh < 32768, "chỉ server text bị hạ"
     assert k.max_model_len == k.servers[0].ngu_canh
-    assert k.tong_phan <= 0.92 + 1e-9
+    assert k.tong_phan <= TRAN_TONG_MAC_DINH + 1e-9
 
 
 def test_overhead_rieng_lam_vision_can_nhieu_bo_nho_hon_va_text_phai_nhuong():
     nhe = _ghep(VISION_7B_AWQ, L4, oh=2.5)
-    nang = _ghep(VISION_7B_AWQ, L4, oh=4.5)
+    nang = _ghep(VISION_7B_AWQ, L4, oh=3.5)
     assert nang.servers[1].nhu_cau_gib > nhe.servers[1].nhu_cau_gib
     assert nang.servers[0].ngu_canh < nhe.servers[0].ngu_canh
 
@@ -314,12 +315,12 @@ def test_ghi_de_trong_so_khi_tep_luu_fp32_ma_nap_bf16(tmp_path):
 def test_main_nhan_ctx_co_dinh_overhead_rieng_va_trong_so(tmp_path, capsys):
     a, b = _model(tmp_path, "a", kich_co=(10,)), _model(tmp_path, "b", kich_co=(10,))   # tệp nhỏ; trọng số thật ghi đè bên dưới
     ma = kh.main(["--model", str(a), "--ten", "anser-v3", "--model", str(b), "--ten", "anser-vision",
-                  "--gpu-gib", "22.49", "--ctx-co-dinh", "anser-vision=8192", "--overhead-rieng", "anser-vision=3.5",
+                  "--gpu-gib", "22.49", "--ctx-co-dinh", "anser-vision=8192", "--overhead-rieng", "anser-vision=2.8",
                   "--trong-so-gib", "anser-v3=5.68", "--trong-so-gib", "anser-vision=6.45", "--ctx-can-thiet", "4096"])
     out = capsys.readouterr().out
     assert ma == 0
     assert "--served-model-name=anser-vision" in out and "--max-model-len=8192" in out
-    assert "overhead 3.5" in out and "trọng số 6.45 GiB" in out
+    assert "overhead 2.8" in out and "trọng số 6.45 GiB" in out
 
 
 def test_main_ten_khong_co_hoac_gia_tri_sai_thoat_2(tmp_path, capsys):

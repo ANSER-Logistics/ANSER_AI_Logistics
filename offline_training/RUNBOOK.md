@@ -383,9 +383,9 @@ huggingface-cli download <text AWQ> --local-dir /content/models/text
 huggingface-cli download <ứng viên vision> --local-dir /content/models/vision
 python offline_training/ke_hoach_vram.py --model /content/models/text --ten anser-v3 \
     --model /content/models/vision --ten anser-vision \
-    --ctx-co-dinh anser-vision=8192 --overhead-rieng anser-vision=3.5 --ctx-can-thiet 4096
+    --ctx-co-dinh anser-vision=8192 --overhead-rieng anser-vision=2.8 --ctx-can-thiet 4096
 ```
-Bật hai server **lần lượt** theo lệnh in ra (text trước). Server vision báo thiếu bộ nhớ lúc khởi động thì tăng `--overhead-rieng anser-vision=4.5` rồi tính lại. Ghi overhead thật = (VRAM đỉnh đo bằng `nvidia-smi`) trừ trọng số trừ KV: số này thay cho con số đoán trong bảng 8.1.
+Bật hai server **lần lượt** theo lệnh in ra (text trước). Server vision báo thiếu bộ nhớ lúc khởi động thì tăng `--overhead-rieng anser-vision=3.5` rồi tính lại. Ghi overhead thật = (VRAM đỉnh đo bằng `nvidia-smi`) trừ trọng số trừ KV: số này thay cho con số đoán trong bảng 8.1. **Đo 20/11/2026 (#124):** overhead thật của text khoảng 1,64 GiB và của vision 7B AWQ khoảng 2,78 GiB; mặc định `--tran-tong` nay là 0,88 vì 0,92 đẩy `nvidia-smi` lên 92,2%, vượt cổng 92%.
 
 **Hai chỗ cần sửa trong `deploy/docker-compose.yml` nếu chọn một trong hai ứng viên** (compose chưa từng được chạy): `--limit-mm-per-prompt=image=2` là cú pháp cũ, tài liệu vLLM 0.11.2 chỉ cho thấy dạng JSON `'{"image":2}'`; và `VISION_GPU_FRACTION=0.25` (5,6 GiB) quá nhỏ cho cả hai ứng viên (cần khoảng 0,44-0,47 theo bảng trên).
 

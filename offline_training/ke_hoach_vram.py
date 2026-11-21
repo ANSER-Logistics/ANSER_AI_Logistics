@@ -48,8 +48,9 @@ from pathlib import Path
 GIB = 1024 ** 3
 
 # Phần GPU tối đa cho tổng các server. Phần còn lại là chỗ cho ngữ cảnh CUDA ngoài sổ sách của từng server và cho
-# phân mảnh. Con số này cũng là đoán; chỗ hở nằm về phía an toàn.
-TRAN_TONG_MAC_DINH = 0.92
+# phân mảnh. Đo thật (#124, Thành, 20/11/2026): tổng phần chia 0,87 thì `nvidia-smi` thấy 88,4% (ngữ cảnh CUDA và phân mảnh thêm khoảng 1,4 điểm);
+# trần 0,92 đẩy lên 92,2%, vượt cổng "VRAM đỉnh dưới 92%". Nên mặc định 0,88.
+TRAN_TONG_MAC_DINH = 0.88
 BUOC_NGU_CANH = 2048
 SAN_NGU_CANH_MAC_DINH = 12288
 TRAN_NGU_CANH_MAC_DINH = 32768          # = TEXT_MAX_MODEL_LEN của production
