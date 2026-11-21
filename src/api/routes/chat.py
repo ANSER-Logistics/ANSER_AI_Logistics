@@ -26,6 +26,7 @@ import uuid
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from src.agents.coder import loi_lan_truoc
 from src.api.chay_ngoai_loop import chay_ngoai_loop, chay_tren_kho
@@ -38,7 +39,7 @@ from src.api.dependencies import (
     runtime,
     web_search_fallback,
 )
-from src.core import metrics
+from src.core import llm_suc_khoe, metrics
 from src.core.config import AI_NOTICE, MAX_HISTORY_TURNS, Config
 from src.core.doc_dau_vao import noi_tra_loi_hoi_thue
 from src.core.engine import TASK_REGISTRY
@@ -760,6 +761,12 @@ async def chat_endpoint(
     x_store_id: Optional[str] = Header(None),
 ):
     require_api_token(x_api_token)
+    if llm_suc_khoe.dang_hong():
+        # GPU/vLLM mất: nói thẳng ngay thay vì nhận tác vụ rồi thất bại muộn. `/tools/*` không dùng model nên vẫn chạy (A21, #203).
+        return JSONResponse(
+            status_code=503, content={"error": "llm_unavailable", "detail": "Model ngôn ngữ đang không khả dụng.",
+                                      "retry_after_s": int(llm_suc_khoe.THU_LAI_S)},
+            headers={"Retry-After": str(int(llm_suc_khoe.THU_LAI_S))})
     user_id, store_id = resolve_identity(req, x_user_id, x_store_id)
     await runtime.ensure_text_runtime()
     # Kiểm cả `engine`, không chỉ `manager`/`coder`.
