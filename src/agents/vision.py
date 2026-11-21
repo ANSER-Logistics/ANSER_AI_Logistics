@@ -65,7 +65,7 @@ class VisionAgent:
                 phai_tron_ven=phai_tron_ven,
             )
         except Exception as exc:
-            logger.exception("Vision inference failed: %s", exc)
+            logger.error("Vision inference failed: %s", type(exc).__name__)
             return f"Error analyzing image: {exc}"
 
     async def extract_invoice(self, image_path: str) -> dict:

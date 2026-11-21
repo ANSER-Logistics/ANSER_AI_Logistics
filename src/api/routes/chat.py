@@ -47,7 +47,7 @@ from src.core.retrieval_policy import KHONG_CO_TAI_LIEU, decide_web_fallback
 from src.core.schemas import RetailChatResponse
 from src.core.serving import DemSinh
 from src.core.tool_planner import plan_tools, vao_vong_agentic
-from src.core.utils import extract_json_block
+from src.core.utils import extract_json_block, loai_loi
 from src.core.workflow_schema import sua_lien_ket_noop, validate_workflow
 
 logger = logging.getLogger("projecta.api.chat")
@@ -103,8 +103,8 @@ def _canh_bao_lech_pham_vi(kb_ws: str, request_id: str) -> None:
         # Hàm này tồn tại để biến một lỗi lệch phạm vi không dấu vết thành một dòng
         # log (xem docstring). Chính nó hỏng mà im lặng thì chỉ chuyển chỗ giấu.
         logger.warning(
-            "Không liệt kê được phạm vi của kho tri thức để chẩn đoán lệch phạm vi",
-            exc_info=True,
+            "Không liệt kê được phạm vi của kho tri thức để chẩn đoán lệch phạm vi: %s",
+            loai_loi(),
         )
         return
     if khac:
@@ -130,7 +130,7 @@ def _load_history(user_id) -> list[dict]:
     try:
         return memory.get_history_messages(user_id)
     except Exception as exc:
-        logger.warning("Không đọc được lịch sử hội thoại: %s", exc)
+        logger.warning("Không đọc được lịch sử hội thoại: %s", type(exc).__name__)
         return []
 
 
@@ -157,7 +157,7 @@ def _save_turn(user_id, store_id, user_msg: str, answer: str) -> None:
         memory.add_message(user_id, store_id, "user", user_msg)
         memory.add_message(user_id, store_id, "assistant", answer)
     except Exception as exc:
-        logger.warning("Không lưu được lượt hội thoại: %s", exc)
+        logger.warning("Không lưu được lượt hội thoại: %s", type(exc).__name__)
 
 
 # Hàm THUẦN, đã chuyển sang `src/core/utils.py` (03/08/2026). Giữ alias để 5 chỗ
@@ -699,7 +699,7 @@ def _cach_phan_loai(manager, user_msg: str) -> Optional[str]:
     try:
         return manager.cach_chay(user_msg)
     except Exception as exc:       # đo đạc hỏng không được làm hỏng nghiệp vụ
-        logger.warning("Không xác định được nơi phân loại: %s", exc)
+        logger.warning("Không xác định được nơi phân loại: %s", type(exc).__name__)
         return None
 
 
@@ -1146,7 +1146,7 @@ async def chat_endpoint(
                 client = HttpClientPool.get_client()
                 await _gui_webhook(client, callback_url, payload, headers, task_id)
             except Exception as exc:
-                logger.error("Webhook dispatch failed for task %s: %s", task_id, exc)
+                logger.error("Webhook dispatch failed for task %s: %s", task_id, type(exc).__name__)
 
         return chat_response.model_dump()
 

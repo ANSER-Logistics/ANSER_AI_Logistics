@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 
 from src.core.config import MAX_UPLOAD_BYTES
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.api.gioi_han_than")
 
@@ -120,6 +121,6 @@ class GioiHanThanMiddleware:
             if not vuot:
                 raise
             # Lỗi phát sinh DO thân bị cắt (ứng dụng ném thay vì trả lời): phản hồi 413 đã/hoặc sẽ được gửi ở đây.
-            logger.warning("Ứng dụng ném lỗi sau khi thân %s bị cắt ở trần %d; trả 413", ten, self.tran, exc_info=True)
+            logger.warning("Ứng dụng ném lỗi sau khi thân %s bị cắt ở trần %d; trả 413 (loi=%s)", ten, self.tran, loai_loi())
             if not da_gui_dau:
                 await _tra_loi(send, 413, QUA_LON)

@@ -15,7 +15,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.config import Config
-from src.core.utils import hom_nay_vn
+from src.core.utils import hom_nay_vn, loai_loi
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class SaasAPI:
         try:
             self.engine = create_engine(self.config.DB_URL)
         except Exception:
-            logger.error("Không thể khởi tạo kết nối CSDL", exc_info=True)
+            logger.error("Không thể khởi tạo kết nối CSDL loi=%s", loai_loi())
             self.engine = None
 
     def _require_engine(self):
@@ -193,8 +193,8 @@ class SaasAPI:
                 return json.dumps(results, ensure_ascii=False, indent=2)
         except SQLAlchemyError:
             logger.error(
-                "Lỗi truy vấn sản phẩm query='%s' workspace_id=%s",
-                query, workspace_id, exc_info=True,
+                "Lỗi truy vấn sản phẩm workspace_id=%s loi=%s",
+                workspace_id, loai_loi(),
             )
             return f"Lỗi hệ thống khi tìm sản phẩm '{query}'."
 
@@ -219,8 +219,8 @@ class SaasAPI:
                 }
         except SQLAlchemyError:
             logger.error(
-                "Lỗi truy vấn báo cáo bán hàng workspace_id=%s period=%s",
-                workspace_id, period, exc_info=True,
+                "Lỗi truy vấn báo cáo bán hàng workspace_id=%s period=%s loi=%s",
+                workspace_id, period, loai_loi(),
             )
             # `orders: 0` ở đây là một câu NÓI DỐI: nó đi thẳng vào ngữ cảnh của
             # model (chat.py dựng `[DOANH SỐ …]` từ JSON này) và model đọc "0 đơn".
