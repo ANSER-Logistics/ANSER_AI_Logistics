@@ -7,9 +7,11 @@ import time
 from collections import OrderedDict
 from typing import Any
 
+from src.core import llm_suc_khoe
 from src.core.config import MAX_HISTORY_TURNS, Config
 from src.core.serving import (
     REPETITION_PENALTY_TU_DO,
+    BackendTimeout,
     BackendTruncated,
     BackendUnavailable,
     CauHinhSai,
@@ -813,6 +815,9 @@ class ModelEngine:
             TASK_REGISTRY.set(task_id, {"status": "running"})
             result = await handler_func(*args, **kwargs)
             TASK_REGISTRY.set(task_id, {"status": "completed", "result": result})
+            llm_suc_khoe.ghi_ok()
         except Exception as e:
+            if isinstance(e, (BackendUnavailable, BackendTimeout)):
+                llm_suc_khoe.ghi_loi()
             logger.error("Error in background worker for task %s: %s", task_id, loai_loi())
             TASK_REGISTRY.set(task_id, {"status": "failed", "error": str(e)})

@@ -24,7 +24,7 @@ from src.api.dependencies import (
     thieu_token_o_trien_khai,
 )
 from src.api.gioi_han_than import GioiHanThanMiddleware
-from src.core import metrics, nguong_p95
+from src.core import llm_suc_khoe, metrics, nguong_p95
 from src.core.engine import TASK_REGISTRY
 from src.core.serving import Overloaded
 
@@ -256,6 +256,8 @@ async def health():
             # Chạy như bản triển khai (ENV khác LOCAL) mà không có token: kéo `degraded` lên và có dòng CRITICAL
             # lúc khởi động. Chỉ THÊM khoá; xem `thieu_token_o_trien_khai`.
             "auth_missing_in_deployment": auth_thieu,
+            # Mạch ngắt model (A21): False = GPU/vLLM mất, `/chat` trả 503 `llm_unavailable`; `/tools/*` vẫn chạy. Chỉ THÊM khoá.
+            "llm": llm_suc_khoe.trang_thai(),
             "load": load,
         }
     )
