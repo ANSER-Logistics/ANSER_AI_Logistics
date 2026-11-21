@@ -61,3 +61,52 @@ def trang_thai() -> dict[str, object]:
 def dat_lai() -> None:
     """Cho test."""
     ghi_ok()
+
+
+# ---------------------------------------------------------------------------
+# Thăm dò chủ động
+# ---------------------------------------------------------------------------
+# `/health` của vLLM trả 200 cả khi GPU lỗi (nghiên cứu 20/11/2026), nên chỉ đếm lỗi của lượt thật thì 3 người dùng đầu mới thấy lỗi. Thăm dò sinh MỘT token
+# tới chính model mỗi `LLM_PROBE_INTERVAL_S` giây (mặc định 60; 0 tắt) và nạp vào cùng mạch ngắt. Chỉ chạy khi backend text là server vLLM.
+
+async def mot_lan_tham_do(server) -> bool | None:
+    """Một lượt thăm dò. True = model trả lời; False = mất kết nối hay hết giờ (đã ghi vào mạch); None = lỗi khác (không phải GPU mất, không đổi mạch)."""
+    from src.core.serving import BackendTimeout, BackendUnavailable, ChatRequest
+    try:
+        await server.chat(ChatRequest(messages=[{"role": "user", "content": "."}], max_tokens=1, temperature=0.0))
+    except (BackendUnavailable, BackendTimeout):
+        ghi_loi()
+        return False
+    except Exception:
+        import logging
+
+        from src.core.utils import loai_loi
+        logging.getLogger("anser.llm_suc_khoe").warning("Thăm dò model: lỗi không phải mất kết nối: %s", loai_loi())
+        return None
+    ghi_ok()
+    return True
+
+
+async def vong_tham_do(lay_server, chu_ky_s: float) -> None:
+    """Chạy tới khi bị huỷ. `lay_server()` trả client vLLM hoặc None (chưa khởi tạo hay không dùng server)."""
+    import asyncio
+    while True:
+        await asyncio.sleep(chu_ky_s)
+        server = lay_server()
+        if server is not None:
+            await mot_lan_tham_do(server)
+
+
+def chu_ky_tham_do_s() -> float:
+    """`LLM_PROBE_INTERVAL_S`: giây giữa hai lượt thăm dò; 0 = tắt. Giá trị hỏng thì dịch vụ không khởi động (như `FUEL_PRICE_*`)."""
+    import os
+    tho = os.getenv("LLM_PROBE_INTERVAL_S", "").strip()
+    if not tho:
+        return 60.0
+    try:
+        v = float(tho)
+    except ValueError:
+        raise RuntimeError(f"LLM_PROBE_INTERVAL_S={tho!r} không phải số") from None
+    if v < 0 or v != v or v == float("inf"):
+        raise RuntimeError(f"LLM_PROBE_INTERVAL_S={tho!r} phải là số >= 0 hữu hạn (0 = tắt)")
+    return v
