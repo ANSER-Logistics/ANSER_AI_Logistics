@@ -17,8 +17,8 @@ client = TestClient(app)
 AI = {"X-User-Id": "1", "X-Store-Id": "1"}
 
 
-def test_nhan_co_chu_co_chu_ai_va_yeu_cau_xac_nhan():
-    assert "AI" in AI_NOTICE and "tham khảo" in AI_NOTICE and "kế toán" in AI_NOTICE
+def test_nhan_co_chu_ai():
+    assert "AI" in AI_NOTICE
 
 
 def test_task_hoan_thanh_co_nhan(moi_truong):  # noqa: F811

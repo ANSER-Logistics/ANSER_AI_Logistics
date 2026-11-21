@@ -225,3 +225,13 @@ def test_khong_mau_that_nao_bi_chan_oan():
             if r:
                 loi.append(f"{pathlib.Path(f).name}: {n.get('name')}: {r[:90]}")
     assert not loi, "\n".join(loi)
+
+
+def test_lich_toi_thieu_la_hang_so_duy_nhat_va_mau_that_cua_body_qua():
+    """Mẫu `retail_sepay_poll` chạy mỗi phút: nâng LICH_TOI_THIEU_PHUT lên 2 thì phải đổi mẫu đó trước (xem ghi chú ở hằng số)."""
+    assert ws.LICH_TOI_THIEU_PHUT == 1
+    obj = _wf(_set("x"))
+    obj["payload"]["nodes"][0]["parameters"] = {"rule": {"interval": [{"field": "minutes", "minutesInterval": 1}]}}
+    assert ws.validate_workflow(obj) == (True, "")
+    obj["payload"]["nodes"][0]["parameters"] = {"rule": {"interval": [{"field": "minutes", "minutesInterval": 0}]}}
+    assert "không được phép" in _ly_do(obj)

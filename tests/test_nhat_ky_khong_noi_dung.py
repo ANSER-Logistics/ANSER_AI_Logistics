@@ -115,3 +115,20 @@ def test_uvicorn_tat_nhat_ky_truy_cap():
     import pathlib
     dockerfile = (pathlib.Path(__file__).resolve().parent.parent / "deploy" / "Dockerfile").read_text(encoding="utf-8")
     assert "--no-access-log" in dockerfile
+
+
+def test_loai_loi_co_vi_tri_de_tim_cho_hong_ma_khong_co_noi_dung():
+    from src.core.utils import loai_loi
+
+    def sau():
+        raise ValueError(f"chua noi dung {CANARY}")
+
+    def truoc():
+        sau()
+
+    try:
+        truoc()
+    except ValueError:
+        s = loai_loi()
+    assert s.startswith("ValueError tại ") and "test_nhat_ky_khong_noi_dung.py:" in s and "sau" in s and "truoc" in s
+    assert not _thay(s)

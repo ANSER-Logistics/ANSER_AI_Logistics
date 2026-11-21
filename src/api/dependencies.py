@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 from src.api import hmac_auth
 from src.core.config import LICH_SU_TOI_DA_KY_TU, LICH_SU_TOI_DA_TIN
 from src.core.config import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
+from src.core.utils import loai_loi
 
 if TYPE_CHECKING:
     # Chỉ import lúc KIỂM KIỂU, không import lúc chạy.
@@ -169,7 +170,7 @@ class RuntimeState:
         except Exception as exc:
             self.engine = None
             self.engine_error = str(exc)
-            logger.error("Engine initialization failed: %s", type(exc).__name__)
+            logger.error("Engine initialization failed: %s", loai_loi())
 
         # KB phải tạo TRƯỚC manager để manager dùng chung embedder của KB
         # (tránh nạp MiniLM 2 lần lên VRAM — xem SemanticRouter(embedder=...)).
@@ -180,7 +181,7 @@ class RuntimeState:
         except Exception as exc:
             self.kb = None
             self.kb_error = str(exc)
-            logger.warning("Knowledge base initialization failed: %s", type(exc).__name__)
+            logger.warning("Knowledge base initialization failed: %s", loai_loi())
 
         if self.engine:
             from src.agents.coder import CoderAgent
@@ -243,7 +244,7 @@ class RuntimeState:
                 self.engine = None
                 self.engine_error = str(exc)
                 self.vision_error = self.engine_error
-                logger.error("Engine init (for vision) failed: %s", type(exc).__name__)
+                logger.error("Engine init (for vision) failed: %s", loai_loi())
                 return
 
         # ENV=SERVER: engine không có vision (vllm-vision qua HTTP thuộc chu kỳ
@@ -263,7 +264,7 @@ class RuntimeState:
         except Exception as exc:
             self.vision = None
             self.vision_error = str(exc)
-            logger.error("Vision initialization failed: %s", type(exc).__name__)
+            logger.error("Vision initialization failed: %s", loai_loi())
 
 
 # Global singleton
@@ -485,6 +486,6 @@ def web_search_fallback(query: str, max_results: int = 3) -> str:
             body = res.get("body", "No snippet")
             formatted_results += f"[{i+1}] {title}\nSnippet: {body}\n\n"
         return formatted_results
-    except Exception as exc:
-        logger.warning("Web fallback search failed: %s", type(exc).__name__)
+    except Exception:
+        logger.warning("Web fallback search failed: %s", loai_loi())
         return ""

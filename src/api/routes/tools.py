@@ -53,6 +53,7 @@ from src.core.pricing import (
     compute_quote,
     doc_nguong_tuoi_gia_dau,
 )
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.api.tools")
 router = APIRouter(prefix="/tools")
@@ -963,7 +964,7 @@ async def run_tool(name: str, arguments: dict) -> Any:
     except HTTPException as exc:
         return {"error": exc.detail}
     except Exception as exc:
-        logger.warning("Tool %s lỗi: %s", name, type(exc).__name__)
+        logger.warning("Tool %s lỗi: %s", name, loai_loi())
         return {"error": str(exc)}
 
 

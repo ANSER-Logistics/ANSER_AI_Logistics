@@ -19,6 +19,7 @@ from src.core.serving import (
     VLLMServerClient,
     guard_from_env,
 )
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.engine")
 
@@ -813,5 +814,5 @@ class ModelEngine:
             result = await handler_func(*args, **kwargs)
             TASK_REGISTRY.set(task_id, {"status": "completed", "result": result})
         except Exception as e:
-            logger.error("Error in background worker for task %s: %s", task_id, type(e).__name__)
+            logger.error("Error in background worker for task %s: %s", task_id, loai_loi())
             TASK_REGISTRY.set(task_id, {"status": "failed", "error": str(e)})

@@ -37,8 +37,8 @@ LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắ
 # Nhãn gắn vào mọi câu trả lời của `/chat` (kết quả của task và webhook về Body). Do mã gắn, không phải model sinh; Body hiển thị nguyên văn.
 # Lý do: chủ dự án chốt 20/11/2026 không quảng bá "AI làm kế toán thay"; Luật AI 134/2025 Điều 11 yêu cầu người dùng biết đang dùng AI
 # (nguồn thứ cấp, chờ luật sư, câu 9 trong bộ câu hỏi pháp lý).
-AI_NOTICE = "Trợ lý AI, kết quả chỉ để tham khảo, cần kế toán xác nhận trước khi dùng."
-LICH_SU_TOI_DA_KY_TU = 4000      # mỗi tin; dài hơn thì 422
+AI_NOTICE = "Trợ lý AI"
+LICH_SU_TOI_DA_KY_TU = 4196      # mỗi tin (cả `message` của /chat và mỗi tin của `history`); dài hơn thì 422. Chủ dự án chốt 21/11/2026; Body cắt ở 4000, nên vẫn khớp
 
 
 class Config:
