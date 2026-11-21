@@ -813,5 +813,5 @@ class ModelEngine:
             result = await handler_func(*args, **kwargs)
             TASK_REGISTRY.set(task_id, {"status": "completed", "result": result})
         except Exception as e:
-            logger.exception("Error in background worker for task %s: %s", task_id, e)
+            logger.error("Error in background worker for task %s: %s", task_id, type(e).__name__)
             TASK_REGISTRY.set(task_id, {"status": "failed", "error": str(e)})

@@ -169,7 +169,7 @@ class RuntimeState:
         except Exception as exc:
             self.engine = None
             self.engine_error = str(exc)
-            logger.error("Engine initialization failed: %s", exc)
+            logger.error("Engine initialization failed: %s", type(exc).__name__)
 
         # KB phải tạo TRƯỚC manager để manager dùng chung embedder của KB
         # (tránh nạp MiniLM 2 lần lên VRAM — xem SemanticRouter(embedder=...)).
@@ -180,7 +180,7 @@ class RuntimeState:
         except Exception as exc:
             self.kb = None
             self.kb_error = str(exc)
-            logger.warning("Knowledge base initialization failed: %s", exc)
+            logger.warning("Knowledge base initialization failed: %s", type(exc).__name__)
 
         if self.engine:
             from src.agents.coder import CoderAgent
@@ -243,7 +243,7 @@ class RuntimeState:
                 self.engine = None
                 self.engine_error = str(exc)
                 self.vision_error = self.engine_error
-                logger.error("Engine init (for vision) failed: %s", exc)
+                logger.error("Engine init (for vision) failed: %s", type(exc).__name__)
                 return
 
         # ENV=SERVER: engine không có vision (vllm-vision qua HTTP thuộc chu kỳ
@@ -263,7 +263,7 @@ class RuntimeState:
         except Exception as exc:
             self.vision = None
             self.vision_error = str(exc)
-            logger.error("Vision initialization failed: %s", exc)
+            logger.error("Vision initialization failed: %s", type(exc).__name__)
 
 
 # Global singleton
@@ -486,5 +486,5 @@ def web_search_fallback(query: str, max_results: int = 3) -> str:
             formatted_results += f"[{i+1}] {title}\nSnippet: {body}\n\n"
         return formatted_results
     except Exception as exc:
-        logger.warning("Web fallback search failed: %s", exc)
+        logger.warning("Web fallback search failed: %s", type(exc).__name__)
         return ""

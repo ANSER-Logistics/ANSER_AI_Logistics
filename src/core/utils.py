@@ -149,3 +149,10 @@ def extract_json_block(text: str) -> tuple[Optional[dict], Optional[str]]:
                     return None, f"JSONDecodeError: {exc.msg} tại vị trí {exc.pos}"
 
     return None, "unbalanced braces (thiếu dấu })"
+
+
+def loai_loi() -> str:
+    """Tên loại ngoại lệ đang xử lý (trong khối `except`). Để ghi log: THÂN thông báo lỗi có thể chứa nội dung của khách
+    (câu lệnh SQL kèm tham số, URL kèm chuỗi truy vấn, `input` của pydantic), nên nhật ký chỉ nhận tên loại (R2, #205)."""
+    import sys
+    return getattr(sys.exc_info()[0], "__name__", "?")

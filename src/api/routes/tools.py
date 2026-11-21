@@ -963,7 +963,7 @@ async def run_tool(name: str, arguments: dict) -> Any:
     except HTTPException as exc:
         return {"error": exc.detail}
     except Exception as exc:
-        logger.warning("Tool %s lỗi: %s", name, exc)
+        logger.warning("Tool %s lỗi: %s", name, type(exc).__name__)
         return {"error": str(exc)}
 
 

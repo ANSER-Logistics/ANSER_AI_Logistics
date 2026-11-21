@@ -10,6 +10,7 @@ import logging
 from sqlalchemy import create_engine, text
 
 from src.core.config import MAX_HISTORY_TURNS, Config
+from src.core.utils import loai_loi
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class MemoryManager:
         try:
             self.engine = create_engine(self.config.DB_URL)
         except Exception:
-            logger.error("Failed to create database engine", exc_info=True)
+            logger.error("Failed to create database engine loi=%s", loai_loi())
             self.engine = None
         # Nhớ kết quả kiểm lược đồ — `/health` gọi mỗi lần, DB chỉ hỏi một lần.
         self._luoc_do_da_kiem: bool = False
@@ -126,7 +127,7 @@ class MemoryManager:
             from sqlalchemy import inspect as _inspect
             thieu = [t for t in BANG_CAN_CO if not _inspect(self.engine).has_table(t)]
         except Exception:
-            logger.warning("Không kiểm được lược đồ DB", exc_info=True)
+            logger.warning("Không kiểm được lược đồ DB loi=%s", loai_loi())
             self._luoc_do_loi = None   # không kiểm được ≠ sai; đừng báo oan
             # ... nhưng cũng KHÔNG ĐƯỢC báo "ok": không kiểm được thì không biết. `trang_thai_db`
             # nói đúng điều đó, còn `degraded` vẫn không bị kéo lên (giữ hành vi cũ).
@@ -206,7 +207,7 @@ class MemoryManager:
                 )
                 conn.commit()
         except Exception:
-            logger.error("DB error saving attachment user_id=%s file=%s", user_id, filename, exc_info=True)
+            logger.error("DB error saving attachment user_id=%s file=%s loi=%s", user_id, filename, loai_loi())
 
     def add_message(self, user_id, workspace_id, role, content):
         try:
@@ -219,7 +220,7 @@ class MemoryManager:
                 )
                 conn.commit()
         except Exception:
-            logger.error("DB error saving message user_id=%s role=%s", user_id, role, exc_info=True)
+            logger.error("DB error saving message user_id=%s role=%s loi=%s", user_id, role, loai_loi())
 
     def get_history_messages(self, user_id, limit=MAX_HISTORY_TURNS) -> list:
         """
@@ -253,7 +254,7 @@ class MemoryManager:
                     out.append({"role": role, "content": str(content)})
             return out
         except Exception:
-            logger.error("DB error fetching history user_id=%s", user_id, exc_info=True)
+            logger.error("DB error fetching history user_id=%s loi=%s", user_id, loai_loi())
             return []
 
     def get_context_string(self, user_id, limit=MAX_HISTORY_TURNS):
@@ -286,7 +287,7 @@ class MemoryManager:
 
                 return vision_context + "\n" + history
         except Exception:
-            logger.error("DB error fetching context user_id=%s", user_id, exc_info=True)
+            logger.error("DB error fetching context user_id=%s loi=%s", user_id, loai_loi())
             return ""
 
     def get_user_workspaces(self, uid):
@@ -308,7 +309,7 @@ class MemoryManager:
                 ).fetchall()
             return [{"id": row[0], "name": row[1]} for row in rows]
         except Exception:
-            logger.error("DB error fetching workspaces user_id=%s", uid, exc_info=True)
+            logger.error("DB error fetching workspaces user_id=%s loi=%s", uid, loai_loi())
             return []
 
     def get_user_stores(self, uid):
@@ -350,7 +351,7 @@ class MemoryManager:
                 "lon": 106.6297,
             }
         except Exception:
-            logger.error("DB error fetching store details store_id=%s", store_id, exc_info=True)
+            logger.error("DB error fetching store details store_id=%s loi=%s", store_id, loai_loi())
             return None
 
     def save_workflow(self, wid, name, data):
@@ -372,5 +373,5 @@ class MemoryManager:
                 conn.commit()
                 return row[0] if row else None
         except Exception:
-            logger.error("DB error saving workflow workspace_id=%s name=%s", wid, name, exc_info=True)
+            logger.error("DB error saving workflow workspace_id=%s name=%s loi=%s", wid, name, loai_loi())
             return None

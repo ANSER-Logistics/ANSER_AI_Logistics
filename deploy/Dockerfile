@@ -51,4 +51,5 @@ HEALTHCHECK --interval=20s --timeout=5s --start-period=60s --retries=3 \
 # lỗi thì registry lùi về RAM: đúng với 1 worker, SAI với nhiều worker.
 CMD ["uvicorn", "src.api.main:app", \
      "--host", "0.0.0.0", "--port", "8000", \
-     "--workers", "1", "--timeout-keep-alive", "65"]
+     "--workers", "1", "--timeout-keep-alive", "65", \
+     "--no-access-log"]

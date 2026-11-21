@@ -134,7 +134,7 @@ async def upload_file(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Upload endpoint failed: %s", exc)
+        logger.error("Upload endpoint failed: %s", type(exc).__name__)
         return {"status": "error", "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
@@ -193,7 +193,7 @@ async def ocr_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("OCR endpoint failed: %s", exc)
+        logger.error("OCR endpoint failed: %s", type(exc).__name__)
         return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
@@ -257,7 +257,7 @@ async def ocr_freight_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("OCR freight endpoint failed: %s", exc)
+        logger.error("OCR freight endpoint failed: %s", type(exc).__name__)
         return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
