@@ -19,6 +19,7 @@ from src.core.freight_invoice import verify as verify_freight
 from src.core.mcp_server import MCPServer
 from src.core.sanitize import lam_sach_cay, lam_sach_chuoi, lam_sach_raw
 from src.core.schemas import InvoicePayload
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.api.documents")
 
@@ -134,7 +135,7 @@ async def upload_file(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Upload endpoint failed: %s", type(exc).__name__)
+        logger.error("Upload endpoint failed: %s", loai_loi())
         return {"status": "error", "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
@@ -193,7 +194,7 @@ async def ocr_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("OCR endpoint failed: %s", type(exc).__name__)
+        logger.error("OCR endpoint failed: %s", loai_loi())
         return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)
@@ -257,7 +258,7 @@ async def ocr_freight_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("OCR freight endpoint failed: %s", type(exc).__name__)
+        logger.error("OCR freight endpoint failed: %s", loai_loi())
         return {"success": False, "error": _loi_an_toan(exc)}
     finally:
         _safe_unlink(path)

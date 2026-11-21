@@ -152,7 +152,14 @@ def extract_json_block(text: str) -> tuple[Optional[dict], Optional[str]]:
 
 
 def loai_loi() -> str:
-    """Tên loại ngoại lệ đang xử lý (trong khối `except`). Để ghi log: THÂN thông báo lỗi có thể chứa nội dung của khách
-    (câu lệnh SQL kèm tham số, URL kèm chuỗi truy vấn, `input` của pydantic), nên nhật ký chỉ nhận tên loại (R2, #205)."""
+    """Loại ngoại lệ đang xử lý KÈM VỊ TRÍ (tệp:dòng hàm, bốn khung trong cùng), trong khối `except`. Để ghi log: THÂN thông báo lỗi có thể
+    chứa nội dung của khách (câu lệnh SQL kèm tham số, URL kèm chuỗi truy vấn, `input` của pydantic) nên không bao giờ được ghi; còn tên loại và
+    vị trí thì đủ để tìm ra chỗ hỏng (R2, #205)."""
     import sys
-    return getattr(sys.exc_info()[0], "__name__", "?")
+    import traceback
+    from pathlib import PurePath
+    loai, _, tb = sys.exc_info()
+    if loai is None:
+        return "?"
+    khung = traceback.extract_tb(tb)[-4:]
+    return f"{loai.__name__} tại " + " > ".join(f"{PurePath(k.filename).name}:{k.lineno} {k.name}" for k in khung)

@@ -129,8 +129,8 @@ def _load_history(user_id) -> list[dict]:
         return []
     try:
         return memory.get_history_messages(user_id)
-    except Exception as exc:
-        logger.warning("Không đọc được lịch sử hội thoại: %s", type(exc).__name__)
+    except Exception:
+        logger.warning("Không đọc được lịch sử hội thoại: %s", loai_loi())
         return []
 
 
@@ -156,8 +156,8 @@ def _save_turn(user_id, store_id, user_msg: str, answer: str) -> None:
     try:
         memory.add_message(user_id, store_id, "user", user_msg)
         memory.add_message(user_id, store_id, "assistant", answer)
-    except Exception as exc:
-        logger.warning("Không lưu được lượt hội thoại: %s", type(exc).__name__)
+    except Exception:
+        logger.warning("Không lưu được lượt hội thoại: %s", loai_loi())
 
 
 # Hàm THUẦN, đã chuyển sang `src/core/utils.py` (03/08/2026). Giữ alias để 5 chỗ
@@ -622,11 +622,11 @@ async def _gui_mot_lan(client, url: str, payload: dict, headers: dict) -> tuple[
     """Một lần gửi. Trả `(thanh_cong, nen_thu_lai, mo_ta)`."""
     try:
         r = await client.post(url, json=payload, headers=headers)
-    except Exception as exc:   # mạng, hết giờ, DNS: đều tạm thời; không ném ra ngoài
+    except Exception:   # mạng, hết giờ, DNS: đều tạm thời; không ném ra ngoài
         # Chỉ ghi LOẠI lỗi (AGENTS §4.1 quy tắc 4): thông điệp của httpx có thể kèm URL, và không bao giờ
         # ghi `payload`, vì đó là câu trả lời cho khách.
-        logger.warning("Webhook về Body: không gửi được (%s)", type(exc).__name__)
-        return False, True, f"{type(exc).__name__}"
+        logger.warning("Webhook về Body: không gửi được (%s)", loai_loi())
+        return False, True, f"{loai_loi()}"
     if r.status_code < 400:
         return True, False, f"HTTP {r.status_code}"
     return False, (r.status_code >= 500 or r.status_code in _WEBHOOK_MA_THU_LAI), f"HTTP {r.status_code}"
@@ -698,8 +698,8 @@ def _cach_phan_loai(manager, user_msg: str) -> Optional[str]:
         return None
     try:
         return manager.cach_chay(user_msg)
-    except Exception as exc:       # đo đạc hỏng không được làm hỏng nghiệp vụ
-        logger.warning("Không xác định được nơi phân loại: %s", type(exc).__name__)
+    except Exception:       # đo đạc hỏng không được làm hỏng nghiệp vụ
+        logger.warning("Không xác định được nơi phân loại: %s", loai_loi())
         return None
 
 
@@ -1145,8 +1145,8 @@ async def chat_endpoint(
 
                 client = HttpClientPool.get_client()
                 await _gui_webhook(client, callback_url, payload, headers, task_id)
-            except Exception as exc:
-                logger.error("Webhook dispatch failed for task %s: %s", task_id, type(exc).__name__)
+            except Exception:
+                logger.error("Webhook dispatch failed for task %s: %s", task_id, loai_loi())
 
         return chat_response.model_dump()
 

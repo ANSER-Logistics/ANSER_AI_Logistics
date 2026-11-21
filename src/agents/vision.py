@@ -15,6 +15,7 @@ import logging
 from json_repair import repair_json
 
 from src.core.prompts import Prompts
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.agents.vision")
 
@@ -65,7 +66,7 @@ class VisionAgent:
                 phai_tron_ven=phai_tron_ven,
             )
         except Exception as exc:
-            logger.error("Vision inference failed: %s", type(exc).__name__)
+            logger.error("Vision inference failed: %s", loai_loi())
             return f"Error analyzing image: {exc}"
 
     async def extract_invoice(self, image_path: str) -> dict:
@@ -107,5 +108,5 @@ class VisionAgent:
             return {"error": "VLM không trả JSON object", "raw": raw}
         except Exception as exc:
             # Chỉ ghi loại lỗi: `raw` là văn bản đọc từ ảnh hoá đơn (dữ liệu khách).
-            logger.warning("Không sửa được đầu ra VLM thành JSON (%s)", type(exc).__name__)
+            logger.warning("Không sửa được đầu ra VLM thành JSON (%s)", loai_loi())
             return {"error": f"parse_failed: {exc}", "raw": raw}

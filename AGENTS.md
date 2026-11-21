@@ -107,7 +107,9 @@ Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham
 
 ### R3 — Kỷ luật ngân sách
 
-Trần hạ tầng phục vụ pilot miễn phí: **5.000.000đ/tháng. Thấp hơn càng tốt.** Mục tiêu hiện tại là bậc T0 ≈ 750.000đ/tháng.
+Trần hạ tầng phục vụ pilot miễn phí: **500.000 đến 700.000đ/tháng cho GPU cloud thuê** (chủ dự án chốt 21/11/2026; trước đó 5.000.000đ). Thấp hơn càng tốt. Mục tiêu hiện tại là bậc T0 ≈ 750.000đ/tháng.
+
+**Thử nghiệm trên Google Colab Pro không tính vào trần** (đo, huấn luyện, thử model: dùng thoải mái). Chỉ khoản thuê GPU phục vụ pilot thật mới bị trần. Với giá GPU 24GB thuê theo giờ (0,22 đến 0,89 USD/giờ, đo 20/11/2026) thì 500.000 đến 700.000đ chỉ đủ khoảng 60 đến 136 giờ GPU mỗi tháng: chạy theo giờ làm việc, không chạy 24/7.
 
 Mọi PR làm tăng chi phí vận hành (model to hơn, context dài hơn, thêm GPU, thêm service thường trực) phải kèm:
 1. Chi phí tăng thêm, tính bằng VNĐ/tháng

@@ -658,6 +658,9 @@ _TU_KHOA = re.compile(
     r"(?<![\w$])(?:with|function|class|extends|new|var|let|const|return|yield|await|async|delete|typeof|instanceof|void)(?![\w$])")
 _GOC_DOLLAR = {"json", "input", "node", "now", "today", "env", "workflow", "execution", "itemIndex", "runIndex", "items", "item", "prevNode"}
 _ENV_CAM = re.compile(r"^(?:DB_|POSTGRES|PGPASS|N8N_ENCRYPTION|N8N_USER_MANAGEMENT|N8N_RUNNERS_AUTH|.*ENCRYPTION|.*JWT_SECRET|.*MASTER_KEY|.*PRIVATE_KEY)", re.IGNORECASE)
+# Chủ dự án chốt 21/11/2026 là 2 phút, nhưng mẫu thật `retail_sepay_poll` của Body hỏi SePay MỖI PHÚT (minutesInterval=1); đặt 2 thì mẫu đó
+# bị từ chối và rớt khỏi dữ liệu huấn luyện. Giữ 1 tới khi Body đổi mẫu đó sang 2 phút, rồi đổi hằng này (một chỗ) và test.
+LICH_TOI_THIEU_PHUT = 1
 _HEADER_BI_MAT = {"authorization", "cookie", "x-api-key", "x-api-token", "x-auth-token"}
 
 
@@ -757,9 +760,16 @@ def _loi_tham_so_nguy_hiem(ntype: str, params: dict) -> str | None:
             if not isinstance(it, dict):
                 continue
             if it.get("field") == "seconds":
-                return "lịch chạy theo giây không được phép (tối thiểu theo phút)"
-            if it.get("field") == "cronExpression" and len(str(it.get("expression", "")).split()) > 5:
-                return "biểu thức cron 6 trường (có giây) không được phép"
+                return f"lịch chạy theo giây không được phép (tối thiểu {LICH_TOI_THIEU_PHUT} phút một lần)"
+            mi = it.get("minutesInterval")
+            if it.get("field") == "minutes" and isinstance(mi, (int, float)) and mi < LICH_TOI_THIEU_PHUT:
+                return f"lịch chạy dưới {LICH_TOI_THIEU_PHUT} phút không được phép"
+            cron = str(it.get("expression", "")).split()
+            if it.get("field") == "cronExpression":
+                if len(cron) > 5:
+                    return "biểu thức cron 6 trường (có giây) không được phép"
+                if LICH_TOI_THIEU_PHUT > 1 and cron and cron[0] in ("*", "*/1"):
+                    return f"cron chạy mỗi phút không được phép (tối thiểu {LICH_TOI_THIEU_PHUT} phút một lần)"
     return None
 
 
