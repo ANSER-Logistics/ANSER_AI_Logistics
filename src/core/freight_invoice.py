@@ -23,9 +23,12 @@ sai mà tự tin thì không.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+from src.core import vat_catalog
 
 # Kế toán làm tròn đến đồng; đừng báo lệch vì chênh 1 đồng do làm tròn VAT.
 ABS_TOL_VND = 1000.0
@@ -166,6 +169,16 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
                 f"Tổng cộng lệch: tính lại {tinh_total:,.0f} nhưng hoá đơn ghi "
                 f"{invoice.total:,.0f} (chênh {abs(tinh_total - invoice.total):,.0f})"
             )
+
+    # 4) Mức 8% chỉ được áp tới hết `vat_catalog.HIEU_LUC_DEN` (A15, #200). Chỉ bắt trường hợp CHẮC: ngày ISO hợp lệ, SAU hạn, mà hoá đơn vẫn ghi 8%.
+    # Trước hạn hay ngày không đọc được thì không nói gì ở đây (nghị quyết trước cũng từng cho 8%; ngày mờ đã có `missing_required`).
+    if (invoice.vat_rate is not None and abs(invoice.vat_rate - 8.0) < 1e-9 and invoice.invoice_date
+            and re.fullmatch(r"\d{4}-\d{2}-\d{2}", invoice.invoice_date) and invoice.invoice_date > vat_catalog.HIEU_LUC_DEN):
+        checks.append("hiệu_lực_thuế_8%")
+        issues.append(
+            f"Hoá đơn ghi thuế 8% nhưng lập ngày {invoice.invoice_date}, sau {vat_catalog.HIEU_LUC_DEN} "
+            f"({vat_catalog.CAN_CU_CHUNG}): mức 8% hết hiệu lực, cần kế toán xác nhận."
+        )
 
     return {
         # `ok` đòi CẢ HAI: không có vấn đề nào, VÀ đã thật sự kiểm được ít nhất
