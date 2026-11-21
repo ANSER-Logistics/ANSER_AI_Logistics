@@ -132,3 +132,37 @@ def test_loai_loi_co_vi_tri_de_tim_cho_hong_ma_khong_co_noi_dung():
         s = loai_loi()
     assert s.startswith("ValueError tại ") and "test_nhat_ky_khong_noi_dung.py:" in s and "sau" in s and "truoc" in s
     assert not _thay(s)
+
+
+# ---------------------------------------------------------------------------
+# Khoá việc ghi log: lỗi cũ không được quay lại
+# ---------------------------------------------------------------------------
+
+# Chỗ được phép ghi thân thông báo của ngoại lệ, kèm lý do. Mọi chỗ khác dùng `loai_loi()` (tên loại + vị trí).
+LOG_THAN_LOI_DUOC_PHEP = {
+    "core/workflow_schema.py": "đường dẫn và lỗi đọc MẪU workflow của repo, không có dữ liệu khách",
+}
+
+
+def test_khong_logger_nao_ghi_than_thong_bao_ngoai_le_hay_traceback():
+    """`logger.x("...", exc)` ghi cả thân thông báo (SQL kèm tham số, URL, `input` của pydantic), `exc_info=True` ghi cả traceback có thông báo. Cấm trừ chỗ khai báo."""
+    import pathlib
+    import re
+    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
+    mau = re.compile(r"logger\.\w+\(.*(?:,\s*(?:exc|e|err|error)\)|exc_info\s*=\s*True)")
+    vi_pham = []
+    for f in sorted(goc.rglob("*.py")):
+        rel = f.relative_to(goc).as_posix()
+        if rel in LOG_THAN_LOI_DUOC_PHEP:
+            continue
+        for i, dong in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if mau.search(dong):
+                vi_pham.append(f"src/{rel}:{i}: {dong.strip()[:110]}")
+    assert not vi_pham, "ghi thân thông báo ngoại lệ vào nhật ký (dùng `loai_loi()` từ src.core.utils):\n" + "\n".join(vi_pham)
+
+
+def test_chot_danh_sach_duoc_phep_khong_chet():
+    import pathlib
+    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
+    for rel in LOG_THAN_LOI_DUOC_PHEP:
+        assert (goc / rel).exists(), f"{rel} không còn: xoá khỏi LOG_THAN_LOI_DUOC_PHEP"

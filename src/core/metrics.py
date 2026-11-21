@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.core import nguong_p95
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.metrics")
 
@@ -144,8 +145,8 @@ def record(metric: TurnMetric) -> None:
     # làm /health mất số đo.
     try:
         _ghi_cua_so(metric)
-    except Exception as exc:
-        logger.warning("Không cập nhật được cửa sổ p95: %s", exc)
+    except Exception:
+        logger.warning("Không cập nhật được cửa sổ p95: %s", loai_loi())
     if not METRICS_PATH:
         return
     try:
@@ -159,8 +160,8 @@ def record(metric: TurnMetric) -> None:
         with _write_lock:            # nhiều worker cùng ghi một file
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
-    except Exception as exc:
-        logger.warning("Không ghi được ai_metrics_log: %s", exc)
+    except Exception:
+        logger.warning("Không ghi được ai_metrics_log: %s", loai_loi())
 
 
 def _ms_moi_token(metric: TurnMetric) -> Optional[float]:

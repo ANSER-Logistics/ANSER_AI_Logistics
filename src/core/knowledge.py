@@ -56,7 +56,7 @@ from typing import Any, Optional, Protocol
 
 from src.core.chunking import chunk_document, looks_tabular
 from src.core.config import kb_embedder_id, kb_reranker_id
-from src.core.utils import hom_nay_vn
+from src.core.utils import hom_nay_vn, loai_loi
 
 logger = logging.getLogger("projecta.knowledge")
 
@@ -573,8 +573,8 @@ class KnowledgeBase:
                 # lực xếp thứ 6 không bao giờ tới reranker. Duyệt cả danh sách đã
                 # sắp xếp sẵn: không thêm phép tính nào đáng kể so với `sorted`.
                 lexical = [p for _, p in xep if is_effective(p[1], ngay)][:5]
-        except Exception as exc:  # BM25 hỏng không được làm chết cả tìm kiếm
-            logger.warning("BM25 lỗi, chỉ dùng dense: %s", exc)
+        except Exception:  # BM25 hỏng không được làm chết cả tìm kiếm
+            logger.warning("BM25 lỗi, chỉ dùng dense: %s", loai_loi())
 
         candidates = merge_candidates(dense, lexical)
         if not candidates:

@@ -375,8 +375,8 @@ def _prefix_allowed_fn(tokenizer, json_schema: dict):
         return build_transformers_prefix_allowed_tokens_fn(
             tokenizer, JsonSchemaParser(json_schema)
         )
-    except Exception as exc:
-        logger.warning("Không dựng được ràng buộc JSON (%s) — sinh tự do", exc)
+    except Exception:
+        logger.warning("Không dựng được ràng buộc JSON (%s) — sinh tự do", loai_loi())
         return None
 
 

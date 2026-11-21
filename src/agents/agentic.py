@@ -54,7 +54,7 @@ from typing import Any, Callable, Optional
 
 from src.core.prompts import Prompts
 from src.core.serving import DemSinh
-from src.core.utils import extract_json_block
+from src.core.utils import extract_json_block, loai_loi
 
 logger = logging.getLogger("projecta.agents.agentic")
 
@@ -531,7 +531,7 @@ class AgenticLoop:
                         observation = await self._maybe_await(self.tool_runner(name, args))
                         observations.append({"tool": name, "result": observation})
                     except Exception as exc:      # tool lỗi -> vào observation
-                        logger.warning("Agentic: tool %s lỗi: %s", name, exc)
+                        logger.warning("Agentic: tool %s lỗi: %s", name, loai_loi())
                         observation = {"error": f"tool lỗi: {exc}"}
 
             # Bước theo kế hoạch đã chạy xong -> gạch khỏi danh sách. Chỉ gạch khi
