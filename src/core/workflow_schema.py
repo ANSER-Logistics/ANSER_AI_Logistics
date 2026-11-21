@@ -468,7 +468,61 @@ def _default_example() -> dict:
 # `connections` để tự do vì khoá của nó là TÊN NODE (động, không biết trước) —
 # JSON Schema không ràng buộc được. Phần đó do validate_workflow() lo.
 
+# Lỗ hở grammar (#91, đọc nguyên văn đầu ra v4 ngày 20/11/2026): `parameters` và `connections` là `{"type": "object"}` không ràng buộc gì, nên model có thể
+# lặp MỘT chuỗi tự do (`url`, `documentId`, `smtpPassword`) tới hết trần 2.048 token và workflow cụt. 5 ca của v4 và 1 ca của v5 hỏng đúng kiểu đó, không sửa
+# được bằng dữ liệu. Chuỗi dài nhất trong các node được phép ở 33 mẫu thật của Body là 329 ký tự (0 chuỗi trên 400), nên trần 600 có biên rộng.
+#
+# `WORKFLOW_GRAMMAR_MAX_STRING` (số ký tự mỗi chuỗi trong `parameters`/`connections`; MẶC ĐỊNH 0 = TẮT, hành vi production KHÔNG đổi). Bật thì cả ba chân của R4
+# (grammar `guided_json` lúc phục vụ, `benchmark_v3`, bộ kiểm) cùng thấy giới hạn vì cùng dựng từ hàm này. Chưa ai chạy nó trên vLLM thật: xgrammar của 0.11.2 phải
+# biên dịch được schema đệ quy (`$defs`/`$ref`). Thành đo trên Colab (cùng bốn tập, bật cờ = 600), rồi chủ dự án mới đổi mặc định.
+_GRAMMAR_MAX_ITEMS = 40
+
+
+def gioi_han_chuoi_grammar() -> int:
+    """Đọc `WORKFLOW_GRAMMAR_MAX_STRING`. 0 hay rỗng = tắt. Giá trị hỏng thì lỗi to: cấu hình bảo vệ sai không được chạy lặng lẽ."""
+    import os
+    tho = os.getenv("WORKFLOW_GRAMMAR_MAX_STRING", "").strip()
+    if not tho:
+        return 0
+    try:
+        v = int(tho)
+    except ValueError:
+        raise RuntimeError(f"WORKFLOW_GRAMMAR_MAX_STRING={tho!r} không phải số nguyên") from None
+    if v < 0 or (0 < v < 50):
+        raise RuntimeError(f"WORKFLOW_GRAMMAR_MAX_STRING={v} phải là 0 (tắt) hoặc từ 50 trở lên")
+    return v
+
+
+def _doi_tuong_co_gioi_han(toi_da_chuoi: int) -> dict[str, Any]:
+    """`{"type": "object"}` thay bằng một giá trị đệ quy MỌI chuỗi đều có `maxLength`: tên khoá cũng bị giới hạn, mảng có `maxItems`."""
+    return {
+        "$defs": {"giaTri": {"anyOf": [
+            {"type": "string", "maxLength": toi_da_chuoi},
+            {"type": "number"},
+            {"type": "boolean"},
+            {"type": "null"},
+            {"type": "array", "maxItems": _GRAMMAR_MAX_ITEMS, "items": {"$ref": "#/$defs/giaTri"}},
+            {"type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"},
+             "propertyNames": {"maxLength": 80}},
+        ]}},
+        "type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"}, "propertyNames": {"maxLength": 80},
+    }
+
+
 def build_workflow_schema() -> dict[str, Any]:
+    schema = _build_workflow_schema_goc()
+    toi_da = gioi_han_chuoi_grammar()
+    if toi_da:
+        tu_do = _doi_tuong_co_gioi_han(toi_da)
+        defs = tu_do.pop("$defs")
+        schema["$defs"] = defs
+        payload = schema["properties"]["payload"]["properties"]
+        payload["nodes"]["items"]["properties"]["parameters"] = tu_do
+        payload["connections"] = dict(tu_do)
+    return schema
+
+
+def _build_workflow_schema_goc() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -945,6 +999,7 @@ __all__ = [
     "catalog_fingerprint",
     "trigger_types",
     "build_workflow_schema",
+    "gioi_han_chuoi_grammar",
     "render_node_catalog",
     "render_examples",
     "validate_workflow",
