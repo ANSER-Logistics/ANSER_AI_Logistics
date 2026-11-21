@@ -51,7 +51,7 @@ def kiem_hieu_luc_giam_thue(ngay_hoa_don: Optional[str], co_dong_giam: bool) -> 
     """
     Mức 8% chỉ áp cho hoá đơn LẬP trong [HIEU_LUC_TU, HIEU_LUC_DEN]. Trả `(lỗi, cảnh báo)`.
 
-    - Có dòng tính 8% mà ngày lập NGOÀI khoảng: lỗi (câu chữ nêu căn cứ). Hoá đơn lập 01/01/2027 mà tính 8% là sai thuế, không phải chuyện
+    - Có dòng tính 8% mà ngày lập SAU `HIEU_LUC_DEN`: lỗi (câu chữ nêu căn cứ). TRƯỚC `HIEU_LUC_TU`: chỉ cảnh báo, vì các nghị quyết trước cũng từng cho 8%. Hoá đơn lập 01/01/2027 mà tính 8% là sai thuế, không phải chuyện
       làm tròn; người dùng phải thấy ngay chứ không nhận một con số trông hợp lệ (R1).
     - Có dòng 8% mà KHÔNG có ngày: cảnh báo (không kiểm được hiệu lực), không đoán.
     - Ngày sai khuôn (chỉ nhận `YYYY-MM-DD`, như ngày trong Google Sheet, quyết định 12/11/2026): lỗi.
@@ -68,9 +68,13 @@ def kiem_hieu_luc_giam_thue(ngay_hoa_don: Optional[str], co_dong_giam: bool) -> 
         _dt.date.fromisoformat(ngay_hoa_don)
     except ValueError:
         return f"invoice_date không phải ngày hợp lệ: {ngay_hoa_don}", []
-    if co_dong_giam and not (HIEU_LUC_TU <= ngay_hoa_don <= HIEU_LUC_DEN):
-        return (f"mức thuế 8% chỉ áp cho hoá đơn lập từ {HIEU_LUC_TU} đến {HIEU_LUC_DEN} ({CAN_CU_CHUNG}); "
+    if co_dong_giam and ngay_hoa_don > HIEU_LUC_DEN:
+        return (f"mức thuế 8% chỉ áp cho hoá đơn lập đến {HIEU_LUC_DEN} ({CAN_CU_CHUNG}); "
                 f"hoá đơn lập ngày {ngay_hoa_don} phải tính mức 10%"), []
+    if co_dong_giam and ngay_hoa_don < HIEU_LUC_TU:
+        # CHỈ CẢNH BÁO, không từ chối: căn cứ của công cụ này (NQ 204/2025) chỉ bắt đầu từ HIEU_LUC_TU, nhưng các nghị quyết trước đó cũng từng cho 8%
+        # (theo hiểu biết của agent, chưa kiểm bản chính: kỳ 01 đến 06/2025 theo NQ 174/2024). Từ chối ở đây sẽ chặn oan hoá đơn kỳ cũ hợp lệ.
+        return None, [f"Hoá đơn lập ngày {ngay_hoa_don}, trước {HIEU_LUC_TU}: mức 8% có thể thuộc nghị quyết trước đó (chưa kiểm); cần kế toán xác nhận."]
     return None, []
 
 
