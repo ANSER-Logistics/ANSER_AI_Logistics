@@ -92,3 +92,66 @@ def test_background_worker_thanh_cong_dong_mach():
     eng = ModelEngine.__new__(ModelEngine)
     asyncio.run(eng.background_worker("t-llm-ok", tot))
     assert lk.trang_thai()["consecutive_failures"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Thăm dò chủ động (#203)
+# ---------------------------------------------------------------------------
+
+class _ServerGia:
+    def __init__(self, ket_qua):
+        self.ket_qua, self.so_lan = ket_qua, 0
+
+    async def chat(self, req):
+        self.so_lan += 1
+        assert req.max_tokens == 1, "thăm dò chỉ được sinh MỘT token (chi phí)"
+        if isinstance(self.ket_qua, Exception):
+            raise self.ket_qua
+        return "ok"
+
+
+def test_tham_do_mat_ket_noi_nap_vao_mach_roi_mo():
+    import asyncio
+    s = _ServerGia(BackendUnavailable("mat"))
+    for _ in range(3):
+        assert asyncio.run(lk.mot_lan_tham_do(s)) is False
+    assert lk.dang_hong()
+
+
+def test_tham_do_thanh_cong_dong_mach_va_loi_khac_khong_tinh():
+    import asyncio
+    for _ in range(3):
+        lk.ghi_loi()
+    assert asyncio.run(lk.mot_lan_tham_do(_ServerGia(ValueError("rac")))) is None
+    assert lk.dang_hong(), "lỗi không phải mất kết nối không đóng mạch"
+    lk.dat_lai()
+    for _ in range(3):
+        lk.ghi_loi()
+    assert asyncio.run(lk.mot_lan_tham_do(_ServerGia(None))) is True
+    assert not lk.dang_hong()
+
+
+def test_vong_tham_do_goi_dung_chu_ky_va_bo_qua_khi_chua_co_server():
+    import asyncio
+    s = _ServerGia(None)
+    co = [None, s, s]
+
+    async def chay():
+        t = asyncio.create_task(lk.vong_tham_do(lambda: co.pop(0) if co else s, 0.01))
+        await asyncio.sleep(0.15)
+        t.cancel()
+    asyncio.run(chay())
+    assert s.so_lan >= 2
+
+
+@pytest.mark.parametrize("gia_tri,ket", [("", 60.0), ("30", 30.0), ("0", 0.0), ("0.5", 0.5)])
+def test_chu_ky_tham_do_doc_tu_env(monkeypatch, gia_tri, ket):
+    monkeypatch.setenv("LLM_PROBE_INTERVAL_S", gia_tri)
+    assert lk.chu_ky_tham_do_s() == ket
+
+
+@pytest.mark.parametrize("gia_tri", ["abc", "-1", "nan", "inf"])
+def test_chu_ky_hong_thi_tu_choi_khoi_dong(monkeypatch, gia_tri):
+    monkeypatch.setenv("LLM_PROBE_INTERVAL_S", gia_tri)
+    with pytest.raises(RuntimeError, match="LLM_PROBE_INTERVAL_S"):
+        lk.chu_ky_tham_do_s()

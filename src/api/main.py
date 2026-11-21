@@ -4,6 +4,7 @@ Assembles FastAPI app with lifespan, middleware, and route modules.
 This replaces the monolithic src/server.py.
 """
 
+import asyncio
 import logging
 import math
 import os
@@ -63,7 +64,15 @@ async def lifespan(app: FastAPI):
             "Từ chối khởi động: API_AUTH_TOKEN trống khi ENV khác LOCAL (mọi route nghiệp vụ sẽ mở cho bất kỳ ai). "
             "Đặt API_AUTH_TOKEN, hoặc ENV=LOCAL nếu chỉ chạy trên máy dev."
         )
+    # Thăm dò chủ động model (A21, #203): chỉ khi backend text là server vLLM và chu kỳ > 0.
+    chu_ky = llm_suc_khoe.chu_ky_tham_do_s()
+    tham_do = None
+    if chu_ky > 0 and os.getenv("VLLM_BASE_URL", "").strip():
+        tham_do = asyncio.create_task(llm_suc_khoe.vong_tham_do(
+            lambda: getattr(runtime.engine, "server", None) if runtime.engine is not None else None, chu_ky))
     yield
+    if tham_do is not None:
+        tham_do.cancel()
     # Shutdown — close the shared HTTP client pool
     from src.core.utils import HttpClientPool
     await HttpClientPool.close()
