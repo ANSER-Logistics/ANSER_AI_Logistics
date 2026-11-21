@@ -55,6 +55,8 @@ _write_lock = threading.Lock()
 # (`AI_METRICS_PATH=`), không phải volume, và đọc file trên mỗi /health là I/O
 # thừa. Hệ quả chấp nhận: khởi động lại thì cửa sổ rỗng -> "không đủ dữ liệu"
 # tới khi đủ mẫu, không báo đạt khống. `P95_CUA_SO` hỏng thì lỗi ngay lúc import.
+_chan_theo_ly_do: dict[str, int] = {}
+_tong_luot = [0]
 _cua_so_lock = threading.Lock()
 _cua_so: deque[tuple[int, Optional[float]]] = deque(maxlen=nguong_p95.doc_cua_so()[0])
 
@@ -174,6 +176,19 @@ def _ms_moi_token(metric: TurnMetric) -> Optional[float]:
 def _ghi_cua_so(metric: TurnMetric) -> None:
     with _cua_so_lock:
         _cua_so.append((int(metric.latency_ms), _ms_moi_token(metric)))
+        _tong_luot[0] += 1
+        if metric.blocked_reason:
+            # Lý do ngắn (trước dấu ":"): giữ số nhóm nhỏ, không chứa nội dung câu trả lời.
+            nhom = metric.blocked_reason.split(":")[0].strip()[:60] or "khong_ro"
+            _chan_theo_ly_do[nhom] = _chan_theo_ly_do.get(nhom, 0) + 1
+
+
+def thong_ke_chan() -> dict[str, Any]:
+    """Bộ đếm chốt chặn câu trả lời từ lúc tiến trình khởi động (A13, #198): bao nhiêu lượt, bao nhiêu bị chặn, theo lý do. Cho /health."""
+    with _cua_so_lock:
+        chan = dict(_chan_theo_ly_do)
+        tong = _tong_luot[0]
+    return {"turns": tong, "blocked": sum(chan.values()), "by_reason": chan}
 
 
 def p95_gan_day() -> dict[str, Any]:
@@ -188,10 +203,12 @@ def p95_gan_day() -> dict[str, Any]:
 
 
 def dat_lai_cua_so_p95() -> None:
-    """Xoá cửa sổ và đọc lại `P95_CUA_SO` từ env. Cho test và cho lúc đổi cấu hình."""
+    """Xoá cửa sổ (và bộ đếm chốt chặn) rồi đọc lại `P95_CUA_SO` từ env. Cho test và cho lúc đổi cấu hình."""
     global _cua_so
     with _cua_so_lock:
         _cua_so = deque(maxlen=nguong_p95.doc_cua_so()[0])
+        _chan_theo_ly_do.clear()
+        _tong_luot[0] = 0
 
 
 class Timer:

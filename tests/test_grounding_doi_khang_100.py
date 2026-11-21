@@ -74,3 +74,20 @@ def test_lo_noi_thanh_lai_bi_chan(v):
     """Ngữ cảnh lãi ròng ÂM, câu trả lời nói lãi dương cùng độ lớn."""
     kq = guard_answer(f"Lãi ròng là {v:,} đồng.".replace(",", "."), _ctx(v, am=True))
     assert kq.blocked, "đổi dấu lỗ thành lãi lọt qua chốt chặn"
+
+
+def test_bo_dem_chan_o_health(monkeypatch):
+    """Số lượt bị chặn theo lý do hiện ở /health.guard; lý do chỉ là nhóm ngắn, không chứa nội dung câu trả lời."""
+    from fastapi.testclient import TestClient
+
+    from src.api.main import app
+    from src.core import metrics
+
+    metrics.dat_lai_cua_so_p95()
+    monkeypatch.setattr(metrics, "METRICS_PATH", "")
+    metrics.record(metrics.TurnMetric(request_id="r1", route="GENERAL", ok=True, latency_ms=10, blocked_reason="số liệu không có trong dữ liệu: 99.999.999"))
+    metrics.record(metrics.TurnMetric(request_id="r2", route="GENERAL", ok=True, latency_ms=10))
+    g = TestClient(app).get("/health").json()["guard"]
+    assert g["turns"] == 2 and g["blocked"] == 1
+    assert list(g["by_reason"]) == ["số liệu không có trong dữ liệu"] and "99" not in str(g)
+    metrics.dat_lai_cua_so_p95()

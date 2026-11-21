@@ -258,6 +258,8 @@ async def health():
             "auth_missing_in_deployment": auth_thieu,
             # Mạch ngắt model (A21): False = GPU/vLLM mất, `/chat` trả 503 `llm_unavailable`; `/tools/*` vẫn chạy. Chỉ THÊM khoá.
             "llm": llm_suc_khoe.trang_thai(),
+            # Chốt chặn câu trả lời (số liệu, suy biến): số lượt bị chặn từ lúc khởi động, theo lý do (A13). Chỉ THÊM khoá.
+            "guard": metrics.thong_ke_chan(),
             "load": load,
         }
     )
