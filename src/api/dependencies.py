@@ -95,7 +95,10 @@ class ChatRequest(BaseModel):
     # trong bảng lịch sử, nên ép kiểu sẽ làm mồ côi hội thoại cũ của Body bán lẻ.
     user_id: Union[int, str]
     store_id: Union[int, str]
-    message: str
+    # Cùng trần với MỖI TIN của `history` (#210). Trước đây không có trần: thân 32 MB vẫn 200 và vào hàng chờ
+    # model. Và không thể lớn hơn trần history: lượt sau Body gửi lại chính tin này trong `history`, nên một tin
+    # 5.000 ký tự được nhận hôm nay sẽ làm MỌI lượt sau của cuộc hội thoại đó 422.
+    message: str = Field(max_length=LICH_SU_TOI_DA_KY_TU)
     # Lịch sử hội thoại, CŨ NHẤT TRƯỚC (BR-38, Body#28). Ba trạng thái, khác nhau về nghĩa:
     #   - vắng (None): Body cũ chưa gửi -> Brain lùi về đọc DB như trước (với DB thật của Body thì
     #     ra rỗng, vì sáu bảng đó không tồn tại);

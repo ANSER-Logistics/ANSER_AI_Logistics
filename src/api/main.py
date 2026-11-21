@@ -23,6 +23,7 @@ from src.api.dependencies import (
     runtime,
     thieu_token_o_trien_khai,
 )
+from src.api.gioi_han_than import GioiHanThanMiddleware
 from src.core import metrics, nguong_p95
 from src.core.engine import TASK_REGISTRY
 from src.core.serving import Overloaded
@@ -106,6 +107,11 @@ async def attach_request_id(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
+
+
+# Trần thân request (#210): đăng ký SAU CÙNG để nằm NGOÀI CÙNG — từ chối 413 trước khi bất kỳ lớp nào
+# (HMAC đệm thân, FastAPI phân tích multipart) đọc tới thân. Xem docstring module.
+app.add_middleware(GioiHanThanMiddleware)
 
 
 def _so_huu_han_hoac_chuoi(x):
