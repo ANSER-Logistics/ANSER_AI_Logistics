@@ -665,15 +665,15 @@ def _loi_bieu_thuc(bt: str) -> str | None:
     """Lý do một chuỗi biểu thức n8n (bắt đầu bằng `=`) bị chặn, hoặc None. Chỉ kiểm phần trong `{{ }}`; phần ngoài là chữ thường."""
     for seg in re.findall(r"\{\{(.*?)\}\}", bt, re.S):
         tho = _LITERAL_CHUOI.sub("''", seg)       # bỏ nội dung chuỗi chữ: chữ "process" trong câu thông báo không phải mã
-        if re.search(r"[\\`;{}]|=>|/\*|//|\.\.\.", tho):
-            return "ký tự không được phép (\\ ` ; { } => ... // /*)"
-        m = _TU_CAM.search(tho) or _TU_KHOA.search(tho)
+        if re.search(r"[\\`;]|=>|/\*|//|\.\.\.", tho):
+            return "ký tự không được phép (\\ ` ; => ... // /*)"
+        m = _TU_CAM.search(tho) or _TU_KHOA.search(re.sub(r"\bnew\s+Date\b", "Date", tho))   # `new Date()` có thật trong mẫu của Body
         if m:
             return f'từ "{m.group(0)}" bị chặn'
         for d in re.findall(r"\$([A-Za-z_]+)", tho):
             if d not in _GOC_DOLLAR:
                 return f'biến "${d}" không được phép'
-        if re.search(r"\[(?!\s*(?:''|\d+)\s*\])", tho):    # sau khi bỏ chuỗi chữ: chỉ nhận [số] hoặc ['chuỗi chữ'] đứng một mình
+        if re.search(r"\[(?!\s*(?:''|\d+)?\s*\])", tho):    # sau khi bỏ chuỗi chữ: chỉ nhận [], [số] hoặc ['chuỗi chữ'] đứng một mình
             return "truy cập thuộc tính bằng chỉ số tính toán ([...]) không được phép; chỉ nhận số nguyên hoặc chuỗi chữ"
         for lit in re.findall(r"\[\s*['\"]((?:[^'\"\\]|\\.)*)['\"]\s*\]", seg):
             if "\\" in lit or _TU_CAM.search(lit):
@@ -705,11 +705,19 @@ def _duyet_bieu_thuc(obj: Any, duong: str = "") -> str | None:
 
 def _loi_url(url: str) -> str | None:
     if url.lstrip().startswith("="):
-        if not re.match(r"^=\s*(?:\{\{\s*\$env\.\w+\s*\}\}|https?://[^/{}\s]+)", url.lstrip()):
-            return "URL dựng từ biểu thức ở phần máy chủ; chỉ nhận biến môi trường hoặc máy chủ viết sẵn ở đầu URL"
-        return None
+        if re.match(r"^=\s*(?:\{\{\s*\$env\.\w+\s*\}\}|https?://[^/{}\s]+)", url.lstrip()):
+            return None
+        # Địa chỉ nằm ở trường dữ liệu của chính luồng (`$json.target_url`, có thật trong mẫu `shared_notify`) thì nhận;
+        # dữ liệu do người gọi webhook gửi (`body`, `query`, `headers`, `params`) hay chuỗi ghép thì không.
+        tr = re.fullmatch(r"=\s*\{\{\s*\$json((?:\.\w+)+)\s*\}\}", url.lstrip())
+        if tr and not re.search(r"\.(?:body|query|headers|params)(?:\.|$)", tr.group(1)):
+            return None
+        return ("URL dựng từ biểu thức ở phần máy chủ; chỉ nhận biến môi trường, máy chủ viết sẵn, hoặc một trường dữ liệu của luồng "
+                "(không phải body/query/headers/params của webhook)")
     u = urlparse(url.strip())
     host = (u.hostname or "").lower()
+    if host == "localhost" and u.port == 5678 and u.path.startswith("/webhook"):
+        return None    # workflow gọi webhook của chính n8n: có thật trong mẫu của Body (retail_sepay_poll, retail_woo_poll)
     if u.scheme not in ("http", "https") or not host:
         return "URL phải là http hoặc https và có máy chủ"
     if u.username is not None or u.password is not None:
@@ -744,7 +752,8 @@ def _loi_tham_so_nguy_hiem(ntype: str, params: dict) -> str | None:
                 return f'header "{h.get("name")}" mang giá trị viết sẵn; bí mật phải nằm trong credentials của n8n hoặc biến môi trường'
     if ntype == "n8n-nodes-base.scheduleTrigger":
         rule = params.get("rule") or {}
-        for it in (rule.get("interval") or []) if isinstance(rule, dict) else []:
+        ds = rule.get("interval") if isinstance(rule, dict) else None
+        for it in ds if isinstance(ds, list) else []:
             if not isinstance(it, dict):
                 continue
             if it.get("field") == "seconds":

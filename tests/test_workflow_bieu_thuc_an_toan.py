@@ -178,3 +178,50 @@ def test_lich_chay_theo_phut_gio_van_qua():
     assert ws.validate_workflow(obj) == (True, "")
     obj["payload"]["nodes"][0]["parameters"] = {"rule": {"interval": [{"field": "cronExpression", "expression": "0 7 * * 1-5"}]}}
     assert ws.validate_workflow(obj) == (True, "")
+
+
+# Hiệu chỉnh trên mẫu thật (CI "Dataset preflight" bắt lần đầu: bản đầu chặn oan 19 mẫu của Body)
+@pytest.mark.parametrize("bt", [
+    "={{ JSON.stringify({ error: $json.error, status: 400 }) }}",
+    "={{ ($json.alerts || []).length }}",
+    "={{ new Date().toISOString() }}",
+])
+def test_cu_phap_co_that_trong_mau_cua_body_van_qua(bt):
+    assert ws.validate_workflow(_wf(_set(bt))) == (True, "")
+
+
+@pytest.mark.parametrize("bt", ["={{ new Foo() }}", "={{ new Function('x')() }}", "={{ $json.a ; $json.b }}"])
+def test_new_khac_date_van_bi_chan(bt):
+    assert "không an toàn" in _ly_do(_wf(_set(bt)))
+
+
+def test_url_co_that_trong_mau_cua_body_van_qua():
+    assert ws.validate_workflow(_wf(_http("={{ $json.target_url }}"))) == (True, "")
+    assert ws.validate_workflow(_wf(_http("http://localhost:5678/webhook/sepay-webhook"))) == (True, "")
+    assert "không an toàn" in _ly_do(_wf(_http("http://localhost:5678/rest/workflows")))
+    assert "không an toàn" in _ly_do(_wf(_http("={{ $json.body.target_url }}")))
+
+
+def test_schedule_interval_khong_phai_mang_khong_lam_sap():
+    obj = _wf(_set("x"))
+    obj["payload"]["nodes"][0]["parameters"] = {"rule": {"interval": 5}}
+    assert ws.validate_workflow(obj) == (True, "")
+
+
+def test_khong_mau_that_nao_bi_chan_oan():
+    """TOÀN BỘ mẫu của Body và workflow logistics: không biểu thức hay tham số nào bị chặn (trực tiếp, không qua giới hạn 12 node của schema sinh)."""
+    import glob
+    import json
+    import pathlib
+    goc = pathlib.Path(__file__).resolve().parent.parent
+    tep = sorted(glob.glob(str(goc / "data" / "n8n_templates" / "*.json")) + glob.glob(str(goc / "workflows" / "logistics" / "*.json")))
+    assert len(tep) >= 30, "bộ mẫu rỗng thì phép kiểm này vô nghĩa"
+    loi = []
+    for f in tep:
+        w = json.loads(pathlib.Path(f).read_text(encoding="utf-8"))
+        for n in w.get("nodes", w.get("payload", {}).get("nodes", [])):
+            tham_so = n.get("parameters") if isinstance(n.get("parameters"), dict) else {}
+            r = ws._duyet_bieu_thuc(tham_so) or ws._loi_tham_so_nguy_hiem(str(n.get("type", "")), tham_so)
+            if r:
+                loi.append(f"{pathlib.Path(f).name}: {n.get('name')}: {r[:90]}")
+    assert not loi, "\n".join(loi)
