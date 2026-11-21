@@ -179,6 +179,12 @@ services:
       API_HMAC_MODE: ${API_HMAC_MODE:-off}
       API_HMAC_KEY_BODY: ${API_HMAC_KEY_BODY:-}
       API_HMAC_KEY_N8N: ${API_HMAC_KEY_N8N:-}
+      # Thăm dò chủ động model (A21, src/core/llm_suc_khoe.py): một lượt sinh MỘT token mỗi N giây; mất kết nối thì /chat trả 503 llm_unavailable
+      # và /tools/* vẫn chạy. RỖNG = mặc định 60; 0 = tắt. Giá trị hỏng thì dịch vụ không khởi động.
+      LLM_PROBE_INTERVAL_S: ${LLM_PROBE_INTERVAL_S:-}
+      # Giới hạn độ dài chuỗi trong grammar workflow n8n (#91, src/core/workflow_schema.py). RỖNG/0 = TẮT (production không đổi). Chỉ bật (600)
+      # sau khi Thành đo trên vLLM thật: xgrammar phải biên dịch được schema đệ quy.
+      WORKFLOW_GRAMMAR_MAX_STRING: ${WORKFLOW_GRAMMAR_MAX_STRING:-}
       # Bốn biến dưới đây ĐỔI HÀNH VI THẬT, và trước 04/11/2026 không có mặt
       # ở compose lẫn .env.example — nên đặt chúng trong .env KHÔNG có tác
       # dụng gì, vì chúng không tới được container.
