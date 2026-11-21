@@ -41,6 +41,7 @@ cấu hình lại. Không phải sửa code. Thư mục bên Body tên `frontend
 from __future__ import annotations
 
 import copy
+import ipaddress
 import json
 import logging
 import os
@@ -48,6 +49,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger("projecta.workflow_schema")
 
@@ -633,6 +635,134 @@ def _khoa_bi_mat(obj: Any, duong: str = "") -> str | None:
     return None
 
 
+
+# ---------------------------------------------------------------------------
+# Biểu thức và tham số nguy hiểm (A8, #196)
+# ---------------------------------------------------------------------------
+# Vì sao: n8n đã vá ít nhất năm lần cùng một loại lỗi (thoát hộp cát biểu thức -> chạy mã trên máy chủ; CVE-2025-68613, CVE-2026-1470,
+# CVE-2026-25049...), mỗi lần qua một dạng cú pháp mà danh sách chặn của chính n8n chưa lường (`with`, destructuring, `this` trong hàm mũi
+# tên). `validate_workflow` trước đây KHÔNG đọc chữ của biểu thức. Workflow do model sinh phải qua cổng này trước khi tới n8n.
+#
+# shortcut: kiểm bằng vài biểu thức chính quy trên chuỗi, không phải bộ phân tích cú pháp JS đầy đủ. Mức hạn chế: biểu thức hợp lệ nhưng
+# phong phú (`.map(i => ...)`) bị từ chối và đi vào vòng thử lại; cần bộ lexer allowlist đủ ngữ pháp (ghi chú nghiên cứu 20/11/2026, mục
+# Q(a)2) khi đo thấy từ chối oan trên workflow thật của Body.
+
+_LITERAL_CHUOI = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*\"""")
+_TU_CAM = re.compile(
+    r"(?<![\w$])(?:constructor|__proto__|prototype|process|require|module|exports|global|globalThis|window|self|this|arguments|eval|"
+    r"Function|AsyncFunction|GeneratorFunction|Object|Reflect|Proxy|Symbol|Buffer|fetch|XMLHttpRequest|WebAssembly|import|setTimeout|"
+    r"setInterval|setImmediate|mainModule|binding|child_process|__define\w+__|__lookup\w+__|__sanitize|___n8n_data|resumeUrl)(?![\w$])",
+    re.IGNORECASE,
+)
+_TU_KHOA = re.compile(
+    r"(?<![\w$])(?:with|function|class|extends|new|var|let|const|return|yield|await|async|delete|typeof|instanceof|void)(?![\w$])")
+_GOC_DOLLAR = {"json", "input", "node", "now", "today", "env", "workflow", "execution", "itemIndex", "runIndex", "items", "item", "prevNode"}
+_ENV_CAM = re.compile(r"^(?:DB_|POSTGRES|PGPASS|N8N_ENCRYPTION|N8N_USER_MANAGEMENT|N8N_RUNNERS_AUTH|.*ENCRYPTION|.*JWT_SECRET|.*MASTER_KEY|.*PRIVATE_KEY)", re.IGNORECASE)
+_HEADER_BI_MAT = {"authorization", "cookie", "x-api-key", "x-api-token", "x-auth-token"}
+
+
+def _loi_bieu_thuc(bt: str) -> str | None:
+    """Lý do một chuỗi biểu thức n8n (bắt đầu bằng `=`) bị chặn, hoặc None. Chỉ kiểm phần trong `{{ }}`; phần ngoài là chữ thường."""
+    for seg in re.findall(r"\{\{(.*?)\}\}", bt, re.S):
+        tho = _LITERAL_CHUOI.sub("''", seg)       # bỏ nội dung chuỗi chữ: chữ "process" trong câu thông báo không phải mã
+        if re.search(r"[\\`;]|=>|/\*|//|\.\.\.", tho):
+            return "ký tự không được phép (\\ ` ; => ... // /*)"
+        m = _TU_CAM.search(tho) or _TU_KHOA.search(re.sub(r"\bnew\s+Date\b", "Date", tho))   # `new Date()` có thật trong mẫu của Body
+        if m:
+            return f'từ "{m.group(0)}" bị chặn'
+        for d in re.findall(r"\$([A-Za-z_]+)", tho):
+            if d not in _GOC_DOLLAR:
+                return f'biến "${d}" không được phép'
+        if re.search(r"\[(?!\s*(?:''|\d+)?\s*\])", tho):    # sau khi bỏ chuỗi chữ: chỉ nhận [], [số] hoặc ['chuỗi chữ'] đứng một mình
+            return "truy cập thuộc tính bằng chỉ số tính toán ([...]) không được phép; chỉ nhận số nguyên hoặc chuỗi chữ"
+        for lit in re.findall(r"\[\s*['\"]((?:[^'\"\\]|\\.)*)['\"]\s*\]", seg):
+            if "\\" in lit or _TU_CAM.search(lit):
+                return f'khoá thuộc tính "{lit[:30]}" bị chặn'
+        for env in re.findall(r"\$env\s*(?:\.\s*|\[\s*['\"])([A-Za-z0-9_]+)", seg):
+            if _ENV_CAM.search(env):
+                return f'biến môi trường "{env}" là cấu hình của n8n/máy chủ, không được đọc'
+    return None
+
+
+def _duyet_bieu_thuc(obj: Any, duong: str = "") -> str | None:
+    if isinstance(obj, str):
+        if obj.lstrip().startswith("="):
+            ly_do = _loi_bieu_thuc(obj.lstrip())
+            if ly_do:
+                return f'"{duong}": {ly_do}'
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            r = _duyet_bieu_thuc(v, f"{duong}.{k}" if duong else str(k))
+            if r:
+                return r
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            r = _duyet_bieu_thuc(v, f"{duong}[{i}]")
+            if r:
+                return r
+    return None
+
+
+def _loi_url(url: str) -> str | None:
+    if url.lstrip().startswith("="):
+        if re.match(r"^=\s*(?:\{\{\s*\$env\.\w+\s*\}\}|https?://[^/{}\s]+)", url.lstrip()):
+            return None
+        # Địa chỉ nằm ở trường dữ liệu của chính luồng (`$json.target_url`, có thật trong mẫu `shared_notify`) thì nhận;
+        # dữ liệu do người gọi webhook gửi (`body`, `query`, `headers`, `params`) hay chuỗi ghép thì không.
+        tr = re.fullmatch(r"=\s*\{\{\s*\$json((?:\.\w+)+)\s*\}\}", url.lstrip())
+        if tr and not re.search(r"\.(?:body|query|headers|params)(?:\.|$)", tr.group(1)):
+            return None
+        return ("URL dựng từ biểu thức ở phần máy chủ; chỉ nhận biến môi trường, máy chủ viết sẵn, hoặc một trường dữ liệu của luồng "
+                "(không phải body/query/headers/params của webhook)")
+    u = urlparse(url.strip())
+    host = (u.hostname or "").lower()
+    if host == "localhost" and u.port == 5678 and u.path.startswith("/webhook"):
+        return None    # workflow gọi webhook của chính n8n: có thật trong mẫu của Body (retail_sepay_poll, retail_woo_poll)
+    if u.scheme not in ("http", "https") or not host:
+        return "URL phải là http hoặc https và có máy chủ"
+    if u.username is not None or u.password is not None:
+        return "URL không được chứa tên đăng nhập/mật khẩu"
+    if host == "localhost" or host.endswith((".local", ".internal", ".localhost")) or host.startswith("metadata."):
+        return f'máy chủ nội bộ "{host}" không được gọi'
+    try:
+        if not ipaddress.ip_address(host).is_global:
+            return f'địa chỉ IP không công khai "{host}" không được gọi'
+    except ValueError:
+        if re.fullmatch(r"(?:0x[0-9a-f]+|\d+)(?:\.(?:0x[0-9a-f]+|\d+))*", host):
+            return f'địa chỉ IP dạng rút gọn/số "{host}" không được gọi'
+    return None
+
+
+def _loi_tham_so_nguy_hiem(ntype: str, params: dict) -> str | None:
+    if ntype == "n8n-nodes-base.httpRequest":
+        url = params.get("url")
+        if isinstance(url, str) and (r := _loi_url(url)):
+            return r
+        opt = params.get("options") or {}
+        if not isinstance(opt, dict):
+            opt = {}
+        if opt.get("allowUnauthorizedCerts") is True:
+            return "không được tắt kiểm chứng chỉ TLS (allowUnauthorizedCerts)"
+        if opt.get("proxy"):
+            return "không được đặt proxy"
+        hp = params.get("headerParameters")
+        for h in (hp.get("parameters", []) if isinstance(hp, dict) else []):
+            if (isinstance(h, dict) and str(h.get("name", "")).strip().lower() in _HEADER_BI_MAT
+                    and isinstance(h.get("value"), str) and h["value"].strip() and not h["value"].lstrip().startswith("=")):
+                return f'header "{h.get("name")}" mang giá trị viết sẵn; bí mật phải nằm trong credentials của n8n hoặc biến môi trường'
+    if ntype == "n8n-nodes-base.scheduleTrigger":
+        rule = params.get("rule") or {}
+        ds = rule.get("interval") if isinstance(rule, dict) else None
+        for it in ds if isinstance(ds, list) else []:
+            if not isinstance(it, dict):
+                continue
+            if it.get("field") == "seconds":
+                return "lịch chạy theo giây không được phép (tối thiểu theo phút)"
+            if it.get("field") == "cronExpression" and len(str(it.get("expression", "")).split()) > 5:
+                return "biểu thức cron 6 trường (có giây) không được phép"
+    return None
+
+
 def validate_workflow(obj: Any) -> tuple[bool, str]:
     """
     Kiểm tra workflow n8n. Trả (ok, lý_do_lỗi).
@@ -658,6 +788,11 @@ def validate_workflow(obj: Any) -> tuple[bool, str]:
     nodes = payload.get("nodes")
     if not isinstance(nodes, list) or not nodes:
         return False, '"payload.nodes" rỗng hoặc không phải mảng'
+
+    if obj.get("active") is True or payload.get("active") is True:
+        return False, 'không được đặt "active": true; workflow do model sinh ra phải tạo ở trạng thái tắt, người duyệt mới bật'
+    if payload.get("pinData"):
+        return False, 'không được kèm "pinData" (dữ liệu cố định nhúng trong workflow)'
 
     node_names: set[str] = set()
     trigger_count = 0
@@ -711,6 +846,13 @@ def validate_workflow(obj: Any) -> tuple[bool, str]:
                 f'node "{nname}" ghi bí mật thẳng vào parameters ("{cho_bi_mat}"). '
                 "Mật khẩu, khoá API, token KHÔNG được nằm trong workflow: dùng mục credentials của n8n "
                 "và để parameters không chứa giá trị đó."
+            )
+
+        loi = _duyet_bieu_thuc(node["parameters"]) or _loi_tham_so_nguy_hiem(ntype, node["parameters"])
+        if loi:
+            return False, (
+                f'node "{nname}" có biểu thức/tham số không an toàn: {loi}. '
+                "Chỉ dùng biểu thức đơn giản ({{ $json.truong }}, $('Tên node').item.json.truong, $now) và gọi máy chủ qua biến môi trường."
             )
 
         if catalog[ntype].get("trigger"):
