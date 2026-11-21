@@ -39,7 +39,7 @@ from src.api.dependencies import (
     web_search_fallback,
 )
 from src.core import metrics
-from src.core.config import MAX_HISTORY_TURNS, Config
+from src.core.config import AI_NOTICE, MAX_HISTORY_TURNS, Config
 from src.core.doc_dau_vao import noi_tra_loi_hoi_thue
 from src.core.engine import TASK_REGISTRY
 from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
@@ -587,7 +587,7 @@ async def get_task_status(task_id: str, x_user_id: Optional[str] = Header(None))
         raise HTTPException(status_code=404, detail="Task not found")
 
     task.pop("_created_at", None)
-    return task
+    return {**task, "ai_notice": AI_NOTICE} if task.get("status") == "completed" else task
 
 
 # ---------------------------------------------------------------------------
@@ -1139,7 +1139,7 @@ async def chat_endpoint(
                 # Chỉ parse JSON nếu output THỰC SỰ là JSON (nhánh TECHNICAL).
                 # Bản cũ repair_json mọi output, kể cả văn xuôi -> tạo rác.
                 parsed, _ = _extract_json_block(cleaned)
-                payload = {"task_id": task_id, "result": parsed or cleaned}
+                payload = {"task_id": task_id, "result": parsed or cleaned, "ai_notice": AI_NOTICE}
 
                 headers = _webhook_headers(task_id, request_id)
 

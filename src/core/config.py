@@ -34,6 +34,10 @@ def kb_embedder_id() -> str:
 def kb_reranker_id() -> str:
     return os.getenv("KB_RERANKER_ID", KB_RERANKER_MAC_DINH)
 LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắt lặng lẽ
+# Nhãn gắn vào mọi câu trả lời của `/chat` (kết quả của task và webhook về Body). Do mã gắn, không phải model sinh; Body hiển thị nguyên văn.
+# Lý do: chủ dự án chốt 20/11/2026 không quảng bá "AI làm kế toán thay"; Luật AI 134/2025 Điều 11 yêu cầu người dùng biết đang dùng AI
+# (nguồn thứ cấp, chờ luật sư, câu 9 trong bộ câu hỏi pháp lý).
+AI_NOTICE = "Trợ lý AI, kết quả chỉ để tham khảo, cần kế toán xác nhận trước khi dùng."
 LICH_SU_TOI_DA_KY_TU = 4000      # mỗi tin; dài hơn thì 422
 
 
