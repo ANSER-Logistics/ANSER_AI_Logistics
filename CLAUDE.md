@@ -31,3 +31,5 @@ If `graphify-out/graph.json` exists, run `graphify query "<question>"`, `graphif
 - Most docs and identifiers are Vietnamese. Reply in the language the user writes in.
 - Body is another repo. Only propose changes there (PR or issue), never merge them (AGENTS.md §1).
 - Ask the owner before moving any secret into env or changing how secrets are managed (AGENTS.md R2b).
+
+When finding work for the user, follow AGENTS.md §5.0a for assigned issues, review requests and mentions.

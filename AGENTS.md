@@ -270,6 +270,16 @@ Thành viên mới chỉ có `read` thì nâng lên `write` trước khi giao vi
 
 **Quan hệ với bảng kanzo cục bộ.** Kanzo vẫn là sổ tay làm việc của agent — nơi ghi phát hiện, đo đạc, lý do. Nhưng **việc giao cho một con người thì phải có mặt trên project org**, nếu không nó chỉ tồn tại trên máy một người.
 
+### 5.0a. Tìm việc trên GitHub
+
+Khi người dùng hỏi còn việc gì, tra bằng tài khoản đang đăng nhập và giới hạn theo org hoặc repo họ yêu cầu. Kiểm tra cả ba nguồn:
+
+- Issue được giao: `gh search issues --owner ANSER-Logistics --assignee @me --state open`.
+- PR đang chờ mình duyệt: `gh search prs --owner ANSER-Logistics --review-requested @me --state open`. Nếu có quyền xem yêu cầu gửi cho team của mình, kiểm tra cả hàng chờ của team.
+- Lượt nhắc trực tiếp: tìm cả issue và PR với `gh search issues --owner ANSER-Logistics --mentions @me` và `gh search prs --owner ANSER-Logistics --mentions @me`. Đọc phần trao đổi mới nhất để xác định còn cần phản hồi gì.
+
+Gộp kết quả trùng theo repo và số issue/PR. Với mỗi việc còn mở, dẫn liên kết, nêu ai đang chờ và hành động tiếp theo. Hỏi người dùng muốn xử lý hoặc giao agent phần nào; nếu họ đã giao rõ thì làm tiếp trong phạm vi đó. Một lượt nhắc để biết hoặc một yêu cầu đã trả lời không tạo thêm việc. Nếu thiếu quyền xem nguồn nào, ghi rõ phạm vi đã kiểm.
+
 ### 5.1. Trước khi viết code
 
 1. **Đọc code, không đọc tài liệu cũ.** Tài liệu từng sai ở nhiều điểm quan trọng. Xác minh bằng file thật.
