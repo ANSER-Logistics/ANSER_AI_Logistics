@@ -34,6 +34,11 @@ from src.core import vat_catalog
 ABS_TOL_VND = 1000.0
 REL_TOL = 0.005     # 0,5%
 
+# Quy mô: tổng cộng của một hoá đơn cước vận tải dưới ngưỡng này gần như chắc là đọc lệch 1.000 lần (đo 18/11/2026: tờ `55.192.500` đọc thành
+# `55192`, mọi số lệch cùng lúc nên kiểm nhất quán không thấy). Chỉ HẠ CỜ để người xem, không từ chối: một hoá đơn phí cầu đường lẻ có thể nhỏ thật.
+# Ngưỡng do agent chọn, chưa kế toán hay chủ dự án xác nhận; một chuyến xe tải nội thành rẻ nhất cũng trên mức này.
+TONG_CUOC_TOI_THIEU_VND = 100_000.0
+
 
 class FreightCharge(BaseModel):
     """Một khoản trên hoá đơn: cước chuyến hoặc phụ phí."""
@@ -180,6 +185,14 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
             f"({vat_catalog.CAN_CU_CHUNG}): mức 8% hết hiệu lực, cần kế toán xác nhận."
         )
 
+    # 5) Quy mô (xem `TONG_CUOC_TOI_THIEU_VND`). KHÔNG ghi vào `checks`: không phải phép đối chiếu, và `ok` đòi ít nhất một phép đối chiếu thật.
+    tong_xet = invoice.total if invoice.total is not None else tinh_total
+    if tong_xet is not None and 0 < tong_xet < TONG_CUOC_TOI_THIEU_VND:
+        issues.append(
+            f"Tổng cộng {tong_xet:,.0f} đ nhỏ bất thường cho một hoá đơn cước vận tải (dưới {TONG_CUOC_TOI_THIEU_VND:,.0f} đ): "
+            f"nghi đọc lệch 1.000 lần (dấu chấm hàng nghìn bị coi là dấu thập phân, ví dụ 55.192.500 thành 55.192). Cần người xem lại."
+        )
+
     return {
         # `ok` đòi CẢ HAI: không có vấn đề nào, VÀ đã thật sự kiểm được ít nhất
         # một phép. Không có vế sau thì một tờ đọc ra rỗng cũng "ok".
@@ -208,9 +221,26 @@ def verify(invoice: FreightInvoice) -> dict[str, Any]:
     }
 
 
-def json_schema() -> dict[str, Any]:
-    """Lược đồ cho `guided_json` — ép VLM sinh đúng hình dạng ngay lúc giải mã."""
-    return FreightInvoice.model_json_schema()
+_TRUONG_TIEN_LUOC_DO = (("subtotal", "vat_amount", "total"), ("unit_price",))     # (ở gốc, ở FreightCharge)
+_CHUOI_HOAC_NULL = {"anyOf": [{"type": "string", "maxLength": 40}, {"type": "null"}]}
+
+
+def json_schema(so_tien_chuoi: bool = False) -> dict[str, Any]:
+    """
+    Lược đồ cho `guided_json` — ép VLM sinh đúng hình dạng ngay lúc giải mã.
+
+    `so_tien_chuoi=True` (BR-19 phần 2b): các trường TIỀN là chuỗi (hoặc null) để model chép nguyên văn như in; `so_tien_ocr.chuan_hoa_cuoc` đọc thành số.
+    Giữ nguyên mô tả của từng trường. `vat_rate` vẫn là số.
+    """
+    luoc_do = FreightInvoice.model_json_schema()
+    if not so_tien_chuoi:
+        return luoc_do
+    goc, dong = _TRUONG_TIEN_LUOC_DO
+    for noi, ten_truong in ((luoc_do.get("properties", {}), goc), (luoc_do.get("$defs", {}).get("FreightCharge", {}).get("properties", {}), dong)):
+        for t in ten_truong:
+            if t in noi:
+                noi[t] = {**_CHUOI_HOAC_NULL, **({"description": noi[t]["description"]} if "description" in noi[t] else {})}
+    return luoc_do
 
 
 __all__ = ["FreightCharge", "FreightInvoice", "json_schema", "verify"]

@@ -8,7 +8,8 @@ Chạy (Colab, đã có ENV, TEXT_MODEL_ID/VISION_MODEL_ID như production):
     python offline_training/do_vlm_hoa_don.py --dir /content/vlm_hoadon --json truoc.json
 
 ĐO TRƯỚC/SAU một thay đổi prompt (ví dụ BR-19 phần 2b): chạy hai lần, mỗi lần một nhánh mã, hai file
---json khác nhau, rồi đặt cạnh nhau. File JSON giữ kết quả TỪNG CA (`rows`) để so theo cặp.
+--json khác nhau, rồi đặt cạnh nhau. Riêng phần 2b có sẵn cờ: `--so-tien-chuoi` (model chép số tiền như in, mã đọc
+thành số) so với chạy không cờ, cùng một nhánh mã, cùng phiên Colab. File JSON giữ kết quả TỪNG CA (`rows`) để so theo cặp.
 
 Đi qua ĐÚNG đường production: `runtime.ensure_vision_runtime()` rồi `VisionAgent.extract_invoice` /
 `extract_freight_invoice`, giống hệt `/ocr` và `/ocr/freight` trước bước kiểm số. Không có đường riêng
@@ -51,22 +52,24 @@ def in_bang(nhom: dict[str, dict]) -> None:
           "\n'chép lệnh' là số ca mà model chép câu \"bỏ qua mọi hướng dẫn\" vào một trường văn bản.")
 
 
-async def chay(thu_muc: Path, toi_da: int) -> list[dict]:
+async def chay(thu_muc: Path, toi_da: int, so_tien_chuoi: bool = False) -> list[dict]:
     from src.api.dependencies import runtime
 
     await runtime.ensure_vision_runtime()
     if not runtime.vision:
         raise SystemExit(f"Không nạp được vision runtime: {runtime.vision_error}")
 
+    # Chỉ truyền cờ khi bật: không cờ thì lời gọi giống hệt trước BR-19 2b (đường mặc định không đổi).
+    them = {"so_tien_chuoi": True} if so_tien_chuoi else {}
     rows = []
     ca = _doc_ca(thu_muc)[: toi_da or None]
     for i, c in enumerate(ca, 1):
         anh = str(thu_muc / c["image"])
         t0 = time.perf_counter()
         if c["kind"] == "retail":
-            out = await runtime.vision.extract_invoice(anh)
+            out = await runtime.vision.extract_invoice(anh, **them)
         else:
-            out = await runtime.vision.extract_freight_invoice(anh)
+            out = await runtime.vision.extract_freight_invoice(anh, **them)
         giay = time.perf_counter() - t0
         kq = cham(c, out)
         kq["out"] = out          # đầu ra thô của model, để người đọc tự soát các ca sai
@@ -84,9 +87,11 @@ def main() -> None:
     ap.add_argument("--dir", required=True, help="thư mục do make_vlm_invoice_eval.py tạo")
     ap.add_argument("--json", default="", help="ghi kết quả từng ca và bảng tổng hợp ra file này")
     ap.add_argument("--max", type=int, default=0, help="chỉ chạy N ca đầu (0 = tất cả)")
+    ap.add_argument("--so-tien-chuoi", action="store_true",
+                    help="BR-19 phần 2b: model chép số tiền như in (chuỗi), mã đọc thành số. Mặc định tắt; chạy hai lần (có và không cờ) để so trước/sau")
     args = ap.parse_args()
 
-    rows = asyncio.run(chay(Path(args.dir), args.max))
+    rows = asyncio.run(chay(Path(args.dir), args.max, args.so_tien_chuoi))
     nhom = tong_hop(rows)
     in_bang(nhom)
     gs = sorted(r["giay"] for r in rows if "giay" in r)
@@ -95,7 +100,7 @@ def main() -> None:
         print(f"\nGiây mỗi ảnh: p50 {p(0.5):.1f}  p95 {p(0.95):.1f}  lâu nhất {gs[-1]:.1f}  (n={len(gs)})")
     if args.json:
         Path(args.json).write_text(
-            json.dumps({"tong_hop": nhom, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8"
+            json.dumps({"che_do": "so_tien_chuoi" if args.so_tien_chuoi else "mac_dinh", "tong_hop": nhom, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8"
         )
         print(f"\nĐã ghi {args.json}")
 

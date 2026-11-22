@@ -7,6 +7,7 @@ do VLM trích xuất PHẢI được MCPServer tính lại bằng code thuần t
 """
 import logging
 import os
+import re
 import tempfile
 from typing import Optional
 
@@ -51,6 +52,20 @@ def _lam_sach_ket_qua_vlm(extracted: dict) -> tuple[dict, str, list[dict]]:
     if co_raw:
         flags.append({"field": "raw", "reasons": list(co_raw)})
     return sach, raw_sach, flags
+
+
+_TEN_TRUONG_TIEN = re.compile(r"[a-z_]{1,20}(?:\[\d{1,3}\]\.[a-z_]{1,20})?")
+
+
+def _lay_loi_so_tien(extracted: dict) -> list[str]:
+    """
+    Tên các trường số tiền không đọc được (do `VisionAgent._doc_so_tien` đặt), lấy ra khỏi `extracted`. Chỉ nhận đúng dạng tên trường
+    (`total`, `charges[0].unit_price`): chuỗi khác không đi tiếp tới người dùng.
+    """
+    tho = extracted.pop("so_tien_loi", None)
+    if not isinstance(tho, list):
+        return []
+    return [t for t in tho if isinstance(t, str) and _TEN_TRUONG_TIEN.fullmatch(t)][:20]
 
 
 def _kem_co(resp: dict, flags: list[dict]) -> dict:
@@ -168,6 +183,8 @@ async def ocr_endpoint(
                 "raw": raw,
             }, flags)
 
+        loi_tien = _lay_loi_so_tien(extracted)
+
         # 1) Ép schema (bắt JSON sai cấu trúc ngay)
         try:
             invoice = InvoicePayload(**extracted)
@@ -178,6 +195,7 @@ async def ocr_endpoint(
                 "backend": _vision_backend(),
                 "error": f"schema_invalid: {_loi_an_toan(exc)}",
                 "raw_json": extracted,
+                **({"so_tien_khong_doc_duoc": loi_tien} if loi_tien else {}),
             }, flags)
 
         # 2) DETERMINISTIC-FIRST: tính lại tổng bằng code thuần (MCPServer)
@@ -189,7 +207,9 @@ async def ocr_endpoint(
             "backend": _vision_backend(),
             "invoice": invoice.model_dump(),
             "validation": validation,                 # is_valid / calculated_total / difference
-            "needs_manual_review": not validation["is_valid"],
+            # Số tiền nào model chép mà mã không đọc được thành số (BR-19 2b) thì phải người xem, dù phần còn lại cân đối.
+            "needs_manual_review": not validation["is_valid"] or bool(loi_tien),
+            **({"so_tien_khong_doc_duoc": loi_tien} if loi_tien else {}),
         }, flags)
     except HTTPException:
         raise
@@ -234,16 +254,25 @@ async def ocr_freight_endpoint(
             return _kem_co({"success": False, "backend": _vision_backend(),
                             "error": extracted["error"], "raw": raw}, flags)
 
+        loi_tien = _lay_loi_so_tien(extracted)
         try:
             invoice = FreightInvoice(**extracted)
         except Exception as exc:
             _log_loi_luoc_do("FreightInvoice", exc)
             return _kem_co({"success": False, "backend": _vision_backend(),
                             "error": f"schema_invalid: {_loi_an_toan(exc)}",
-                            "raw_json": extracted}, flags)
+                            "raw_json": extracted,
+                            **({"so_tien_khong_doc_duoc": loi_tien} if loi_tien else {})}, flags)
 
         # TẤT ĐỊNH TRƯỚC: VLM chỉ đọc chữ, mọi phép cộng nhân tính lại bằng code.
         check = verify_freight(invoice)
+        if loi_tien:
+            # Trường đó đã thành `None` (chưa đọc được), KHÔNG phải số đoán; `verify` có thể vẫn nói khớp trên phần còn lại, nên nói thẳng ở đây.
+            check["ok"] = False
+            check["issues"].append(
+                "Số tiền chép từ tờ in không đọc được thành số ở: " + ", ".join(loi_tien)
+                + " (không theo cách viết số Việt Nam). Cần người xem lại."
+            )
 
         return _kem_co({
             "success": True,
