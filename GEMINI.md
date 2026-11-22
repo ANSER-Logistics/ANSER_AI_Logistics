@@ -5,3 +5,4 @@
 AGENTS.md (imported above) is the source of truth for every agent. Project skills for Gemini CLI are in `.agents/skills/` (identical copy of `.claude/skills/`, see AGENTS.md §9). Run tests with `ENV=LOCAL`.
 
 When finding work for the user, follow AGENTS.md §5.0a for assigned issues, review requests and mentions.
+When a previous task is marked complete, follow AGENTS.md §5.0b to verify its discussion and changes before closing a redundant PR.
