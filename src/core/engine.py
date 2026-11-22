@@ -254,7 +254,7 @@ class RedisTaskRegistry:
     def _loi(self, viec: str, task_id: str, exc: Exception) -> None:
         self.redis_loi = True
         logger.error("TASK_REGISTRY: Redis lỗi khi %s task %s (%s) — lùi về RAM: %s",
-                     viec, task_id, self._url_an, exc)
+                     viec, task_id, self._url_an, loai_loi())
 
     def get(self, task_id: str):
         try:
@@ -300,9 +300,9 @@ def tao_task_registry() -> "TaskRegistry | RedisTaskRegistry":
         return TaskRegistry(max_size=1000)
     try:
         return RedisTaskRegistry(url)
-    except ImportError as exc:
+    except ImportError:
         logger.error("REDIS_URL đã đặt nhưng thiếu gói `redis` (%s) — TASK_REGISTRY "
-                     "lùi về RAM, chỉ đúng khi chạy --workers 1", exc)
+                     "lùi về RAM, chỉ đúng khi chạy --workers 1", loai_loi())
         return TaskRegistry(max_size=1000)
 
 

@@ -210,9 +210,9 @@ async def _fetch_report_lines(store_id, request_id: str):
         raw = fetch(workspace_id=store_id) or {}
         sales = list(raw.get("sales") or [])
         expenses = list(raw.get("expenses") or [])
-    except Exception as exc:
+    except Exception:
         logger.warning(
-            "REPORT: không lấy được dữ liệu: %s", exc,
+            "REPORT: không lấy được dữ liệu: %s", loai_loi(),
             extra={"request_id": request_id},
         )
         return None, None, (
@@ -480,9 +480,9 @@ async def _handle_logistics_quote(
 
     try:
         extracted = QuoteExtraction(**obj)
-    except Exception as exc:
+    except Exception:
         logger.warning(
-            "LOGISTICS: trích xuất sai schema: %s", exc,
+            "LOGISTICS: trích xuất sai schema: %s", loai_loi(),
             extra={"request_id": request_id},
         )
         return "Tôi chưa đọc được yêu cầu báo giá. Bạn mô tả lại tuyến, loại xe giúp tôi nhé."
@@ -515,9 +515,9 @@ async def _handle_logistics_quote(
         r.raise_for_status()
         body = r.json()
         draft_id = body.get("draft_id") if isinstance(body, dict) else None
-    except Exception as exc:
+    except Exception:
         logger.error(
-            "LOGISTICS: gọi webhook n8n thất bại: %s", exc,
+            "LOGISTICS: gọi webhook n8n thất bại: %s", loai_loi(),
             extra={"request_id": request_id},
         )
         return (
@@ -1001,9 +1001,9 @@ async def chat_endpoint(
                     )
                     metric.asked_back = True
                 db_context = f"[SẢN PHẨM KHỚP TRUY VẤN]\n{products}\n\n{khoi_ban}"
-            except Exception as exc:
+            except Exception:
                 logger.warning(
-                    "Truy vấn DB thất bại: %s", exc,
+                    "Truy vấn DB thất bại: %s", loai_loi(),
                     extra={"request_id": request_id},
                 )
                 db_context = "(không lấy được dữ liệu từ cơ sở dữ liệu)"
@@ -1040,9 +1040,9 @@ async def chat_endpoint(
                         )
                     else:
                         await chay_tren_kho(_canh_bao_lech_pham_vi, kb_ws, request_id)
-                except Exception as exc:
+                except Exception:
                     logger.warning(
-                        "KB search lỗi: %s", exc,
+                        "KB search lỗi: %s", loai_loi(),
                         extra={"request_id": request_id},
                     )
 

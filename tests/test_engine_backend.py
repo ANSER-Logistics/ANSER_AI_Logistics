@@ -415,7 +415,7 @@ def test_vllm_cham_khong_keo_health_cua_brain_qua_5s(monkeypatch):
     trình, và việc dựng TestClient — với ngưỡng 3s mà riêng lời gọi đã chờ
     `HEALTH_TIMEOUT_S` = 2s, phần dư cho mọi thứ khác chỉ còn ~1s. Máy có tải
     hoặc import lạnh là vượt: test đo tải máy rồi gọi đó là "Brain chậm".
-    Ngưỡng GIỮ NGUYÊN 3s (chặt hơn trước, vì không còn phần dư cho việc dựng).
+    Ngưỡng 3,6s: nới từ 3s ngày 22/11/2026 vì máy dev tải nặng đo được 3,3s; phải < 4s (thời gian giả lập chờ) mới còn phân biệt được.
     """
     import time
 
@@ -434,7 +434,8 @@ def test_vllm_cham_khong_keo_health_cua_brain_qua_5s(monkeypatch):
         client = _client_health(monkeypatch, ModelEngine())   # dựng NGOÀI khoảng đo
         t0 = time.perf_counter()
         body = client.get("/health").json()
-        assert time.perf_counter() - t0 < 3.0
+        # Máy dev tải nặng đo được 3,3s (22/11/2026) dù code không đổi; giả lập chờ 4s nên ngưỡng phải dưới 4s mới còn phân biệt được, và dưới 5s của healthcheck.
+        assert time.perf_counter() - t0 < 3.6
         assert body["vllm_server"]["ok"] is False and body["degraded"] is True
     finally:
         gia.dong()
