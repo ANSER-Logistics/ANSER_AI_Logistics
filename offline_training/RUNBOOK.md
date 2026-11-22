@@ -443,3 +443,40 @@ Thành đã chạy v3, v4 và DeepSeek cạnh nhau trên một L4 (mục 6: `--m
 **Liều và đo.** Cùng cấu hình v3, v4, v5, chỉ dữ liệu đổi; ghi `n8n_v6` trong `dataset_manifest.json`. Liều 40 là điểm xuất phát, không phải kết quả đo: `bo_loc` 60 cộng v6 40 là 100 mẫu hư cấu trong khoảng 1.230 mẫu train của v6 (v5: 1.188), nên theo dõi `by_source` như mục 7.1. Đo như mục 7.3 và nêu bảng so với v3, v4, v5 theo cặp.
 
 **Chấm n8n từ 20/11/2026 có bước sửa liên kết `noOp`** (chủ dự án đồng ý): `/chat` bỏ liên kết tới node `noOp` không tồn tại trước khi kiểm (`workflow_schema.sua_lien_ket_noop`), và `benchmark_v3` chấm theo cách đó (cờ `--khong-sua-noop` tái tạo cách chấm cũ). Bảng v3, v4, v5 cũ chấm trước đó, nên **chấm lại đầu ra thô, không cần GPU**: `python offline_training/cham_lai_n8n.py v3_tho.jsonl v4_tho.jsonl v5_tho.jsonl`. Nó in cho mỗi file số câu hợp lệ theo cách cũ và cách mới, các câu được cứu, và các câu còn hỏng kèm lý do. Chỉ so v6 với v3, v4, v5 khi cả bốn cùng một cách chấm. Bộ đo chỉ đo cấu trúc, không đo workflow có đúng việc không.
+
+## 11. Một lần chạy thật đầu cuối (A7, brain#325, 22/11/2026)
+
+"Một lần chạy thật" là điều kiện của mọi mục "B, chạy thật" trên bảng 23 năng lực (#213) và của AGENTS §6.0 (tiêu chí cho `main` là bảy mục ở §7 cộng với MỘT LẦN CHẠY THẬT). Trước đây không ai định nghĩa nó. Từ nay là đúng năm bước dưới đây, bằng một lệnh, ra một bảng.
+
+### 11.1 Chuẩn bị (Colab L4, một lần)
+
+Brain đã lên bằng `bat_lai_brain.py` (chạy bằng `%run -i`, xem đầu file đó: nó dọn GPU, nạp bản vá, bật Brain, hâm nóng, mở hầm). Có `BRAIN_URL`, `BRAIN_API_TOKEN` và `AI_METRICS_PATH` trong `os.environ` (Colab đã đặt sẵn). Token chỉ đi qua biến môi trường, không vào dòng lệnh, bảng hay tệp JSON.
+
+### 11.2 Chạy
+
+```
+python offline_training/chay_that_dau_cuoi.py --json ket_qua_chay_that.json
+```
+
+Mã thoát: `0` cả năm bước ĐẠT; `1` có bước TRƯỢT; `2` CHƯA ĐỦ (có bước KHÔNG CHẠY hoặc BỎ QUA). **Không chạy không phải đạt.** Muốn thử riêng bước không cần GPU: `--chi kiem_server_that`.
+
+### 11.3 Năm bước và tiêu chí đạt (ghi trước, không nới)
+
+| # | Bước (khoá) | Gọi | Đạt khi | Trượt thì nghĩa là |
+|---|---|---|---|---|
+| 1 | uvicorn thật + HMAC (`kiem_server_that`) | `kiem_server_that.py --json --hmac` | mọi kiểm đạt: server lên, `/health`, VAT và báo giá ra đúng số tính tay, HMAC enforce (ký đúng vào, không ký 401, token cũ không vào) | app không khởi động nổi qua socket thật, hoặc cổng HMAC hỏng. Không cần GPU |
+| 2 | `/health` trước tải (`suc_khoe_truoc`) | GET `/health` | `status` là `ok` và `degraded` là false | Brain chưa lên đúng: hai bước live sau KHÔNG CHẠY, đừng đọc kết quả chúng |
+| 3 | ba câu qua đường Body đi (`chay_thu_live`) | `chay_thu_live.py` | `route` và `tool_plan` THẬT (đọc từ `ai_metrics.jsonl`) đúng, tool đã chạy | luật định tuyến hoặc vòng agentic sai: câu trả lời vẫn trôi chảy nên mắt không thấy |
+| 4 | sáu ca nội dung (`benchmark_tich_hop`) | `benchmark_integration.py` | đạt ngưỡng ca của chính script (5/6, mã thoát 0). Bảng ghi cả số ca và p95 để người đọc thấy 5/6 hay 6/6 | một lớp bất kỳ của đường phục vụ sai: định tuyến, công cụ, model hay chốt chặn |
+| 5 | `/health` sau tải (`suc_khoe_sau_tai`) | GET `/health` | vẫn `ok`, không `degraded` | Brain tụt sau tải: mạch ngắt mở, hàng đợi đầy hoặc server model chết |
+
+### 11.4 Đọc kết quả và việc sau đó
+
+- Gửi **nguyên bảng** và tệp JSON về (`commit`, tên máy, mã thoát, từng bước); đừng sửa gì thêm trước khi gửi.
+- ĐẠT cả năm: ghi vào PR đang chờ gộp `main` (ngày, commit, bảng) và vào SRS §5.1 dòng năng lực tương ứng. Một lần chạy chỉ nói về đúng commit đó.
+- Bước 1 trượt thì dừng ở đó và sửa trước: các bước live không có nghĩa khi server không khởi động chuẩn.
+- Chạy lại sau mọi thay đổi đụng route, model, grammar hoặc cấu hình triển khai, và trước mỗi lần đề xuất gộp `main`.
+
+### 11.5 Giới hạn của chính bảng này
+
+Năm bước đo "đường phục vụ chạy thật và không tụt", KHÔNG đo chất lượng nghiệp vụ (đúng hay sai của từng câu trả lời): việc đó của `benchmark_v3` (§2), chế độ bóng (`chay_bong.py`) và người đọc phiếu. Bước 4 chỉ có sáu ca do dev viết. Chạy trên Colab thì VRAM, mạng hầm (ngrok) và độ trễ không giống máy tự sở hữu.
