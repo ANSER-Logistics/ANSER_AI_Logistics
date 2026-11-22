@@ -30,10 +30,11 @@ khách. Kết quả trả về tách làm hai phần:
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Optional
 
 from src.core.utils import hom_nay_vn  # định nghĩa duy nhất của "hôm nay" (R4); giữ tên ở đây
@@ -42,18 +43,32 @@ from src.core.utils import hom_nay_vn  # định nghĩa duy nhất của "hôm n
 _QUOTE_STEP_VND = 1000
 
 
+def _huu_han(ten: str, gia_tri: Optional[float]) -> None:
+    """NaN và vô cực không phải số tiền: `x <= 0` với NaN luôn False nên các phép kiểm `< 0` để NaN lọt, vô cực thì làm `Decimal` ném lỗi."""
+    if gia_tri is not None and not math.isfinite(gia_tri):
+        raise ValueError(f"{ten} phải là số hữu hạn")
+
+
 def _round_step(amount: float, step: int = _QUOTE_STEP_VND) -> int:
-    """Làm tròn về bậc `step` VND, round-half-up (không dùng banker's rounding)."""
-    d = Decimal(str(amount)) / Decimal(step)
-    return int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP)) * step
+    """Làm tròn về bậc `step` VND, round-half-up (không dùng banker's rounding). Số không hữu hạn hay quá lớn thì ValueError (route trả 422, không phải 500)."""
+    _huu_han("số tiền", amount)
+    try:
+        d = Decimal(str(amount)) / Decimal(step)
+        return int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP)) * step
+    except InvalidOperation:
+        raise ValueError("số tiền quá lớn để làm tròn") from None
 
 
 @dataclass
 class Surcharge:
     """Phụ phí một khoản: cố định (amount) hoặc theo % chi phí hiệu chỉnh (pct)."""
     name: str
-    amount: float = 0.0     # VND cố định
+    amount: float = 0.0     # VND cố định; ÂM được phép (một dòng giảm giá, chủ dự án chốt 21/11/2026), nhưng báo giá cuối phải dương
     pct: float = 0.0        # % trên chi_phí_hiệu_chỉnh (0..100)
+
+    def __post_init__(self):
+        _huu_han("amount", self.amount)
+        _huu_han("pct", self.pct)
 
 
 @dataclass
@@ -71,6 +86,8 @@ class PricingRule:
     surcharges: list[Surcharge] = field(default_factory=list)
 
     def __post_init__(self):
+        for ten in ("base_margin_pct", "fuel_sensitivity", "fuel_baseline_price", "min_margin_amount"):
+            _huu_han(ten, getattr(self, ten))
         if not 0 <= self.fuel_sensitivity <= 1:
             raise ValueError("fuel_sensitivity phải trong [0, 1]")
         if self.base_margin_pct < 0:
@@ -168,6 +185,8 @@ def compute_quote(
     — "để khi giá đổi, biết báo giá cũ dựa trên gì" — nhưng bản trước chỉ có
     `fuel_ratio`, nên một báo giá đã gửi không cho biết nó dùng giá dầu nào.
     """
+    _huu_han("carrier_cost", carrier_cost)
+    _huu_han("current_fuel_price", current_fuel_price)
     if carrier_cost <= 0:
         raise ValueError("carrier_cost phải > 0")
     if not 1 <= canh_bao_ngay <= tu_choi_ngay:
@@ -243,6 +262,15 @@ def compute_quote(
 
     # ---- 4. Chốt giá ------------------------------------------------------
     quoted_price = _round_step(adjusted_cost + surcharge_total + margin)
+    if quoted_price <= 0:
+        raise ValueError("báo giá không dương: phụ phí âm lớn hơn tổng chi phí và biên; kiểm tra các dòng giảm giá")
+    # Phụ phí âm được phép (lỗ có chủ ý), nên báo giá có thể thấp hơn giá nhà xe: nói thẳng, kèm số tiền lỗ.
+    below_cost = quoted_price < carrier_cost
+    if below_cost:
+        warnings.append(
+            f"Báo giá {quoted_price:,}đ THẤP HƠN giá nhà xe {_round_step(carrier_cost, 1):,}đ: lỗ "
+            f"{_round_step(carrier_cost - quoted_price, 1):,}đ trước khi tính khoản nào khác."
+        )
 
     return {
         # Phần ĐƯA ĐƯỢC cho khách cuối
@@ -275,6 +303,7 @@ def compute_quote(
             "margin": _round_step(margin, 1),
             "margin_pct_effective": round(margin / adjusted_cost * 100, 2) if adjusted_cost else None,
             "margin_floored": margin_floored,
+            "below_cost": below_cost,
             "rounding_step": _QUOTE_STEP_VND,
         },
         "warnings": warnings,
