@@ -329,7 +329,7 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 
 | Trường | Issue | PR | Giá trị hợp lệ (đo 18/11/2026) |
 |---|---|---|---|
-| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả (`@me`) | Login thành viên |
+| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả và người được nhờ đích danh duyệt PR (xem dưới) | Login thành viên |
 | **Labels** | Đúng một | Đúng một | `bug` (sửa lỗi), `enhancement` (thêm/đổi tính năng), `documentation` (tài liệu, cấu hình AI), `question`. Issue thêm được `good first issue`, `help wanted`. `duplicate`, `invalid`, `wontfix` chỉ người duyệt gắn lúc đóng |
 | **Type** | Bắt buộc | PR không có trường này | `Task` (việc khác, tài liệu, hỗ trợ), `Bug`, `Feature`. Cùng nghĩa với label |
 | **Priority** | Bắt buộc | Bắt buộc | `Urgent`, `High`, `Medium`, `Low` |
@@ -344,6 +344,8 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 | **Liên kết** | Việc con gắn làm **sub-issue** của việc cha. Việc bị chặn thì gắn **blocked by** | `Closes #N` (xong việc) hoặc `Refs #N` (một phần) trong body | |
 | **Title, body** | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải tự đứng được | `loại(phạm vi): mô tả`. Body có tóm tắt, thay đổi, **kết quả `pytest`** (§5.3), và các mục §7 (chi phí VNĐ/tháng, chỉ số, PR bên `anser-brain-docs` nếu đổi hành vi) | |
 | **Tự merge, auto-merge** | — | **Cấm** gộp vào `main` và bật auto-merge: chỉ chủ dự án gộp vào `main` (§6.0). Vào nhánh tính năng thì agent hoặc chủ dự án gộp sau khi CI xanh và PR đã được duyệt (chủ dự án chốt 17/11/2026); người mở PR không tự gộp PR của mình | |
+
+Khi người dùng hoặc tác giả PR nhờ đích danh một người duyệt mã (ví dụ “nhờ @tranthanh-riu xem giúp PR này”), thêm người đó vào **cả Reviewers và Assignees**. Dùng đúng tài khoản được chỉ định, giữ tác giả, người được giao và các reviewer hiện có. Ví dụ với PR đã mở: `gh pr edit <N> --add-reviewer tranthanh-riu --add-assignee tranthanh-riu`. Chỉ áp dụng khi lời nhắn thực sự yêu cầu duyệt; một lượt nhắc để cảm ơn hay cung cấp bối cảnh không phải yêu cầu duyệt. Tác giả PR không thể tự duyệt. Kiểm lại bằng `gh pr view <N> --json assignees,reviewRequests,reviews` và báo rõ nếu GitHub không cho gắn một trong hai vai trò.
 
 **Chọn Priority và Effort thế nào.** Chưa có thang chính thức. Theo cách chủ dự án đã gắn: #126 là việc hỗ trợ 30–45 phút, chỉ bình luận, được gắn Priority `Low`, Effort `Medium`. Không chắc thì hỏi người giao việc. **Không để trống.**
 
