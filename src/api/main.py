@@ -16,7 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api import hmac_auth
+from src.api import gioi_han_toc_do, hmac_auth
 from src.api.dependencies import (
     API_AUTH_TOKEN,
     RUNTIME_PROFILE,
@@ -25,6 +25,8 @@ from src.api.dependencies import (
     thieu_token_o_trien_khai,
 )
 from src.api.gioi_han_than import GioiHanThanMiddleware
+from src.api.gioi_han_toc_do import GioiHanTocDoMiddleware
+from src.api.gioi_han_toc_do import kiem_cau_hinh as kiem_gioi_han_toc_do
 from src.core import llm_suc_khoe, metrics, nguong_p95
 from src.core.engine import TASK_REGISTRY
 from src.core.serving import Overloaded
@@ -50,6 +52,7 @@ ALLOWED_ORIGINS = [
 async def lifespan(app: FastAPI):
     # Startup — khởi tạo model là lười; chỉ kiểm cấu hình xác thực.
     hmac_auth.kiem_cau_hinh()     # chế độ lạ, thiếu khoá hay khoá ngắn: từ chối khởi động (không in giá trị khoá)
+    kiem_gioi_han_toc_do()        # hạn mức tốc độ hỏng: từ chối khởi động (đặt sai mà chạy tiếp là tưởng đã được bảo vệ)
     if thieu_token_o_trien_khai():
         # Cùng sự cố 13/08/2026: compose đặt sai TÊN biến token, Brain chạy mở mà không ai thấy. Trước 20/11/2026 chỉ
         # log CRITICAL và `/health.degraded`; chủ dự án chốt TỪ CHỐI KHỞI ĐỘNG: một dịch vụ mở cho bất kỳ ai tới được địa chỉ
@@ -97,6 +100,8 @@ app = FastAPI(
     openapi_url="/openapi.json" if _TAI_LIEU_TU_SINH else None,
 )
 
+# Giới hạn tốc độ theo khách (#218): đăng ký TRƯỚC HMAC để nằm TRONG hơn nó, chạy sau khi HMAC đã đặt `key_id_xac_thuc`, và vẫn trước khi FastAPI đọc thân.
+app.add_middleware(GioiHanTocDoMiddleware)
 # HMAC (A6): đăng ký TRƯỚC các middleware khác để nằm TRONG cùng (chạy sau request-id, CORS). `/health` không cần chữ ký.
 app.add_middleware(hmac_auth.HmacMiddleware, mien=frozenset({"/health"}))
 app.add_middleware(
@@ -269,6 +274,7 @@ async def health():
             "llm": llm_suc_khoe.trang_thai(),
             # Chốt chặn câu trả lời (số liệu, suy biến): số lượt bị chặn từ lúc khởi động, theo lý do (A13). Chỉ THÊM khoá.
             "guard": metrics.thong_ke_chan(),
+            "rate_limit": gioi_han_toc_do.thong_ke(),
             "load": load,
         }
     )

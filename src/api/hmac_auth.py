@@ -86,6 +86,8 @@ OK, TAT, THIEU_HEADER, SAI_DINH_DANG, KHOA_LA, HET_HAN, SAI_CHU_KY, PHAT_LAI, SA
 # Đã xác thực bằng HMAC trong lượt yêu cầu hiện tại: `require_api_token` trong từng handler (lớp thứ hai) dựa vào đây
 # để không đòi `X-Api-Token` ở chế độ `enforce`. Đặt bởi `auth_guard`, cùng tác vụ asyncio với handler.
 da_xac_thuc: ContextVar[bool] = ContextVar("anser_hmac_da_xac_thuc", default=False)
+# `key_id` của chữ ký đã kiểm, đặt CÙNG LÚC với `da_xac_thuc` (chỉ ở `enforce` khi chữ ký đúng). Lớp giới hạn tốc độ theo khách (`gioi_han_toc_do`, #218) đọc nó để biết "của ai".
+key_id_xac_thuc: ContextVar[str] = ContextVar("anser_hmac_key_id_xac_thuc", default="")
 
 
 # ---------------------------------------------------------------------------
@@ -340,11 +342,14 @@ class HmacMiddleware:
                 return hang_doi.pop(0)
             return await receive()
 
-        dat = None
+        dat = dat_kid = None
         if cd == "enforce" and kq.ok:
             dat = da_xac_thuc.set(True)
+            dat_kid = key_id_xac_thuc.set(kq.key_id)
         try:
             await self.app(scope, phat_lai, send)
         finally:
             if dat is not None:
                 da_xac_thuc.reset(dat)
+            if dat_kid is not None:
+                key_id_xac_thuc.reset(dat_kid)
