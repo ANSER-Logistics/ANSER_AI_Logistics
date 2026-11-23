@@ -334,6 +334,49 @@ def noi_tra_loi_hoi_thue(cau: str, history: list[dict] | None) -> str | None:
 
 TOOL_DOC_TU_CAU = ("vat", "quote", "carrier_selection")
 
+# ---------------------------------------------------------------------------
+# Ngày lập hoá đơn của `vat` (A15 / BR-43; mức 8% chỉ áp tới 31/12/2026)
+# ---------------------------------------------------------------------------
+# `invoice_date` của `/tools/vat` là NGUỒN của việc kiểm hiệu lực mức 8%, nên phải đến từ câu người dùng, không bao giờ từ model (cùng lý do `fuel_price_as_of`): lược đồ tool phơi
+# trường này cho model, và một ngày model điền cho đủ khuôn ("2026-12-01" cho một hoá đơn lập 05/01/2027) làm phép kiểm hết hiệu lực trôi qua im lặng, đúng loại lỗi không có
+# triệu chứng. Trước đó chỗ này chỉ có đường REST (`invoice_date` tuỳ chọn); đường `/chat` không bao giờ truyền ngày.
+#
+# Chỉ nhận ngày đi KÈM một từ nói tới việc lập hoá đơn ("hoá đơn lập ngày 05/01/2027", "xuất hoá đơn ngày..."), vì một câu hỏi thuế còn nhắc nhiều ngày khác ("áp dụng từ ngày 01/07/2025").
+# Có đúng MỘT ngày như vậy thì dùng; không có, hoặc hai ngày khác nhau, thì để trống: `/tools/vat` sẽ cảnh báo "chưa có ngày lập" thay vì mã đoán.
+_NGAY_THANG_NAM = re.compile(r"(?<![\d/.\-])(\d{1,2})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{4})(?![\d/])")
+_NGAY_THANG_NAM_CHU = re.compile(r"ngày\s*(\d{1,2})\s*tháng\s*(\d{1,2})\s*năm\s*(\d{4})", re.IGNORECASE)
+_NGAY_ISO = re.compile(r"(?<![\d\-])(\d{4})-(\d{2})-(\d{2})(?![\d\-])")
+_TU_NOI_LAP_HOA_DON = ("hoá đơn", "hóa đơn", "hoa don", "hđ", "lập", "lap ngay", "xuất hoá", "xuất hóa", "xuat hoa")
+
+
+def ngay_lap_tu_cau(cau: str) -> str | None:
+    """
+    Ngày lập hoá đơn (`YYYY-MM-DD`) người dùng nói trong câu, hoặc None khi không có đúng một ngày chắc chắn.
+
+        "hoá đơn lập ngày 05/01/2027, dầu 1.000.000đ"  -> "2027-01-05"
+        "xuất hoá đơn ngày 5 tháng 1 năm 2027"         -> "2027-01-05"
+        "thuế 8% áp từ ngày 01/07/2025, hoá đơn 10tr"   -> None   (ngày đó là của luật, không đi kèm từ lập hoá đơn)
+        "hoá đơn ngày 01/12/2026 và hoá đơn ngày 05/01/2027" -> None (hai ngày: không đoán)
+    Ngày không có thật (31/02) bị bỏ. Thứ tự ngày/tháng/năm theo cách viết Việt Nam.
+    """
+    import datetime as _dt
+
+    ra: set[str] = set()
+    tho = cau or ""
+    thap = tho.lower()
+    for mau, thu_tu in ((_NGAY_THANG_NAM, "dmy"), (_NGAY_THANG_NAM_CHU, "dmy"), (_NGAY_ISO, "ymd")):
+        for m in mau.finditer(tho):
+            a, b, c = (int(g) for g in m.groups())
+            d, mo, y = (a, b, c) if thu_tu == "dmy" else (c, b, a)
+            try:
+                iso = _dt.date(y, mo, d).isoformat()
+            except ValueError:
+                continue
+            truoc = thap[max(0, m.start() - 40): m.start()]
+            if any(t in truoc for t in _TU_NOI_LAP_HOA_DON):
+                ra.add(iso)
+    return next(iter(ra)) if len(ra) == 1 else None
+
 # Tham số CHÍNH SÁCH GIÁ của `quote` — của công ty, không phải của câu hỏi. BR-05
 # chạy lại 28/10: model điền `fuel_sensitivity: 0.05` ở cả hai câu đủ dữ kiện
 # (mặc định đã hiệu chỉnh 0,35 — phần điều chỉnh giá dầu nhỏ đi 7 lần) và bịa
@@ -591,6 +634,10 @@ def chot_dau_vao(
         # độc lập 12/11/2026). Gỡ TRƯỚC mọi lối thoát sớm, kể cả khi câu rỗng.
         args.pop("fuel_price_as_of")
         logger.info("quote: gỡ fuel_price_as_of do model tự điền")
+    if ten == "vat" and "invoice_date" in args:
+        # Cùng lý do: ngày lập là nguồn của phép kiểm hiệu lực mức 8%, chỉ được đến từ câu người dùng (xem `ngay_lap_tu_cau`). Gỡ TRƯỚC mọi lối thoát sớm.
+        args.pop("invoice_date")
+        logger.info("vat: gỡ invoice_date do model tự điền")
     if not cau or ten not in TOOL_DOC_TU_CAU:
         return args, None, ""
 
@@ -600,6 +647,9 @@ def chot_dau_vao(
 
     ma_dien: tuple[str, ...] = ()
     if ten == "vat":
+        ngay_lap = ngay_lap_tu_cau(cau)
+        if ngay_lap:
+            args = {**args, "invoice_date": ngay_lap}
         dong = tach_hoa_don(cau)
         if dong:
             args, ma_dien = {**args, "items": dong}, ("items",)
