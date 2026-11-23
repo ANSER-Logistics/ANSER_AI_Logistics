@@ -69,6 +69,8 @@ def _metrics_khong_ghi_file_that(monkeypatch, tmp_path):
 SKIP_DA_KHAI: dict[str, tuple[int, str]] = {
     "tests/test_agentic_plan.py": (
         2, "thiếu `xgrammar` (gói nặng, kéo torch) — xem requirements-dev.txt"),
+    "tests/test_grammar_gioi_han_chuoi.py": (
+        2, "thiếu `xgrammar` (gói nặng, kéo torch): hai test biên dịch thật chỉ chạy ở Colab/vLLM — xem requirements-dev.txt"),
     "tests/test_body_contract.py": (
         1, "CI không có repo Body bên cạnh; test này cần ANSER_BODY_DIR"),
     "tests/test_deploy_config.py": (
