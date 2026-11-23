@@ -1,7 +1,7 @@
 """
 offline_training/do_loc_ten.py — ĐO lớp lọc tên khách trong truy vấn web (`retrieval_policy._xoa_ten_rieng`) trên kho câu hỏi của repo (A9, brain#327).
 
-Hỏi một việc: trên các câu HỎI CÔNG KHAI có từ đánh dấu đối tác ("công ty", "khách hàng"...), luật mới (có `_CUM_MO_TA`) khác luật cũ ở bao nhiêu câu, và bao nhiêu câu bị CHẶN
+Hỏi một việc: trên các câu HỎI CÔNG KHAI có từ đánh dấu đối tác ("công ty", "khách hàng"...), luật hiện hành khác luật trước A9b (từ dừng đơn đa nghĩa như "thanh", "gia" chưa thành cụm dừng; A9, brain#327; A9b) ở bao nhiêu câu, và bao nhiêu câu bị CHẶN
 (trả rỗng, không tra web) mà trước đó không bị. Đó là phần "chặn oan" của lớp tên. Không đo rò lọt: kho này không có nhãn tên khách.
 
 KHO CÂU HỎI: `seed_prompts.jsonl` và câu của người dùng trong `v2_sources/*.jsonl`. Đều do dev viết hoặc sinh, KHÔNG phải nhật ký thật của khách. Nên số đo là cận trên lạc quan, và
@@ -35,9 +35,21 @@ def cau_hoi() -> list[str]:
     return ra
 
 
-def loc(q: str, cum: tuple) -> str:
+# Luật TRƯỚC A9b (23/11/2026) dựng lại từ luật hiện hành: âm tiết dễ làm tên còn là từ dừng đơn, năm cụm mô tả của A9b chưa có, chưa có cụm dừng.
+A9B_TU_DUNG_BO = frozenset("thanh gia trung thành tài chính đại lý bảo thương tư nhân mai".split())
+A9B_TU_DUNG_THEM_CU = frozenset({"đình", "hữu", "liên", "quan", "hiệu", "thường", "xuyên"}) | A9B_TU_DUNG_BO
+A9B_CUM_MO_TA_MOI = {("hữu", "hạn"), ("tài", "chính"), ("bảo", "hiểm"), ("đại", "lý"), ("gia", "công")}
+LUAT_TRUOC_A9B = dict(
+    cum_mo_ta=tuple(c for c in rp._CUM_MO_TA if c not in A9B_CUM_MO_TA_MOI),
+    cum_dung=(),
+    tu_dung=frozenset(rp._TU_THONG_DUNG | A9B_TU_DUNG_THEM_CU),
+)
+LUAT_HIEN_HANH: dict = {}
+
+
+def loc(q: str, luat: dict) -> str:
     try:
-        return rp._xoa_ten_rieng(" ".join(q.split()), cum)
+        return rp._xoa_ten_rieng(" ".join(q.split()), **luat)
     except rp._KhongLocSach:
         return ""
 
@@ -46,7 +58,7 @@ def do() -> dict:
     qs = cau_hoi()
     co_dau = [q for q in qs if any(rp._do_dai_danh_dau(q.split(), i) for i in range(len(q.split())))]
     cong_khai = [q for q in co_dau if rp.decide_web_fallback(q).allow]
-    cap = [(q, loc(q, ()), loc(q, rp._CUM_MO_TA)) for q in cong_khai]
+    cap = [(q, loc(q, LUAT_TRUOC_A9B), loc(q, LUAT_HIEN_HANH)) for q in cong_khai]
     khac = [c for c in cap if c[1] != c[2]]
     chan_moi = [c for c in khac if c[2] == "" and c[1] != ""]
     return {"tong": len(qs), "co_tu_danh_dau": len(co_dau), "cong_khai_co_tu_danh_dau": len(cong_khai), "khac_nhau": khac, "chan_moi": chan_moi}

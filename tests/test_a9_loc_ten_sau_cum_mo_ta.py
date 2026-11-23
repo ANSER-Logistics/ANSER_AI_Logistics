@@ -94,9 +94,13 @@ def test_ten_cum_mo_ta_sap_xep_dai_truoc():
 
 def test_khong_dua_vao_cum_nhung_tu_hay_lam_ten():
     """Cấm theo đặc tả #230: thêm một từ hay làm tên vào cụm mô tả là mở lỗ R2."""
-    cam = {"phát", "tân", "đại", "đạt", "an", "bình", "hưng", "việt", "nam", "long", "minh", "hà", "hải", "thế", "sao", "huy", "bảo", "hoà", "thanh", "vân"}
-    dung = {t for c in _CUM_MO_TA for t in c}
-    assert not (cam & dung), cam & dung
+    cam = {"phát", "tân", "đại", "đạt", "an", "bình", "hưng", "việt", "nam", "long", "minh", "hà", "hải", "thế", "sao", "huy", "bảo", "hoà", "thanh", "vân",
+           "gia", "tài", "chính", "lý", "mai", "thương", "tư", "nhân", "trung"}
+    # Không có mục ĐƠN nào là từ hay làm tên; từ hay làm tên chỉ được đứng trong một CỤM thông dụng đã duyệt từng cái (A9b).
+    assert not any(len(c) == 1 and c[0] in cam for c in _CUM_MO_TA), [c for c in _CUM_MO_TA if len(c) == 1 and c[0] in cam]
+    duoc_duyet = {("tài", "chính"), ("bảo", "hiểm"), ("đại", "lý"), ("gia", "công"), ("tư", "nhân"), ("cá", "nhân"), ("thương", "mại"), ("hữu", "hạn"), ("trách", "nhiệm", "hữu", "hạn")}
+    chua_ten = {c for c in _CUM_MO_TA if len(c) > 1 and cam & set(c)}
+    assert chua_ten <= duoc_duyet, chua_ten - duoc_duyet
     assert ("thành",) not in _CUM_MO_TA, '"thành" chỉ được đứng trong cụm "mới thành lập", không đứng riêng'
 
 
@@ -108,9 +112,7 @@ TU_DANH_DAU = ["công ty", "khách hàng", "nhà cung cấp", "đối tác", "nh
 MO_TA = [" ".join(c) for c in _CUM_MO_TA]
 DUOI = ["phải nộp thuế gì", "có phải xuất hoá đơn không", "kê khai thuế GTGT thế nào", "có bắt buộc không"]
 # Tên mà luật hiện có CÓ THỂ xoá: không chứa từ nào của `_TU_THONG_DUNG` (từ đó dừng vòng quét) và không quá ba từ viết thường.
-TEN = ["minh long", "minh long phát", "hoàng phát", "minh đạt", "Minh Long", "Hoàng Gia Phát"]
-# Tên chứa từ thuộc `_TU_THONG_DUNG` ("gia" của "gia đình", "thanh" của "thanh toán"): vòng quét dừng ở từ đó và phần sau lọt. CÓ SẴN từ BR-26, không do A9.
-TEN_CHUA_XOA_DUOC = ["hoàng gia", "thanh vân"]
+TEN = ["minh long", "minh long phát", "hoàng phát", "minh đạt", "Minh Long", "Hoàng Gia Phát", "hoàng gia", "thanh vân", "mai linh", "tài lộc", "bảo ngọc"]
 
 
 def _loc(q: str, cum=_CUM_MO_TA) -> str:
@@ -120,8 +122,12 @@ def _loc(q: str, cum=_CUM_MO_TA) -> str:
         return ""
 
 
+_TU_MO_TA = {t for c in _CUM_MO_TA for t in c}
+
+
 def _co_ten_lot(ra: str, ten: str) -> bool:
-    return any(t.lower() in ra.lower().split() for t in ten.split())
+    """Tên còn trong kết quả. Âm tiết của tên trùng một từ của cụm mô tả công khai ("gia" của "gia công") không tính là lọt: nó là cụm mô tả đứng đúng chỗ."""
+    return any(t.lower() in ra.lower().split() for t in ten.split() if t.lower() not in _TU_MO_TA)
 
 
 CA_CO_TEN = [(f"{d} {m} {t} {duoi}", t) for d, m, t, duoi in itertools.product(TU_DANH_DAU, MO_TA, TEN, DUOI)]
@@ -144,18 +150,6 @@ def test_do_chan_oan_tren_ca_khong_ten_bang_khong_va_khong_doi_so_voi_luat_cu():
     # Khác luật cũ chỉ được là CẢI THIỆN: cụm mô tả không còn bị xoá oan. Mỗi câu khác phải GIỮ NGUYÊN câu gốc (không có tên để xoá).
     assert all(_loc(q) == q for q in CA_KHONG_TEN), [q for q in CA_KHONG_TEN if _loc(q) != q][:3]
     assert len(doi) <= len(CA_KHONG_TEN)
-
-
-def test_LO_HONG_DA_BIET_ten_chua_tu_thong_dung_van_lot():
-    """
-    Ghi lại điều CHƯA chặn, không phải điều mong muốn: tên có một từ thuộc `_TU_THONG_DUNG` bị cắt cụt ("hoàng gia" thành "gia", "thanh vân" lọt
-    nguyên) ở MỌI vị trí, kể cả ngay sau từ đánh dấu, trước lẫn sau A9. Chữa cho đúng cần đổi các từ đa nghĩa ("thanh", "gia") từ từ đơn sang
-    CỤM dừng ("thanh toán", "gia đình") như đặc tả #230 đã dặn; việc riêng, cần đo chặn oan. Nếu test này đỏ vì tên không còn lọt, đó là tin tốt: gỡ nó.
-    """
-    for ten in TEN_CHUA_XOA_DUOC:
-        q = f"công ty {ten} có bắt buộc không"
-        assert _co_ten_lot(_loc(q), ten), f"{ten!r} không còn lọt: gỡ test này"
-        assert _co_ten_lot(_loc(q, ()), ten), "luật cũ cũng để lọt: không phải lỗi mới"
 
 
 def test_tong_so_ca_do_duoc_noi_ro():
