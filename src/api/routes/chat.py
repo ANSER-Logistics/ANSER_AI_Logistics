@@ -40,10 +40,18 @@ from src.api.dependencies import (
     web_search_fallback,
 )
 from src.core import llm_suc_khoe, metrics
-from src.core.config import AI_NOTICE, MAX_HISTORY_TURNS, Config
+from src.core.config import (
+    AI_NOTICE,
+    GIAI_THICH_TOI_DA_KY_TU,
+    GIAI_THICH_TOI_DA_MUC,
+    GIAI_THICH_TTL_GIAY,
+    MAX_HISTORY_TURNS,
+    Config,
+)
 from src.core.doc_dau_vao import noi_tra_loi_hoi_thue
 from src.core.engine import TASK_REGISTRY
 from src.core.grounding import LOI_SUY_BIEN, guard_answer, kiem_suy_bien
+from src.core.ket_qua_gan_nhat import KetQuaGanNhat, khoi_giai_thich, la_khoi_giai_thich
 from src.core.retrieval_policy import KHONG_CO_TAI_LIEU, decide_web_fallback
 from src.core.schemas import RetailChatResponse
 from src.core.serving import DemSinh
@@ -375,9 +383,9 @@ async def _run_agentic(user_msg, plan, store_id, history, request_id, metric, de
     return out["answer"], neo
 
 
-# Khoá nhận biết một lượt cũ có khối giải thích được. Engine nào cũng trả
-# `explain`/`warnings`, nên tìm theo cấu trúc thay vì đoán theo câu chữ.
-_EXPLAINABLE_KEYS = ("explain", "ranked", "internal", "periods", "warnings")
+# Kết quả engine gần nhất của từng hội thoại, cho nhánh EXPLAIN (xem `ket_qua_gan_nhat.py`: văn xuôi Brain trả về và Body lưu lại
+# không chứa khối JSON của engine, nên lịch sử một mình không đủ để giải thích). Một tiến trình, một worker (Dockerfile `--workers 1`).
+_KET_QUA = KetQuaGanNhat(GIAI_THICH_TTL_GIAY, GIAI_THICH_TOI_DA_MUC, GIAI_THICH_TOI_DA_KY_TU)
 
 
 def _find_explainable(history: Optional[list]) -> Optional[str]:
@@ -391,11 +399,20 @@ def _find_explainable(history: Optional[list]) -> Optional[str]:
         if item.get("role") != "assistant":
             continue
         obj, _err = _extract_json_block(item.get("content", ""))
-        if isinstance(obj, dict) and any(k in obj for k in _EXPLAINABLE_KEYS):
+        if la_khoi_giai_thich(obj):
             # P2: khối `internal` chứa biên lợi nhuận — giải thích cho CHỦ DN
             # thì được, nhưng không để nó lọt vào ngữ cảnh nào khác.
             return json.dumps(obj, ensure_ascii=False)
     return None
+
+
+def _tim_khoi_giai_thich(store_id, user_id, history: Optional[list]) -> Optional[str]:
+    """
+    Khối cần giải thích: kết quả engine Brain vừa tính cho CHÍNH hội thoại này (còn hạn), rồi mới tới khối nằm trong lịch sử.
+
+    Kho gần nhất đứng trước vì nó đảm bảo MỚI (ghi đè mỗi lượt, có hạn dùng); khối trong lịch sử có thể là của một lượt xa.
+    """
+    return _KET_QUA.lay(_KET_QUA.khoa(store_id, user_id)) or _find_explainable(history)
 
 
 _N8N_LOI_TOI_DA = 500
@@ -862,11 +879,15 @@ async def chat_endpoint(
         # lời: ghép với tin nhắn hoá đơn trước đó và chạy lại `vat` — câu trả
         # lời trơn "chưa gồm VAT" tự nó không có kế hoạch nào.
         cau_noi_thue = noi_tra_loi_hoi_thue(user_msg, history)
+        # Câu "vì sao" mà đã có kết quả engine để giải thích thì đi nhánh EXPLAIN, KHÔNG chạy lại tool. "Vì sao lãi gộp ra con số đó" khớp luật `report`
+        # của `plan_tools`, và vòng agentic không loại EXPLAIN, nên trước đây nó tính lại báo cáo thay vì giải thích kết quả người dùng đang nhìn.
+        # Chưa có gì để giải thích mà câu vẫn có kế hoạch tool ("vì sao lợi nhuận quý này thấp") thì vẫn đi vòng agentic: tính rồi trả lời.
+        explain_ctx = _tim_khoi_giai_thich(store_id, user_id, history) if cat == "EXPLAIN" else None
         if cau_noi_thue:
             resp, grounding_ctx = await _run_agentic(
                 cau_noi_thue, ["vat"], store_id, history, request_id, metric, dem
             )
-        elif vao_vong_agentic(cat, plan, user_msg):
+        elif explain_ctx is None and vao_vong_agentic(cat, plan, user_msg):
             resp, grounding_ctx = await _run_agentic(
                 user_msg, plan, store_id, history, request_id, metric, dem
             )
@@ -907,7 +928,6 @@ async def chat_endpoint(
         # Khối `explain` của lần tính gần nhất nằm trong lịch sử hội thoại.
         # Không có gì để giải thích thì nói rõ, không bịa lý do.
         elif cat == "EXPLAIN":
-            explain_ctx = _find_explainable(history)
             if explain_ctx is None:
                 resp = (
                     "Tôi chưa có kết quả nào gần đây để giải thích. "
@@ -1118,6 +1138,17 @@ async def chat_endpoint(
                 metric.blocked_reason = verdict.reason
                 cleaned = verdict.safe_answer
 
+
+        # Nhớ khối engine của lượt này cho câu "vì sao" ở lượt sau (nhánh EXPLAIN). Chỉ khi câu trả lời đã qua cả hai chốt chặn ở trên:
+        # giải thích một kết quả mà người dùng chưa từng thấy (đã bị chặn) chỉ làm họ rối thêm. Lượt EXPLAIN không ghi đè, để hỏi "vì sao"
+        # nhiều lần liên tiếp vẫn giải thích đúng một kết quả và hạn dùng không kéo dài mãi.
+        if cat != "EXPLAIN" and grounding_ctx and not metric.blocked_reason:
+            khoi_engine = khoi_giai_thich(grounding_ctx)
+            if khoi_engine is not None and not _KET_QUA.ghi(_KET_QUA.khoa(store_id, user_id), khoi_engine):
+                logger.info(
+                    "Không lưu được khối giải thích (quá lớn hoặc không tuần tự hoá được)",
+                    extra={"request_id": request_id},
+                )
 
         # Lưu lượt để câu sau có ngữ cảnh + ghi nhật ký đo lường
         # PHẢI `await`, không ném vào nền: lượt sau đọc lại lịch sử, nên việc ghi phải xong

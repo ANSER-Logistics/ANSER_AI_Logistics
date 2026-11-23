@@ -38,6 +38,10 @@ LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắ
 # Lý do: chủ dự án chốt 20/11/2026 không quảng bá "AI làm kế toán thay"; Luật AI 134/2025 Điều 11 yêu cầu người dùng biết đang dùng AI
 # (nguồn thứ cấp, chờ luật sư, câu 9 trong bộ câu hỏi pháp lý).
 AI_NOTICE = "Trợ lý AI"
+# Kết quả engine gần nhất của mỗi hội thoại (`ket_qua_gan_nhat.py`), cho câu "vì sao ra con số này" ở lượt sau. Chỉ trong bộ nhớ, mất khi khởi động lại.
+GIAI_THICH_TTL_GIAY = 1800       # 30 phút: hỏi "vì sao" thường ngay sau câu trả lời; lâu hơn thì số đã cũ và người dùng đã làm việc khác
+GIAI_THICH_TOI_DA_MUC = 256      # số hội thoại giữ cùng lúc; đầy thì bỏ cái cũ nhất
+GIAI_THICH_TOI_DA_KY_TU = 12_000  # một báo cáo bốn quý kèm mười mặt hàng cỡ 5.000 ký tự; to hơn thì không đưa vừa ngữ cảnh model, nên không lưu
 LICH_SU_TOI_DA_KY_TU = 4196      # mỗi tin (cả `message` của /chat và mỗi tin của `history`); dài hơn thì 422. Chủ dự án chốt 21/11/2026; Body cắt ở 4000, nên vẫn khớp
 
 
