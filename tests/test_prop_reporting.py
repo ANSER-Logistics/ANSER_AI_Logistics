@@ -100,14 +100,14 @@ def _ky(ngay: date, muc: str) -> tuple[int, int, str]:
     """(năm, thứ tự trong năm, nhãn). Thứ tự bằng SỐ: không dính lỗi xếp chuỗi của mã thật."""
     y, m = ngay.year, ngay.month
     if muc == "month":
-        return y, m, f"{y}-{m:02d}"
+        return y, m, f"{y:04d}-{m:02d}"
     if muc == "quarter":
         q = (m + 2) // 3
-        return y, q, f"{y}-Q{q}"
+        return y, q, f"{y:04d}-Q{q}"
     if muc == "half":
         h = 1 if m <= 6 else 2
-        return y, h, f"{y}-H{h}"
-    return y, 1, str(y)
+        return y, h, f"{y:04d}-H{h}"
+    return y, 1, f"{y:04d}"
 
 
 @dataclass
@@ -622,11 +622,6 @@ def test_ty_trong_doanh_thu_mat_hang_cong_lai_xap_xi_100(ban, muc):
 # 7. LỖI THẬT do hypothesis tìm ra (xfail strict: sửa mã thì test này XPASS và phải gỡ dấu)
 # ===========================================================================
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Kỳ gần nhất chọn bằng sorted() trên CHUỖI nhãn, mà period_key không đệm số 0 cho năm: năm 999 ra '999', "
-    "lớn hơn '1000' theo chuỗi. Phản ví dụ nhỏ nhất: granularity='year', periods_back=1, dòng ngày "
-    "0999-12-31 và 1000-01-01 -> báo cáo giữ kỳ '999' thay vì '1000'. Chỉ đụng ngày gõ nhầm năm 3 chữ số "
-    "(mức thấp), nhưng gõ nhầm đó đẩy dữ liệu thật ra khỏi báo cáo."))
 @CAU_HINH
 @example(d1=date(999, 12, 31), d2=date(1000, 1, 1), muc="year")
 @given(d1=st.dates(), d2=st.dates(), muc=_MUC)
@@ -637,10 +632,6 @@ def test_ky_gan_nhat_la_ky_cua_ngay_muon_nhat_ca_voi_nam_ngan(d1, d2, muc):
     assert [p["period"] for p in out["periods"]] == [_ky(muon, muc)[2]]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Giá trị vô hạn lọt qua schema Pydantic (float chấp nhận Infinity) rồi làm round() ném OverflowError — "
-    "không phải ValueError nên /tools/report không đổi thành 422 mà thành 500. Phản ví dụ nhỏ nhất: "
-    "SaleLine(date='2026-01-01', revenue=float('inf')). (NaN thì ném ValueError -> 422, chấp nhận được.)"))
 @CAU_HINH
 @example(vi_tri="revenue", xau=float("inf"))
 @given(vi_tri=st.sampled_from(["revenue", "cogs", "amount"]), xau=st.sampled_from([float("inf"), float("-inf")]))
@@ -655,12 +646,6 @@ def test_gia_tri_vo_han_chi_duoc_nem_value_error(vi_tri, xau):
         pass
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Dòng ngày sai bị cảnh báo là 'đã bỏ qua' nhưng build_report vẫn đưa `req.sales` nguyên vẹn vào "
-    "product_profitability, nên doanh thu của chúng nằm trong bảng mặt hàng mà không nằm trong kỳ nào. "
-    "Phản ví dụ nhỏ nhất: một dòng hợp lệ + SaleLine(date='', revenue=1.0, product='Z') -> bảng mặt hàng "
-    "có thêm 'Z'. (Đánh giá: mâu thuẫn với chính câu cảnh báo; nếu chủ ý để bảng mặt hàng tính cả dòng "
-    "sai ngày thì sửa câu cảnh báo và gỡ test này.)"))
 @CAU_HINH
 @example(co_ban=Ban(date(2026, 1, 1), Fraction(5), "A", Fraction(1), None), xau="", tien=1)
 @given(co_ban=_ban(), xau=_NGAY_XAU, tien=st.integers(1, 10**6))
@@ -672,11 +657,6 @@ def test_dong_ngay_sai_khong_lot_vao_bang_mat_hang(co_ban, xau, tien):
     assert them["products"] == goc["products"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Schema /tools/report không chặn revenue âm (dòng trả hàng), và phủ giá vốn tính bằng "
-    "doanh_thu_có_giá_vốn/doanh_thu nên có thể ra ngoài [0,100]. Phản ví dụ nhỏ nhất: dòng (100đ, chưa có giá "
-    "vốn) + dòng (-50đ, giá vốn 10đ) cùng một kỳ -> cogs_coverage_pct = -100,0. Chỉ lỗi nếu dòng trả hàng "
-    "âm là đầu vào hợp lệ (schema cho phép; chưa rõ Body có gửi)."))
 @CAU_HINH
 @example(ban=[Ban(date(2026, 1, 1), Fraction(100), "A", Fraction(1), None),
               Ban(date(2026, 1, 2), Fraction(-50), "A", Fraction(1), Fraction(10))], muc="quarter")

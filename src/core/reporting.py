@@ -24,6 +24,7 @@ chỉ tính được trên 62% doanh thu" còn hơn đưa một con số lãi sa
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
@@ -74,13 +75,13 @@ def period_key(day: date, granularity: str) -> str:
     month -> 2026-07 | quarter -> 2026-Q3 | half -> 2026-H2 | year -> 2026
     """
     if granularity == "month":
-        return f"{day.year}-{day.month:02d}"
+        return f"{day.year:04d}-{day.month:02d}"
     if granularity == "quarter":
-        return f"{day.year}-Q{(day.month - 1) // 3 + 1}"
+        return f"{day.year:04d}-Q{(day.month - 1) // 3 + 1}"
     if granularity == "half":
-        return f"{day.year}-H{1 if day.month <= 6 else 2}"
+        return f"{day.year:04d}-H{1 if day.month <= 6 else 2}"
     if granularity == "year":
-        return str(day.year)
+        return f"{day.year:04d}"
     raise ValueError(f"granularity phải thuộc {GRANULARITIES}, nhận '{granularity}'")
 
 
@@ -142,21 +143,37 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
 
     buckets: dict[str, dict[str, float]] = defaultdict(
         lambda: {"revenue": 0.0, "cogs": 0.0, "revenue_with_cogs": 0.0,
-                 "expenses": 0.0, "orders": 0.0}
+                 "expenses": 0.0, "orders": 0.0, "rev_duong": 0.0, "rev_duong_co_von": 0.0}
     )
 
+    # Giá trị không hữu hạn: `round(inf)` ném OverflowError (không phải ValueError) nên route trả 500. Từ chối sớm (route đổi ValueError thành 422).
+    for ten, dong in (("dòng bán", req.sales), ("dòng chi phí", req.expenses)):
+        for d in dong:
+            for gia_tri in (getattr(d, "revenue", 0.0), getattr(d, "cogs", None) or 0.0, getattr(d, "quantity", 0.0), getattr(d, "amount", 0.0)):
+                if not math.isfinite(gia_tri):
+                    raise ValueError(f"{ten} có giá trị không hữu hạn (NaN hoặc vô cực)")
+
+    sales_hop_le: list[SaleLine] = []     # chỉ các dòng có ngày đọc được: bảng mặt hàng phải cùng tập với các kỳ
+    n_doanh_thu_am = 0
     for line in req.sales:
         day = _parse_day(line.date)
         if day is None:
             bad_dates += 1
             continue
+        sales_hop_le.append(line)
         bucket = buckets[period_key(day, req.granularity)]
         bucket["revenue"] += line.revenue
         bucket["orders"] += 1
+        if line.revenue < 0:
+            n_doanh_thu_am += 1      # dòng trả hàng: không đưa vào MẪU SỐ của phủ giá vốn (xem dưới)
+        else:
+            bucket["rev_duong"] += line.revenue
         if line.cogs is not None:
             bucket["cogs"] += line.cogs
             # Chỉ doanh thu CÓ giá vốn mới được dùng để tính lãi gộp
             bucket["revenue_with_cogs"] += line.revenue
+            if line.revenue >= 0:
+                bucket["rev_duong_co_von"] += line.revenue
 
     for exp in req.expenses:
         day = _parse_day(exp.date)
@@ -165,6 +182,10 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
             continue
         buckets[period_key(day, req.granularity)]["expenses"] += exp.amount
 
+    if n_doanh_thu_am:
+        warnings.append(
+            f"{n_doanh_thu_am} dòng doanh thu ÂM (trả hàng): vẫn tính vào doanh thu và lãi, nhưng phủ giá vốn chỉ tính trên các dòng doanh thu dương."
+        )
     if bad_dates:
         warnings.append(
             f"{bad_dates} dòng có ngày sai định dạng (cần YYYY-MM-DD) — đã bỏ qua."
@@ -222,7 +243,7 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
         # không phải 0%. "0%" là một phép đo ("có doanh thu mà không dòng nào có
         # giá vốn"); kỳ không có doanh thu thì chưa đo gì cả.
         ky_coverage: Optional[float] = (
-            b["revenue_with_cogs"] / b["revenue"] if b["revenue"] else None
+            b["rev_duong_co_von"] / b["rev_duong"] if b["rev_duong"] else None
         )
 
         periods.append({
@@ -247,8 +268,8 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
     # --- độ tin cậy dựa trên phủ giá vốn của TOÀN báo cáo -------------------
     # Doanh thu CHƯA làm tròn: `periods[i]["revenue"]` đã round() về đồng nguyên, còn `total_with_cogs` thì chưa;
     # lấy tử chưa tròn chia mẫu đã tròn ra 125% (doanh thu 1,25) hoặc rơi vào nhánh "không có doanh thu" (0,4).
-    total_revenue = sum(buckets[k]["revenue"] for k in ordered)
-    total_with_cogs = sum(buckets[k]["revenue_with_cogs"] for k in ordered)
+    total_revenue = sum(buckets[k]["rev_duong"] for k in ordered)
+    total_with_cogs = sum(buckets[k]["rev_duong_co_von"] for k in ordered)
     if not total_revenue:
         # Có kỳ (vì có chi phí) nhưng KHÔNG có doanh thu nào: không đo được phủ giá
         # vốn. Trước đây rơi xuống nhánh "thấp" và ra "0%, Chỉ 0% doanh thu có giá
@@ -288,7 +309,7 @@ def build_report(req: ReportRequest) -> dict[str, Any]:
     return {
         "granularity": req.granularity,
         "periods": periods,
-        "products": product_profitability(req.sales, top_n=req.top_n),
+        "products": product_profitability(sales_hop_le, top_n=req.top_n),
         "explain": {
             "cogs_coverage_pct": coverage_pct,
             "confidence": confidence,

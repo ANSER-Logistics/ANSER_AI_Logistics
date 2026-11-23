@@ -696,24 +696,8 @@ def test_quy_tac_gia_sai_bi_tu_choi_ngay_luc_tao(do_nhay, bien, san):
 # Ca đánh dấu xfail là chỗ engine HIỆN chưa giữ hợp đồng (xem `_CHUA_TU_CHOI_DUNG` ngay dưới).
 _TRUONG_SO = ("cost", "current", "baseline", "margin", "min_margin", "amount", "pct")
 
-_LOI_INVALID_OPERATION = (
-    "ném decimal.InvalidOperation (không phải ValueError) từ _round_step: /tools/quote trả 500 thay vì 422"
-)
-_LOI_IM_LANG = "KHÔNG bị từ chối, trả về một báo giá như không có chuyện gì (bị bỏ im lặng)"
-_CHUA_TU_CHOI_DUNG = {
-    ("cost", INF): _LOI_INVALID_OPERATION,
-    ("current", INF): _LOI_INVALID_OPERATION,
-    ("margin", INF): _LOI_INVALID_OPERATION,
-    ("min_margin", INF): _LOI_INVALID_OPERATION,
-    ("amount", INF): _LOI_INVALID_OPERATION,
-    ("amount", -INF): _LOI_INVALID_OPERATION,
-    ("pct", INF): _LOI_INVALID_OPERATION,
-    ("pct", -INF): _LOI_INVALID_OPERATION,
-    # baseline=inf: giá hiện tại / vô cực = 0 nên điều chỉnh = -độ nhạy x giá nhà xe; 1.000.000 thành 715.000.
-    ("baseline", INF): _LOI_IM_LANG + " (1.000.000đ ra 715.000đ: giá gốc vô cực làm dầu hiện tại coi như rẻ về 0)",
-    # `__post_init__` chỉ kiểm `< 0`, NaN lọt qua; `max(biên, NaN)` trả biên nên sàn biên biến mất không dấu vết.
-    ("min_margin", NAN): _LOI_IM_LANG + " (sàn biên NaN bị `max` bỏ qua: mất lớp bảo vệ biên tối thiểu)",
-}
+# Mọi ca NaN/vô cực đều bị từ chối bằng ValueError từ 21/11/2026 (A4): bảng này rỗng. Ca mới tìm ra lỗi thì thêm vào đây kèm lý do và `xfail(strict)`.
+_CHUA_TU_CHOI_DUNG: dict = {}
 
 
 def _ca_khong_huu_han():
@@ -730,8 +714,9 @@ def test_dau_vao_khong_huu_han_bi_tu_choi_bang_ValueError(truong, gia_tri):
     tham_so = dict(cost=1_000_000.0, margin=10.0, baseline=25_000.0, current=27_500.0,
                    min_margin=0.0, amount=0.0, pct=0.0)
     tham_so[truong] = gia_tri
-    phu_phi = [Surcharge("phi", tham_so["amount"], tham_so["pct"])] if truong in ("amount", "pct") else []
     with pytest.raises(ValueError):
+        # Surcharge cũng tự kiểm lúc dựng (từ A4, 21/11/2026), nên dựng NẰM TRONG khối bắt lỗi.
+        phu_phi = [Surcharge("phi", tham_so["amount"], tham_so["pct"])] if truong in ("amount", "pct") else []
         rule = PricingRule(
             base_margin_pct=tham_so["margin"], fuel_baseline_price=tham_so["baseline"],
             min_margin_amount=tham_so["min_margin"], surcharges=phu_phi,
@@ -739,15 +724,6 @@ def test_dau_vao_khong_huu_han_bi_tu_choi_bang_ValueError(truong, gia_tri):
         compute_quote(tham_so["cost"], rule, tham_so["current"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "phụ phí ÂM kéo giá chào xuống ÂM và vẫn trả 200. Phản ví dụ nhỏ nhất (hypothesis.find, 20/11/2026): giá nhà "
-        "xe 1.000đ, biên 10%, Surcharge('x', amount=-1_600) -> quoted_price = -1.000. `SurchargeIn.amount` không có "
-        "ge=0 (`pct` thì có). Phụ phí âm có được phép như một dòng giảm giá hay không là quyết định nghiệp vụ; còn "
-        "một báo giá âm gửi cho khách thì chắc chắn không phải ý định."
-    ),
-)
 @CAU_HINH
 @given(cost=GIA_NHA_XE, amount=_so_thuc(-1e10, 1e10))
 @example(cost=1_000.0, amount=-1_600.0)
@@ -760,14 +736,6 @@ def test_gia_chao_khong_bao_gio_am_du_phu_phi_la_gi(cost, amount):
     assert out["quote"]["quoted_price"] >= 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "giá nhà xe >= 1e28 (hay vô cực) làm `_round_step` ném decimal.InvalidOperation (ngữ cảnh Decimal chỉ 28 chữ "
-        "số; 1e28 có 29); /tools/quote chỉ bắt ValueError nên trả 500. Phản ví dụ nhỏ nhất (hypothesis.find, "
-        "20/11/2026): carrier_cost=1e28. Không sinh số sai, chỉ sai MÃ LỖI: đầu vào vô lý phải là 422."
-    ),
-)
 @CAU_HINH
 @given(cost=st.floats(1e28, 1e300, allow_nan=False, allow_infinity=False))
 @example(cost=1e28)
@@ -871,14 +839,13 @@ _CA_ROUTE = [
     _ca_route("carrier_cost=0", {"carrier_cost": 0}),
     _ca_route("surcharge.amount=NaN", {"extra_surcharges": [{"name": "x", "amount": NAN, "pct": 0.0}]}),
     _ca_route("carrier_cost=inf", {"carrier_cost": INF}),   # đã sửa ở Brain#179 (allow_inf_nan=False ở _ToolIn)
-    _ca_route("carrier_cost=1e28", {"carrier_cost": 1e28}, "500 (decimal.InvalidOperation), phải là 422"),
+    _ca_route("carrier_cost=1e28", {"carrier_cost": 1e28}),
     _ca_route("current_fuel_price=inf", {"current_fuel_price": INF}),
     _ca_route("fuel_baseline_price=inf", {"pricing_rule.fuel_baseline_price": INF}),
     _ca_route("base_margin_pct=inf", {"pricing_rule.base_margin_pct": INF}),
     _ca_route("min_margin_amount=inf", {"pricing_rule.min_margin_amount": INF}),
     _ca_route("surcharge.amount=inf", _PHU_PHI_VO_CUC),
-    _ca_route("surcharge.amount=-9e9", {"extra_surcharges": [{"name": "x", "amount": -9e9, "pct": 0.0}]},
-              "200 với quoted_price = -8.998.862.000: `SurchargeIn.amount` không có ge=0"),
+    _ca_route("surcharge.amount=-9e9", {"extra_surcharges": [{"name": "x", "amount": -9e9, "pct": 0.0}]}),
 ]
 
 
