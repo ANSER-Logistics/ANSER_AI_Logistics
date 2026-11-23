@@ -34,6 +34,7 @@ import os
 import re
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -347,7 +348,7 @@ def tran_token(env: str, mac_dinh: int) -> int:
     return int(os.getenv(env, "").strip() or mac_dinh)
 
 
-def _phan_vi(mau: list[float], q: float) -> float:
+def _phan_vi(mau: Sequence[float], q: float) -> float:
     """Nearest-rank (ceil(n×q)−1), cùng cách với `src/core/nguong_p95.p95`: n nhỏ thì p95 ≈ max, không tụt."""
     xep = sorted(mau)
     return xep[max(0, min(len(xep) - 1, math.ceil(len(xep) * q) - 1))]
