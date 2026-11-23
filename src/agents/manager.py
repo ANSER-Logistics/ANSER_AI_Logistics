@@ -36,6 +36,7 @@ import numpy as np
 
 from src.agents.base import BaseAgent
 from src.core.prompts import Prompts
+from src.core.utils import loai_loi
 
 logger = logging.getLogger("projecta.agents.manager")
 
@@ -215,12 +216,12 @@ class SemanticRouter:
         try:
             import torch
             from sentence_transformers import SentenceTransformer
-        except ImportError as exc:
+        except ImportError:
             logger.warning(
                 "Không nạp được embedder (%s) — SemanticRouter chạy CHẾ ĐỘ TỪ KHOÁ. "
                 "Câu không khớp từ khoá nào sẽ về GENERAL. "
                 "Chấp nhận được ở ENV=LOCAL; KHÔNG chấp nhận được ở production.",
-                exc,
+                loai_loi(),
             )
             return None
 
