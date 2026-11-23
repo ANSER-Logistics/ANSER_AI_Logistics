@@ -515,5 +515,36 @@ class Prompts:
         "đoán, không điền 0. Số tiền là số nguyên VND, không dấu phân cách."
     )
 
+    # Biến thể CHUỖI của hai prompt trên (BR-19 phần 2b, A8): model CHÉP số tiền như in, mã đọc thành số (`so_tien_ocr.py`). Bật bằng
+    # `extract_*(so_tien_chuoi=True)`, MẶC ĐỊNH TẮT cho tới khi đo trước/sau trên ảnh (Colab, `do_vlm_hoa_don.py --so-tien-chuoi`): đổi prompt đọc ảnh là đổi hành vi
+    # trích xuất. Khác bản cũ ở hai chỗ: không bắt model đổi quy ước số (việc của mã), và trường không đọc được thì null chứ không phải 0 (R1).
+    VLM_INVOICE_CHUOI = (
+        "Bạn là hệ thống trích xuất hóa đơn. Đọc ảnh hóa đơn và trả về DUY NHẤT "
+        "một JSON hợp lệ, KHÔNG kèm giải thích, đúng schema:\n"
+        '{"items": [{"name": "string", "price": "string", "qty": 1}], "total": "string"}\n'
+        "Quy tắc: 'price' là ĐƠN GIÁ trước thuế; 'total' là tổng tiền ghi trên hóa đơn "
+        "(đã gồm thuế). MỌI số tiền là CHUỖI chép NGUYÊN VĂN như in trên tờ, giữ cả dấu "
+        'chấm và dấu phẩy (ví dụ "55.192.500" hay "1.250,00"). KHÔNG đổi sang số, KHÔNG '
+        "bỏ dấu, KHÔNG thêm hay bớt chữ số. Số tiền nào KHÔNG ĐỌC ĐƯỢC thì để null, "
+        "TUYỆT ĐỐI không đoán, không điền 0. Bỏ qua dòng nào không đọc được."
+    )
+
+    VLM_FREIGHT_CHUOI = (
+        "Bạn là hệ thống đọc HOÁ ĐƠN CƯỚC VẬN TẢI của nhà xe. Đọc ảnh và trả về "
+        "DUY NHẤT một JSON hợp lệ, KHÔNG kèm giải thích.\n"
+        "Các trường: carrier_name, carrier_tax_code, invoice_no, invoice_date "
+        "(YYYY-MM-DD), origin (điểm đi), destination (điểm đến), vehicle_type, "
+        "plate_number (biển số), charges (danh sách khoản), vat_rate, subtotal, "
+        "vat_amount, total.\n"
+        "Mỗi khoản trong 'charges' gồm: kind (một trong: cước, bốc xếp, lưu ca, "
+        "cầu đường, quay đầu, khác), description, quantity (số chuyến/số lần), "
+        "unit_price (đơn giá CHƯA thuế).\n"
+        "QUAN TRỌNG: trường nào KHÔNG ĐỌC ĐƯỢC thì để null — TUYỆT ĐỐI không "
+        "đoán, không điền 0. Số tiền (unit_price, subtotal, vat_amount, total) là CHUỖI "
+        'chép NGUYÊN VĂN như in trên tờ, giữ cả dấu chấm và dấu phẩy (ví dụ "12.000.000"): '
+        "KHÔNG đổi sang số, KHÔNG bỏ dấu, KHÔNG thêm hay bớt chữ số. vat_rate là số "
+        "phần trăm (ví dụ 8 hoặc 10)."
+    )
+
     # Giữ tên cũ để code cũ không gãy khi import
     CONSULT_SYSTEM = RETRIEVAL_SYSTEM
