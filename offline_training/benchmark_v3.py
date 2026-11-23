@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -344,6 +345,53 @@ def tran_token(env: str, mac_dinh: int) -> int:
     được gì") — mà đó là một câu hỏi khác, phải hỏi có ý thức.
     """
     return int(os.getenv(env, "").strip() or mac_dinh)
+
+
+def _phan_vi(mau: list[float], q: float) -> float:
+    """Nearest-rank (ceil(n×q)−1), cùng cách với `src/core/nguong_p95.p95`: n nhỏ thì p95 ≈ max, không tụt."""
+    xep = sorted(mau)
+    return xep[max(0, min(len(xep) - 1, math.ceil(len(xep) * q) - 1))]
+
+
+def tom_tat_token(nhat_ky: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """
+    Gom nhật ký từng lời gọi của MỘT nhánh (`OpenAITuongThich.nhat_ky`, đã cắt theo nhánh) thành con số #176 cần:
+    mỗi tác vụ phải có `--max-model-len` tối thiểu bao nhiêu.
+
+    vLLM từ chối (400) lời gọi có `prompt + max_tokens > max_model_len`, kể cả khi model dừng sớm. Nên ngữ cảnh cần là
+    `max(prompt + max_tokens)` trên MỌI lời gọi, không phải `max(prompt + token đã sinh)`: thứ hai nhỏ hơn và dựng server
+    theo nó thì câu dài nhất bị từ chối. Cả hai đều ghi, để người đọc thấy có nên hạ trần `max_tokens` không.
+
+    Không có lời gọi nào, hay server không trả `usage` cho lời gọi nào (không phải vLLM, hay mọi câu quá giờ), thì trả
+    None: không đo được, KHÔNG phải ngữ cảnh 0.
+    """
+    co_so = [d for d in nhat_ky if d.get("prompt") is not None]
+    if not co_so:
+        return None
+    prompt = [int(d["prompt"]) for d in co_so]
+    can = [int(d["prompt"]) + int(d["max_tokens"]) for d in co_so]
+    da_dung = [int(d["prompt"]) + int(d.get("sinh") or 0) for d in co_so]
+    giay = [float(d["giay"]) for d in nhat_ky if d.get("giay") is not None]
+    return {
+        "n_goi": len(nhat_ky),
+        "n_thieu_usage": len(nhat_ky) - len(co_so),
+        "prompt_p50": _phan_vi(prompt, 0.5),
+        "prompt_max": max(prompt),
+        "max_tokens": max(int(d["max_tokens"]) for d in co_so),
+        "da_dung_max": max(da_dung),
+        "ctx_can": max(can),
+        "giay_p50": round(_phan_vi(giay, 0.5), 2) if giay else None,
+        "giay_p95": round(_phan_vi(giay, 0.95), 2) if giay else None,
+    }
+
+
+def in_token(nhan: str, tt: dict[str, Any] | None) -> None:
+    if tt is None:
+        return
+    thieu = f", {tt['n_thieu_usage']} lời gọi thiếu usage" if tt["n_thieu_usage"] else ""
+    print(f"  [token {nhan}] prompt p50 {tt['prompt_p50']} · max {tt['prompt_max']} · trần sinh {tt['max_tokens']}"
+          f" · đã dùng max {tt['da_dung_max']} · CẦN --max-model-len ≥ {tt['ctx_can']}"
+          f" · giây/lời gọi p50 {tt['giay_p50']} p95 {tt['giay_p95']} ({tt['n_goi']} lời gọi{thieu})")
 
 
 def kiem_ket_qua(ket_qua: dict[str, dict]) -> None:
@@ -1063,6 +1111,16 @@ def main() -> None:
         return rows[:args.max_samples] if args.max_samples else rows
 
     nha = dung_provider(args.model)
+    # Token và thời gian từng lời gọi, nếu bản dựng ghi (hiện chỉ `openai:`, vì chỉ server vLLM đếm `usage` cho ta trên
+    # đúng đường production). Bản dựng khác: không có mục `token`, không phải ngữ cảnh 0. Xem `tom_tat_token`.
+    nhat_ky: list[dict[str, Any]] | None = getattr(nha, "nhat_ky", None)
+
+    def moc() -> int:
+        return len(nhat_ky) if nhat_ky is not None else 0
+
+    def token_tu(m: int) -> dict[str, Any] | None:
+        return tom_tat_token(nhat_ky[m:]) if nhat_ky is not None else None
+
     print(f"\n{'=' * 60}\n  BENCHMARK V3 — {nha.ten}\n"
           f"  ràng buộc JSON: {nha.rang_buoc}\n{'=' * 60}")
     # Cảnh báo về CHÍNH KHUNG ĐO, không phải về model. `nha.rang_buoc` nói bộ đo
@@ -1126,9 +1184,13 @@ def main() -> None:
         rows = cap(load_jsonl(GENERATED_DIR / "eval_extraction.jsonl"))
         if rows:
             chats = [build_extraction_chat(r, Prompts) for r in rows]
+            m = moc()
             outputs, _finish = nha.sinh(chats, QuoteExtraction.model_json_schema(),
                                         max_tokens=256, temperature=0.0)
             result = score_extraction(rows, outputs)
+            if (tt := token_tu(m)) is not None:
+                result["token"] = tt
+            in_token("extraction", tt)
             ghi_tho("extraction", rows, outputs, _finish, result.get("failures", ()))
             print(f"\n[extraction] n={result['n']}")
             in_thong_ke_parse(result["parse"])
@@ -1174,9 +1236,13 @@ def main() -> None:
             ]
             n8n_schema = build_workflow_schema()
             n8n_tran = tran_token("BENCH_N8N_MAX_TOKENS", MAX_WORKFLOW_TOKENS)
+            m = moc()
             outputs, finishes = nha.sinh(
                 chats, n8n_schema, max_tokens=n8n_tran, temperature=0.0)
             result = score_n8n(rows, outputs, finishes, sua_noop=not args.khong_sua_noop)
+            if (tt := token_tu(m)) is not None:
+                result["token"] = tt
+            in_token("n8n", tt)
             ghi_tho("n8n", rows, outputs, finishes, result.get("failures", ()))
             if result.get("n_sua_noop"):
                 print(f"    (đã sửa liên kết noOp ở {result['n_sua_noop']} câu: {', '.join(result['sua_noop'])})")
@@ -1188,7 +1254,11 @@ def main() -> None:
             for _id, why in result["failures"][:10]:
                 print(f"  ✗ {_id}: {why}")
             if args.thu_lai_n8n:
+                m = moc()
                 tl = thu_lai_n8n(nha, rows, result, system, n8n_schema, n8n_tran, sua_noop=not args.khong_sua_noop)
+                # Prompt thử lại dài hơn lần đầu (kèm đầu ra hỏng và lý do), nên ngữ cảnh n8n cần = max của hai số này.
+                tt_thu_lai = token_tu(m)
+                in_token("n8n thử lại", tt_thu_lai)
                 ghi_tho("n8n_thu_lai",
                         [{"_id": m} for m in tl["ma"]], tl["outputs"], tl["finishes"],
                         tl["failures"])
@@ -1200,6 +1270,8 @@ def main() -> None:
                 # Chỉ phần gọn vào file so cặp; nguyên văn nằm ở `--tho`.
                 result["thu_lai"] = {k: tl[k] for k in (
                     "n_thu_lai", "n_sua_duoc", "n_valid", "n", "valid_rate", "per_row", "n_cat_cut")}
+                if tt_thu_lai is not None:
+                    result["thu_lai"]["token"] = tt_thu_lai
             ket_qua_chay["n8n"] = result
             ghi_json()
             n8n_min = float(os.getenv("N8N_VALID_MIN", "0.90"))
@@ -1229,11 +1301,15 @@ def main() -> None:
             # (05/08/2026: "bịa số 0006" thực ra là mảnh vụn), nên trần lệch
             # giữa hai bên không chỉ làm sai tỷ lệ cắt cụt mà còn sai cả tỷ lệ
             # bịa số.
+            m = moc()
             outputs, finishes = nha.sinh(
                 chats, None,
                 max_tokens=tran_token("BENCH_NARR_MAX_TOKENS", MAX_REPORT_TOKENS),
                 temperature=0.2)
             result = score_narration(rows, outputs, finishes)
+            if (tt := token_tu(m)) is not None:
+                result["token"] = tt
+            in_token("narration", tt)
             ghi_tho("narration", rows, outputs, finishes, result.get("failures", ()))
             print(f"\n[narration] đạt {result['pass_rate'] * 100:.0f}% (n={result['n']})")
             if result["n_cat_cut"]:
@@ -1318,6 +1394,7 @@ def main() -> None:
             # kiem tren CA BA doan.
             dau_ra_agent: list[str] = [""] * len(rows)
             ket_thuc_agent: list[str] = [""] * len(rows)
+            m_agent = moc()
             for ten, idxs in nhom.items():
                 if ten:
                     # `bat_buoc_tool=True` ĐÚNG như `AgenticLoop.run` khi còn kế
@@ -1345,6 +1422,9 @@ def main() -> None:
 
             n_cut = sum(1 for f in ket_thuc_agent if f == "length")
             result = score_agent(rows, dau_ra_agent)
+            if (tt := token_tu(m_agent)) is not None:
+                result["token"] = tt
+            in_token("agentic", tt)
             ghi_tho("agentic", rows, dau_ra_agent, ket_thuc_agent, result.get("failures", ()))
             print(f"\n[agentic — phần của model] n={result['n']}")
             in_thong_ke_parse(result["parse"])
