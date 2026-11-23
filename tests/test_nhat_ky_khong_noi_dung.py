@@ -144,21 +144,54 @@ LOG_THAN_LOI_DUOC_PHEP = {
 }
 
 
-def test_khong_logger_nao_ghi_than_thong_bao_ngoai_le_hay_traceback():
-    """`logger.x("...", exc)` ghi cả thân thông báo (SQL kèm tham số, URL, `input` của pydantic), `exc_info=True` ghi cả traceback có thông báo. Cấm trừ chỗ khai báo."""
-    import pathlib
-    import re
-    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
-    mau = re.compile(r"logger\.\w+\(.*(?:,\s*(?:exc|e|err|error)\)|exc_info\s*=\s*True)")
-    vi_pham = []
+def _lenh_log_ghi_loi(goc) -> list[str]:
+    """Quét bằng `ast` (không theo dòng): bắt cả lời gọi `logger.x(...)` viết nhiều dòng. Vi phạm = đối số vị trí là tên ngoại lệ trần, hoặc `exc_info=True`."""
+    import ast
+    # `err` KHÔNG nằm trong danh sách: ở chat.py nó là chuỗi lý do do validator của Brain tạo (`_extract_json_block`, `validate_workflow`), không phải ngoại lệ.
+    ten_loi = {"exc", "e", "error", "ex"}
+    ra = []
     for f in sorted(goc.rglob("*.py")):
         rel = f.relative_to(goc).as_posix()
         if rel in LOG_THAN_LOI_DUOC_PHEP:
             continue
-        for i, dong in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if mau.search(dong):
-                vi_pham.append(f"src/{rel}:{i}: {dong.strip()[:110]}")
+        for nut in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            if not (isinstance(nut, ast.Call) and isinstance(nut.func, ast.Attribute) and isinstance(nut.func.value, ast.Name)
+                    and nut.func.value.id in {"logger", "log", "LOG", "_logger"}
+                    and nut.func.attr in {"debug", "info", "warning", "error", "exception", "critical"}):
+                continue
+            xau = any(isinstance(a, ast.Name) and a.id in ten_loi for a in nut.args[1:])
+            traceback = any(k.arg == "exc_info" and isinstance(k.value, ast.Constant) and k.value.value is True for k in nut.keywords)
+            if xau or traceback:
+                ra.append(f"src/{rel}:{nut.lineno}")
+    return ra
+
+
+def test_khong_logger_nao_ghi_than_thong_bao_ngoai_le_hay_traceback():
+    """`logger.x("...", exc)` ghi cả thân thông báo (SQL kèm tham số, URL, `input` của pydantic), `exc_info=True` ghi cả traceback có thông báo. Cấm trừ chỗ khai báo."""
+    import pathlib
+    goc = pathlib.Path(__file__).resolve().parent.parent / "src"
+    vi_pham = _lenh_log_ghi_loi(goc)
     assert not vi_pham, "ghi thân thông báo ngoại lệ vào nhật ký (dùng `loai_loi()` từ src.core.utils):\n" + "\n".join(vi_pham)
+
+
+MAU_NHIEU_DONG = """import logging
+logger = logging.getLogger('x')
+try:
+    pass
+except Exception as exc:
+    logger.warning(
+        'lỗi: %s', exc,
+        extra={'a': 1},
+    )
+    logger.error('lỗi', exc_info=True)
+    logger.info('ổn %s', type(exc).__name__)
+"""
+
+
+def test_bo_quet_log_bat_duoc_loi_goi_nhieu_dong(tmp_path):
+    """Chốt chống xanh suông: bản quét theo dòng từng bỏ sót lời gọi `logger.warning(` viết trải nhiều dòng."""
+    (tmp_path / "x.py").write_text(MAU_NHIEU_DONG, encoding="utf-8")
+    assert _lenh_log_ghi_loi(tmp_path) == ["src/x.py:6", "src/x.py:10"]
 
 
 def test_chot_danh_sach_duoc_phep_khong_chet():

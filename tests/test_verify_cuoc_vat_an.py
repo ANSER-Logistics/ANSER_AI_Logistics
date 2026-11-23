@@ -12,9 +12,11 @@ Câu hỏi an toàn là: số sai đó có lọt vào sổ không? Kiểm ngày 
 Bản đầu của chú thích trên #124 viết "hướng sửa nằm ở mã"; đó là sai: mã đã tính lại `subtotal` từ các khoản và đã bắt. Test này khoá hành vi
 ĐANG ĐÚNG, để một lần sửa `verify` sau này không làm mất nó mà không ai thấy.
 
-CÁI KHÔNG ĐƯỢC KHOÁ Ở ĐÂY: lệch lũy thừa của 10 ĐỒNG LOẠT ở hoá đơn cước đầy đủ (đơn giá, cộng tiền hàng, thuế, tổng cùng nhỏ đi 1.000 lần)
-vẫn qua `verify` vì mọi phép đối chiếu nhất quán với nhau. Đó là lỗ hổng thật, không có phép kiểm nhất quán nào bắt được (xem
-`offline_training/phan_loai_loi_vlm.py`, cổng `LECH_LUY_THUA_10`); test cuối ghi nó ra thay vì giả vờ không có.
+CÁI CHƯA ĐƯỢC CHẶN HẾT: lệch lũy thừa của 10 ĐỒNG LOẠT ở hoá đơn cước đầy đủ (đơn giá, cộng tiền hàng, thuế, tổng cùng nhỏ đi 1.000 lần)
+qua được mọi phép đối chiếu NHẤT QUÁN, vì chúng vẫn nhất quán với nhau (xem `offline_training/phan_loai_loi_vlm.py`, cổng `LECH_LUY_THUA_10`).
+Từ A8 (22/11/2026, BR-19 phần 2b) có hai lớp khác: model chép số tiền như in và mã đọc (`so_tien_ocr.py`, chưa đo trên ảnh), và kiểm QUY MÔ
+trong `verify` (tổng cước dưới 100.000 đ thì hạ cờ). Kiểm quy mô chỉ bắt phần lệch làm tổng nhỏ dưới ngưỡng, tức hoá đơn in dưới 100 triệu
+đồng; hoá đơn lớn hơn bị chia 1.000 vẫn trên ngưỡng và vẫn lọt. Hai test cuối ghi cả hai nửa ra, thay vì giả vờ không có lỗ.
 """
 
 from __future__ import annotations
@@ -75,15 +77,31 @@ def test_hoa_don_day_du_doc_dung_thi_qua_de_chung_minh_bo_kiem_khong_chan_het():
     assert verify(_hoa_don(DAY_DU["gt"]))["ok"] is True
 
 
-def test_LO_HONG_DA_BIET_lech_1000_lan_dong_loat_van_qua_verify():
+def test_lech_1000_lan_dong_loat_o_hoa_don_nho_bi_kiem_quy_mo_bat():
     """
-    Ghi lại điều CHƯA được chặn, không phải điều mong muốn: mọi số tiền cùng nhỏ đi 1.000 lần thì mọi phép đối chiếu vẫn nhất quán và
-    `verify` báo `ok`. Chỉ đáp án (hoặc bắt VLM chép số đúng như in rồi phân tích bằng mã) bắt được. Nếu một ngày test này đỏ vì `ok` thành
-    False, đó là tin tốt: cập nhật docstring đầu file và gỡ test này.
+    Mọi số tiền cùng nhỏ đi 1.000 lần thì mọi phép đối chiếu vẫn nhất quán (không cái nào báo lệch), nhưng tổng rơi xuống dưới 100.000 đ
+    nên kiểm quy mô (A8) hạ cờ. Trước A8 test này khẳng định `ok` là True: đó là lỗ hổng đã biết, nay đã đóng cho hoá đơn nhỏ.
     """
     gt = DAY_DU["gt"]
     nho = {
         "charges": [{**c, "unit_price": c["unit_price"] / 1000} for c in gt["charges"]],
         "subtotal": gt["subtotal"] / 1000, "vat_amount": gt["vat_amount"] / 1000, "total": gt["total"] / 1000,
     }
-    assert verify(_hoa_don(gt, **nho))["ok"] is True
+    kq = verify(_hoa_don(gt, **nho))
+    assert kq["ok"] is False
+    assert any("nghi đọc lệch 1.000 lần" in x for x in kq["issues"])
+    assert not any(x.startswith(("Cộng tiền hàng lệch", "Tiền thuế lệch", "Tổng cộng lệch")) for x in kq["issues"]), "các phép nhất quán vẫn im lặng"
+
+
+def test_LO_HONG_DA_BIET_lech_1000_lan_hoa_don_lon_van_qua_verify():
+    """
+    Phần lỗ CHƯA đóng: tờ in 150 triệu + VAT 10% = 165 triệu, mọi số bị chia 1.000 thành 150.000 / 15.000 / 165.000. Tổng 165.000 vẫn trên
+    ngưỡng quy mô nên `verify` báo `ok`. Chỉ lớp chép chuỗi (`so_tien_ocr`) bắt được, và nó chưa đo trên ảnh. Nếu test này đỏ vì `ok` thành
+    False, đó là tin tốt: cập nhật docstring đầu file và gỡ test này.
+    """
+    h = FreightInvoice(
+        carrier_name="Nhà xe A", invoice_date="2026-03-14",
+        charges=[{"kind": "cước", "quantity": 1, "unit_price": 150_000}],
+        vat_rate=10.0, subtotal=150_000, vat_amount=15_000, total=165_000,
+    )
+    assert verify(h)["ok"] is True

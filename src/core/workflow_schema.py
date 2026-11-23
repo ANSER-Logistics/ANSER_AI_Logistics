@@ -473,8 +473,15 @@ def _default_example() -> dict:
 # được bằng dữ liệu. Chuỗi dài nhất trong các node được phép ở 33 mẫu thật của Body là 329 ký tự (0 chuỗi trên 400), nên trần 600 có biên rộng.
 #
 # `WORKFLOW_GRAMMAR_MAX_STRING` (số ký tự mỗi chuỗi trong `parameters`/`connections`; MẶC ĐỊNH 0 = TẮT, hành vi production KHÔNG đổi). Bật thì cả ba chân của R4
-# (grammar `guided_json` lúc phục vụ, `benchmark_v3`, bộ kiểm) cùng thấy giới hạn vì cùng dựng từ hàm này. Chưa ai chạy nó trên vLLM thật: xgrammar của 0.11.2 phải
-# biên dịch được schema đệ quy (`$defs`/`$ref`). Thành đo trên Colab (cùng bốn tập, bật cờ = 600), rồi chủ dự án mới đổi mặc định.
+# (grammar `guided_json` lúc phục vụ, `benchmark_v3`, bộ kiểm) cùng thấy giới hạn vì cùng dựng từ hàm này. Thành đo trên Colab (cùng bốn tập, bật cờ = 600), rồi chủ
+# dự án mới đổi mặc định.
+#
+# LẦN ĐO ĐẦU TRÊN vLLM 0.11.2 (23/11/2026, Thành, #91) THẤT BẠI VÌ MỘT TỪ KHOÁ: bản đầu của hàm dưới có `propertyNames` (giới hạn độ dài tên khoá). vLLM 0.11.2
+# coi `propertyNames` là tính năng xgrammar KHÔNG hỗ trợ (`has_xgrammar_unsupported_json_features`, cùng nhóm `patternProperties`, `minProperties`,
+# `maxProperties`), chuyển sang backend guidance, và guidance trả 400 `Unimplemented keys: ["propertyNames"]` cho MỌI request n8n. `$defs`/`$ref` đệ quy thì
+# KHÔNG bị chặn. Giờ schema không chứa từ khoá nào trong nhóm đó (có test canh, kèm bản sao hàm kiểm của vLLM). Hệ quả: tên khoá KHÔNG còn bị giới hạn độ dài;
+# lỗi lặp vô tận đã gặp (#91) đều ở GIÁ TRỊ (`url`, `documentId`, `smtpPassword`), không ở khoá. Nếu lần đo sau vẫn thấy ca cụt vì khoá lặp thì đó là chỗ hở
+# còn lại, không bù được bằng JSON Schema mà xgrammar chấp nhận.
 _GRAMMAR_MAX_ITEMS = 40
 
 
@@ -494,7 +501,7 @@ def gioi_han_chuoi_grammar() -> int:
 
 
 def _doi_tuong_co_gioi_han(toi_da_chuoi: int) -> dict[str, Any]:
-    """`{"type": "object"}` thay bằng một giá trị đệ quy MỌI chuỗi đều có `maxLength`: tên khoá cũng bị giới hạn, mảng có `maxItems`."""
+    """`{"type": "object"}` thay bằng một giá trị đệ quy MỌI chuỗi giá trị đều có `maxLength`, mảng có `maxItems`. Tên khoá KHÔNG bị giới hạn: `propertyNames` bị vLLM 0.11.2 từ chối."""
     return {
         "$defs": {"giaTri": {"anyOf": [
             {"type": "string", "maxLength": toi_da_chuoi},
@@ -502,10 +509,9 @@ def _doi_tuong_co_gioi_han(toi_da_chuoi: int) -> dict[str, Any]:
             {"type": "boolean"},
             {"type": "null"},
             {"type": "array", "maxItems": _GRAMMAR_MAX_ITEMS, "items": {"$ref": "#/$defs/giaTri"}},
-            {"type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"},
-             "propertyNames": {"maxLength": 80}},
+            {"type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"}},
         ]}},
-        "type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"}, "propertyNames": {"maxLength": 80},
+        "type": "object", "additionalProperties": {"$ref": "#/$defs/giaTri"},
     }
 
 

@@ -34,6 +34,18 @@ def _khong_mang_vllm_tu_may_chay_vao_test(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _gioi_han_toc_do_tat_trong_test(monkeypatch):
+    # Giới hạn tốc độ theo khách (#218) dùng MỘT xô chung khi chưa qua HMAC, và hàng trăm test gửi `/chat` hay `/tools/*` liên tiếp trong cùng
+    # một tiến trình: bật mặc định thì chúng nhận 429 ngẫu nhiên. Tắt cả hai nhóm; test của chính lớp này tự đặt hạn mức (xem `test_gioi_han_toc_do.py`).
+    from src.api import gioi_han_toc_do
+    monkeypatch.setenv("RATE_LIMIT_GPU_PER_MIN", "0")
+    monkeypatch.setenv("RATE_LIMIT_TOOLS_PER_MIN", "0")
+    gioi_han_toc_do.dat_lai()
+    yield
+    gioi_han_toc_do.dat_lai()
+
+
+@pytest.fixture(autouse=True)
 def _metrics_khong_ghi_file_that(monkeypatch, tmp_path):
     # `metrics.record()` mặc định ghi vào src/data/ai_metrics_log.jsonl — chạy
     # test là đổ lượt giả vào file đo thật (PCBoiz, #9). Mỗi test một file tạm,
@@ -69,6 +81,8 @@ def _metrics_khong_ghi_file_that(monkeypatch, tmp_path):
 SKIP_DA_KHAI: dict[str, tuple[int, str]] = {
     "tests/test_agentic_plan.py": (
         2, "thiếu `xgrammar` (gói nặng, kéo torch) — xem requirements-dev.txt"),
+    "tests/test_grammar_gioi_han_chuoi.py": (
+        2, "thiếu `xgrammar` (gói nặng, kéo torch): hai test biên dịch thật chỉ chạy ở Colab/vLLM — xem requirements-dev.txt"),
     "tests/test_body_contract.py": (
         1, "CI không có repo Body bên cạnh; test này cần ANSER_BODY_DIR"),
     "tests/test_deploy_config.py": (

@@ -203,9 +203,9 @@ _HINH_THUC_PHAP_NHAN = {"TNHH", "CP", "CTCP", "MTV", "TM", "DV", "XNK", "SX"}
 # `test_cau_cong_khai_that_co_tu_danh_dau_di_nguyen_van` cho thấy câu đó có thật và đang
 # bị cắt nhầm.
 #
-# KHÔNG chữa được ở đây, và cố ý nói ra: tên đứng SAU một từ thông dụng
-# ("công ty vận tải minh long", vì "vận" dừng vòng quét) hoặc không đứng sau từ đánh dấu
-# ("minh long có phải nộp thuế không") vẫn lọt.
+# KHÔNG chữa được ở đây, và cố ý nói ra: tên không đứng sau từ đánh dấu ("minh long có phải nộp
+# thuế không"), hoặc đứng sau một từ thông dụng không thuộc `_CUM_MO_TA` ("công ty cho thuê xe thanh
+# vân": "xe" là từ dừng nên "thanh vân" sau nó lọt), vẫn lọt. Tên có âm tiết thông dụng đứng NGAY sau từ đánh dấu hay sau cụm mô tả ("công ty hoàng gia", "công ty thanh vân") thì đã chữa ở A9b (`_CUM_DUNG`). Tên sau một cụm mô tả đã nằm trong `_CUM_MO_TA` thì được xoá ("công ty vận tải minh long").
 _SO_TU_TEN_TOI_DA = 3
 
 _TU_THONG_DUNG = frozenset(
@@ -216,20 +216,66 @@ _TU_THONG_DUNG = frozenset(
     tôi mình ta chúng họ bên phía chỗ nhà ở tại trong ngoài trên dưới sau trước giữa
     theo về đến tới từ qua sang vào ra lên xuống do bởi vì như
     mua bán nhập xuất trả nợ đòi thu chi nộp kê khai ký gửi nhận đặt giao hủy huỷ hoàn
-    đổi xin yêu cầu cung cấp dùng sử dụng làm tính lập ghi thanh toán chuyển lưu
-    xử lý thực hiện áp tìm hiểu quay đăng điền đưa thối trừ cộng
-    hàng hoá hóa đơn tiền giá thuế doanh nghiệp vận tải cước phí xe kho tài chính cá nhân
-    tổ chức cổ phần trách nhiệm hữu hạn thương mại dịch vụ sản khẩu đại lý nước nội địa
-    lẻ sỉ mẹ con công ty cty phụ thuộc liên quan nghiệp vụ hộ kinh gia đình
-    mới cũ thân thiết thường xuyên tiềm năng mục tiêu hài lòng khó tính trung thành vip
-    tháng năm ngày tuần quý kỳ lần lúc hôm nay mai qua cuối đầu
+    đổi xin yêu cầu cung cấp dùng sử dụng làm tính lập ghi toán chuyển lưu
+    xử thực hiện áp tìm hiểu quay đăng điền đưa thối trừ cộng
+    hàng hoá hóa đơn tiền giá thuế doanh nghiệp vận tải cước phí xe kho cá
+    tổ chức cổ phần trách nhiệm hạn mại dịch vụ sản khẩu nước nội địa
+    lẻ sỉ mẹ con công ty cty phụ thuộc nghiệp vụ hộ kinh
+    mới cũ thân thiết tiềm năng mục tiêu hài lòng khó tính vip
+    tháng năm ngày tuần quý kỳ lần lúc hôm nay qua cuối đầu
     nợ công đã hết quá hạn còn thiếu dư số lượng tổng đủ
     gì nào sao đâu bao nhiêu mấy
-    sạn vãng lai quen du lịch cọc chậm tư nhân bảo hiểm luật kiểm toán cửa người lớn nhỏ
+    sạn vãng lai quen du lịch cọc chậm hiểm luật kiểm toán cửa người lớn nhỏ
     xác rồi lo ngại logistics online offline startup freight forwarder khác nhau giống
-    kém hiệu quả phân phối cạnh tranh trẻ
+    kém quả phân phối cạnh tranh trẻ
     """.split()
 )
+
+
+# Cụm MÔ TẢ công khai đứng giữa từ đánh dấu và tên ("công ty vận tải minh long"): GIỮ lại, quét TIẾP, không đếm vào ba từ lạ (đặc tả chốt 12/11,
+# kanzo #230 mục f; A9, brain#327). Trước đó chúng nằm trong `_TU_THONG_DUNG` nên DỪNG vòng quét, và tên đứng sau chúng lọt nguyên văn ra ngoài. Khớp theo
+# DẤU CHÍNH XÁC, cụm nhiều từ khớp liền nhau; cụm dài thử trước ("mới thành lập" trước "mới"). Vòng quét thử cụm TRƯỚC khi coi một từ là tên, nên "xây dựng"
+# không còn bị xoá thành hai từ tên (bản cũ: "xây", "dựng" không thuộc `_TU_THONG_DUNG` nên bị xoá và tính vào ba từ).
+#
+# KHÔNG đưa vào ở dạng ĐƠN: từ hay làm tên (phát, thành, tân, đại, đạt, an, bình, hưng, việt, nam, long, minh, hà, hải, thế, sao, huy, bảo, hoà, thanh, vân, gia, tài, chính, lý);
+# chỉ đưa CẢ CỤM thông dụng chứa chúng ("tài chính", "bảo hiểm", "đại lý", "gia công", "hữu hạn"; A9b). Các danh xưng chưa đo (anh, chị, tập đoàn, cửa hàng): thêm từng cái ở PR sau, kèm số đo chặn oan.
+_CUM_MO_TA = tuple(sorted(
+    (
+        ("vận", "tải"), ("xây", "dựng"), ("thương", "mại"), ("dịch", "vụ"), ("sản", "xuất"), ("cổ", "phần"),
+        ("nhà", "nước"), ("nước", "ngoài"), ("cá", "nhân"), ("doanh", "nghiệp"), ("mới", "thành", "lập"), ("mới",),
+        ("nhỏ", "và", "vừa"), ("cho", "thuê"), ("xăng", "dầu"), ("logistics",), ("tư", "nhân"), ("phân", "phối"),
+        ("trách", "nhiệm", "hữu", "hạn"), ("hữu", "hạn"), ("tài", "chính"), ("bảo", "hiểm"), ("đại", "lý"), ("gia", "công"),
+    ),
+    key=len, reverse=True,
+))
+
+
+def _do_dai_mo_ta(tu: list[str], j: int, cum: tuple = _CUM_MO_TA) -> int:
+    """Cụm mô tả bắt đầu ở `tu[j]` dài mấy từ (0 nếu không có): thử cụm dài trước, khớp theo dấu chính xác."""
+    for c in cum:
+        if j + len(c) <= len(tu) and [t.strip(".,;:!?") for t in tu[j : j + len(c)]] == list(c):
+            return len(c)
+    return 0
+
+
+# Cụm DỪNG: từ ghép thông dụng mà MỘT âm tiết của nó cũng là âm tiết hay làm tên ("thanh" trong "thanh toán", "gia" trong "gia đình"). Trước A9b (23/11/2026)
+# từng âm tiết nằm riêng trong `_TU_THONG_DUNG`, nên "công ty hoàng gia" dừng ở "gia" và "công ty thanh vân" dừng ngay ở "thanh": tên khách đi nguyên văn
+# ra ngoài (lỗ R2 có từ BR-26). Giờ chỉ CẢ CỤM mới dừng vòng quét; âm tiết đứng riêng là ứng viên tên như mọi từ lạ khác (xoá, tính vào ba từ).
+# Khớp theo DẤU CHÍNH XÁC, cụm dài thử trước. Thêm một cụm là nới một lớp R2: kèm một câu công khai thật bị cắt nhầm trong `tests/test_a9b_cum_dung.py`.
+_CUM_DUNG = tuple(sorted(
+    (
+        ("thanh", "toán"), ("gia", "đình"), ("trung", "thành"), ("thành", "lập"), ("xử", "lý"), ("liên", "quan"), ("hiệu", "quả"), ("thường", "xuyên"),
+    ),
+    key=len, reverse=True,
+))
+
+
+def _do_dai_cum_dung(tu: list[str], j: int, cum: tuple = _CUM_DUNG) -> int:
+    """Cụm dừng bắt đầu ở `tu[j]` dài mấy từ (0 nếu không có)."""
+    for c in cum:
+        if j + len(c) <= len(tu) and [t.strip(".,;:!?") for t in tu[j : j + len(c)]] == list(c):
+            return len(c)
+    return 0
 
 
 class _KhongLocSach(Exception):
@@ -245,12 +291,12 @@ def _do_dai_danh_dau(tu: list[str], i: int) -> int:
     return 0
 
 
-def _tu_la_ten_thuong(w: str) -> bool:
+def _tu_la_ten_thuong(w: str, tu_dung: frozenset = _TU_THONG_DUNG) -> bool:
     """Từ viết thường, toàn chữ, không thuộc `_TU_THONG_DUNG`: ứng viên tên riêng."""
-    return bool(w) and w.isalpha() and w.islower() and w not in _TU_THONG_DUNG
+    return bool(w) and w.isalpha() and w.islower() and w not in tu_dung
 
 
-def _xoa_ten_rieng(query: str) -> str:
+def _xoa_ten_rieng(query: str, cum_mo_ta: tuple = _CUM_MO_TA, cum_dung: tuple = _CUM_DUNG, tu_dung: frozenset = _TU_THONG_DUNG) -> str:
     """Bỏ tên riêng đứng ngay sau một từ đánh dấu đối tác: chuỗi từ viết hoa, rồi tới
     `_SO_TU_TEN_TOI_DA` từ thường lạ. Ném `_KhongLocSach` nếu còn từ lạ thứ tư."""
     tu = (query or "").split()
@@ -271,40 +317,56 @@ def _xoa_ten_rieng(query: str) -> str:
             i += dai
             continue
         j = i + dai
-        while j < len(tu):
-            w = tu[j].strip(".,;:!?")
-            if not w:
-                break
-            # Hình thức pháp nhân: GIỮ LẠI rồi đi tiếp, không dừng và không xoá.
-            #
-            # Bản 517d232 để nó ở nhánh `break`, và đó là một lỗ R2 ở đúng cách
-            # viết thường gặp nhất: "công ty TNHH Minh Long" dừng ngay ở "TNHH"
-            # nên "Minh Long" — tên khách — đi nguyên ra bộ tìm kiếm. Tên riêng
-            # đứng SAU hình thức pháp nhân, nên dừng ở đó là dừng trước đúng thứ
-            # cần xoá.
-            #
-            # Giữ lại chứ không xoá: "công ty TNHH" là hình thức pháp nhân, một
-            # câu hỏi thuế có thể cần biết nó. Nó công khai, không phải tên ai.
-            if w.upper() in _HINH_THUC_PHAP_NHAN:
-                ra.append(tu[j])
-                j += 1
-                continue
-            if not w[0].isupper():
-                break
-            j += 1
-        # Tên viết thường: xoá tới `_SO_TU_TEN_TOI_DA` từ lạ, dừng ở từ thông dụng, ở từ
-        # có dấu câu theo sau (hết mệnh đề), và ở bất kỳ thứ gì không phải chữ thường.
         so_tu = 0
-        while j < len(tu):
-            w = tu[j].strip(".,;:!?")
-            if not _tu_la_ten_thuong(w):
+        het_menh_de = False
+        while True:
+            while j < len(tu):
+                w = tu[j].strip(".,;:!?")
+                if not w:
+                    break
+                # Hình thức pháp nhân: GIỮ LẠI rồi đi tiếp, không dừng và không xoá.
+                #
+                # Bản 517d232 để nó ở nhánh `break`, và đó là một lỗ R2 ở đúng cách
+                # viết thường gặp nhất: "công ty TNHH Minh Long" dừng ngay ở "TNHH"
+                # nên "Minh Long" — tên khách — đi nguyên ra bộ tìm kiếm. Tên riêng
+                # đứng SAU hình thức pháp nhân, nên dừng ở đó là dừng trước đúng thứ
+                # cần xoá.
+                #
+                # Giữ lại chứ không xoá: "công ty TNHH" là hình thức pháp nhân, một
+                # câu hỏi thuế có thể cần biết nó. Nó công khai, không phải tên ai.
+                if w.upper() in _HINH_THUC_PHAP_NHAN:
+                    ra.append(tu[j])
+                    j += 1
+                    continue
+                if not w[0].isupper():
+                    break
+                j += 1
+            # Tên viết thường: xoá tới `_SO_TU_TEN_TOI_DA` từ lạ, dừng ở từ thông dụng, ở từ
+            # có dấu câu theo sau (hết mệnh đề), và ở bất kỳ thứ gì không phải chữ thường.
+            while j < len(tu):
+                if _do_dai_mo_ta(tu, j, cum_mo_ta):
+                    break      # nhường cho bước dưới: "xây dựng" là mô tả công khai, không phải hai từ tên
+                if _do_dai_cum_dung(tu, j, cum_dung):
+                    break      # "thanh toán", "gia đình"...: cụm thông dụng, không phải tên (âm tiết đứng riêng mới là ứng viên tên)
+                w = tu[j].strip(".,;:!?")
+                if not _tu_la_ten_thuong(w, tu_dung):
+                    break
+                so_tu += 1
+                if so_tu > _SO_TU_TEN_TOI_DA:
+                    raise _KhongLocSach(so_tu)
+                ket_thuc = tu[j][-1] in ".,;:!?"
+                j += 1
+                if ket_thuc:
+                    het_menh_de = True
+                    break
+            # Cụm mô tả công khai: giữ, quét tiếp (xem `_CUM_MO_TA`). Hết mệnh đề (dấu câu sau một từ lạ) thì không quét sang mệnh đề khác.
+            dai_mo_ta = 0 if het_menh_de else _do_dai_mo_ta(tu, j, cum_mo_ta)
+            if not dai_mo_ta:
                 break
-            so_tu += 1
-            if so_tu > _SO_TU_TEN_TOI_DA:
-                raise _KhongLocSach(so_tu)
-            ket_thuc = tu[j][-1] in ".,;:!?"
-            j += 1
-            if ket_thuc:
+            ra.extend(tu[j : j + dai_mo_ta])
+            het = tu[j + dai_mo_ta - 1][-1] in ".,;:!?"
+            j += dai_mo_ta
+            if het:
                 break
         i = j
     return " ".join(ra)
@@ -337,13 +399,21 @@ def loc_truy_van_web(query: str) -> str:
         "công ty minh long có bắt buộc không"   -> "công ty có bắt buộc không"
         "công ty của tôi", "công ty vận tải"    -> không đổi
 
-    CÒN SÓT, cố ý, hai chỗ — đọc kỹ vì một lớp lọc im lặng bỏ sót còn nguy hơn không
+    SAU CỤM MÔ TẢ (A9, 22/11/2026): "vận tải", "xây dựng", "cổ phần", "mới thành lập"... (`_CUM_MO_TA`)
+    được GIỮ và vòng quét đi TIẾP, vì tên khách thường đứng sau chúng:
+
+        "công ty vận tải minh long có phải nộp thuế không" -> "công ty vận tải có phải nộp thuế không"
+        "công ty TNHH vận tải Minh Long xuất hoá đơn"       -> "công ty TNHH vận tải xuất hoá đơn"
+        "công ty xây dựng cầu đường phải nộp thuế gì"       -> không đổi ("xây dựng" không còn bị coi là tên)
+
+    CÒN SÓT, cố ý, ba chỗ — đọc kỹ vì một lớp lọc im lặng bỏ sót còn nguy hơn không
     có lớp nào, người đọc sẽ tưởng đã an toàn:
 
       1. Tên KHÔNG đứng ngay sau từ đánh dấu: "minh long có phải nộp thuế không".
-      2. Tên đứng sau một từ thông dụng: "công ty vận tải minh long", vì "vận" dừng vòng
-         quét. Chữa cả hai thì phải xoá bất kể từ đánh dấu, và lúc đó "công ty vận tải"
-         cũng bị cắt.
+      2. Tên đứng sau một từ thông dụng KHÔNG nằm trong `_CUM_MO_TA`: "công ty cho thuê xe thanh vân"
+         ("xe" dừng vòng quét). Thêm từng cụm mô tả khi có ca thật, kèm số đo chặn oan.
+      3. Tên sau dấu câu: "công ty vận tải, minh long ở hà nội" (dấu phẩy là hết mệnh đề; cũng có thể là
+         một danh sách tên, nên không đoán).
 
     Câu gõ KHÔNG DẤU mà có từ đánh dấu thì hầu như luôn trả chuỗi rỗng: danh sách từ
     thông dụng khớp theo dấu chính xác (lý do ở `_TU_THONG_DUNG`).
