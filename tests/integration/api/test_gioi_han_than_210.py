@@ -21,7 +21,7 @@ os.environ.setdefault("ENV", "LOCAL")
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from src.api.gioi_han_than import TRAN_THAN_MAC_DINH, GioiHanThanMiddleware  # noqa: E402
+from src.api.gioi_han_than import TRAN_THAN_MAC_DINH, GioiHanThanMiddleware, phan_loai_do_dai  # noqa: E402
 from src.api.main import app  # noqa: E402
 from src.core.config import LICH_SU_TOI_DA_KY_TU, MAX_UPLOAD_BYTES  # noqa: E402
 from tests.support.bang_route import bang_route  # noqa: E402
@@ -50,8 +50,12 @@ def _dien_tham_so(path: str) -> str:
     return path.replace("{", "x").replace("}", "")
 
 
-def _goi_asgi(ung_dung, method: str, path: str, than: bytes, headers: dict[str, str]):
-    """Gọi ASGI trực tiếp. Trả (mã, thân phản hồi, số byte ứng dụng đã đọc)."""
+def _goi_asgi(ung_dung, method: str, path: str, than: bytes, headers: dict[str, str | bytes]):
+    """Gọi ASGI trực tiếp. Trả (mã, thân phản hồi, số byte ứng dụng đã đọc).
+
+    Giá trị header là `bytes` thì đi nguyên byte: cần để gửi byte latin-1 như 0xB2 (`²`), thứ `str.encode()` (UTF-8)
+    không tạo ra được. Ứng dụng ném lỗi ra ngoài thì `asyncio.run` ném lại — trên server thật đó là 500.
+    """
     khuc = [than[i:i + KHUC] for i in range(0, len(than), KHUC)] or [b""]
     da_doc = 0
     gui: list[dict] = []
@@ -70,7 +74,7 @@ def _goi_asgi(ung_dung, method: str, path: str, than: bytes, headers: dict[str, 
     scope = {
         "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": method,
         "scheme": "http", "path": path, "raw_path": path.encode(), "root_path": "", "query_string": b"",
-        "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+        "headers": [(k.lower().encode(), v if isinstance(v, bytes) else v.encode()) for k, v in headers.items()],
         "client": ("127.0.0.1", 1), "server": ("t", 80),
     }
     asyncio.run(ung_dung(scope, receive, send))
@@ -125,9 +129,52 @@ def test_tep_vuot_tran_tep_nhung_duoi_tran_than_van_413(path):
     assert r.status_code == 413, (r.status_code, r.text[:200])
 
 
-def test_content_length_khong_phai_so_400():
-    ma, _, da_doc = _goi_asgi(app, "POST", "/tools/vat", b"{}", {"content-length": "abc"})
-    assert ma == 400 and da_doc == 0
+# Header SAI -> 400. Ba ca đầu theo byte latin-1: `isdigit()` trả True cho `²`, `³`, `¹` mà `int()` ném ValueError
+# — bản đầu của #217 trả 500 ở đây (wikiepeidia chỉ ra khi duyệt, tái hiện 23/11/2026).
+DO_DAI_SAI_CA = [
+    b"\xb2", b"\xb9\xb2", b"1\xb3",
+    b"abc", b"", b"-1", b"+5", b"1.5", b"1e3", b"0x10", b"1 2", "٣".encode(),
+]
+
+
+@pytest.mark.parametrize("cl", DO_DAI_SAI_CA, ids=repr)
+def test_content_length_sai_400_khong_500(cl):
+    ma, ra, da_doc = _goi_asgi(app, "POST", "/tools/vat", b"{}", {"content-length": cl})
+    assert ma == 400, (ma, ra[:120])
+    assert da_doc == 0
+
+
+# Header ĐÚNG nhưng vượt trần -> 413, kể cả khi dài hơn 4300 chữ số (giới hạn `int()` của Python 3.11+) hay có số 0
+# ở đầu. Phân biệt với 400 ở trên: độ dài hợp lệ thì người gửi cần biết là QUÁ LỚN, không phải SAI ĐỊNH DẠNG.
+DO_DAI_QUA_TRAN_CA = [
+    str(TRAN_THAN_MAC_DINH + 1),
+    "0" * 30 + str(TRAN_THAN_MAC_DINH + 1),
+    "9" * 5000,
+    "1" + "0" * len(str(TRAN_THAN_MAC_DINH)),
+]
+
+
+@pytest.mark.parametrize("cl", DO_DAI_QUA_TRAN_CA, ids=lambda s: f"{len(s)}-chu-so")
+def test_content_length_hop_le_qua_tran_413(cl):
+    ma, ra, da_doc = _goi_asgi(app, "POST", "/tools/vat", b"{}", {"content-length": cl})
+    assert ma == 413, (ma, ra[:120])
+    assert da_doc == 0
+
+
+def test_content_length_so_0_dau_trong_tran_di_qua():
+    than = json.dumps(THAN_VAT, ensure_ascii=False).encode()
+    ma, ra, _ = _goi_asgi(app, "POST", "/tools/vat", than,
+                          {"content-type": "application/json", "content-length": "000" + str(len(than))})
+    assert ma == 200 and json.loads(ra)["calculated_total"] == 2_200_000
+
+
+@pytest.mark.parametrize("dai,mong", [
+    ("10", "trong_tran"), ("11", "qua_tran"), ("0", "trong_tran"), ("000", "trong_tran"), ("0010", "trong_tran"),
+    ("0011", "qua_tran"), ("100", "qua_tran"), ("9" * 5000, "qua_tran"), ("²", "sai"), ("", "sai"), ("1_0", "sai"),
+])
+def test_phan_loai_do_dai_bien(dai, mong):
+    """Biên của hàm phân loại với trần 10: ngay trần, trên trần một đơn vị, số 0 ở đầu, chuỗi rất dài."""
+    assert phan_loai_do_dai(dai, 10) == mong
 
 
 # ---------------------------------------------------------------------------

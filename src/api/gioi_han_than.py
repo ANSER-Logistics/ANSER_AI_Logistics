@@ -14,7 +14,8 @@ CÁCH LÀM
 --------
 Middleware ASGI thuần, đặt NGOÀI CÙNG để từ chối trước mọi lớp đệm thân (kể cả `HmacMiddleware`, có trần riêng
 26 MB và chỉ khi bật):
-  - `Content-Length` không phải số -> 400; vượt trần -> 413 NGAY, không đọc byte nào.
+  - `Content-Length` không phải chữ số ASCII -> 400; vượt trần -> 413 NGAY, không đọc byte nào
+    (`phan_loai_do_dai`, không bao giờ ném).
   - Không có `Content-Length` (chunked) -> đếm byte khi ứng dụng đọc; vượt trần thì ngừng đọc và trả 413.
     Ứng dụng có thể đã định trả 400 (FastAPI bọc lỗi đọc thân thành 400) — phản hồi đó bị THAY bằng 413.
 
@@ -53,6 +54,28 @@ async def _tra_loi(send, ma: int, noi_dung: bytes) -> None:
 QUA_LON = b'{"detail":"Payload Too Large"}'
 DO_DAI_SAI = b'{"detail":"Invalid Content-Length"}'
 
+_CHU_SO_ASCII = frozenset("0123456789")
+SAI, QUA_TRAN, TRONG_TRAN = "sai", "qua_tran", "trong_tran"
+
+
+def phan_loai_do_dai(dai: str, tran: int) -> str:
+    """
+    `Content-Length` -> `SAI` | `QUA_TRAN` | `TRONG_TRAN`, KHÔNG BAO GIỜ ném.
+
+    Không dùng `str.isdigit()` + `int()` (bản đầu của #217, wikiepeidia chỉ ra khi duyệt): header được giải mã
+    latin-1, nên byte 0xB2/0xB3/0xB9 thành `²`/`³`/`¹` — `isdigit()` trả True mà `int()` ném ValueError. Chuỗi
+    chữ số dài hơn 4300 ký tự cũng làm `int()` ném (giới hạn của Python từ 3.11). Cả hai lọt ra ngoài thành 500.
+
+    Nên: chỉ nhận chữ số ASCII; bỏ số 0 ở đầu; chuỗi còn lại dài hơn chữ số của trần thì chắc chắn vượt trần, kết
+    luận mà không chuyển kiểu. Chỉ chuyển kiểu khi độ dài đã bị chặn, nên `int()` không bao giờ thấy chuỗi dài.
+    """
+    if not dai or not _CHU_SO_ASCII.issuperset(dai):
+        return SAI
+    so = dai.lstrip("0") or "0"
+    if len(so) > len(str(tran)):
+        return QUA_TRAN
+    return QUA_TRAN if int(so) > tran else TRONG_TRAN
+
 
 class GioiHanThanMiddleware:
     def __init__(self, app, tran: int = TRAN_THAN_MAC_DINH) -> None:
@@ -74,12 +97,13 @@ class GioiHanThanMiddleware:
                 break
 
         if dai is not None:
-            if not dai.isdigit():
+            loai = phan_loai_do_dai(dai, self.tran)
+            if loai == SAI:
                 logger.warning("Từ chối %s: Content-Length không hợp lệ %r", ten, dai[:32])
                 await _tra_loi(send, 400, DO_DAI_SAI)
                 return
-            if int(dai) > self.tran:
-                logger.warning("Từ chối %s: Content-Length %s > trần %d (chưa đọc byte nào)", ten, dai, self.tran)
+            if loai == QUA_TRAN:
+                logger.warning("Từ chối %s: Content-Length %s > trần %d (chưa đọc byte nào)", ten, dai[:32], self.tran)
                 await _tra_loi(send, 413, QUA_LON)
                 return
 
