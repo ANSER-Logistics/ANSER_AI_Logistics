@@ -205,7 +205,7 @@ _HINH_THUC_PHAP_NHAN = {"TNHH", "CP", "CTCP", "MTV", "TM", "DV", "XNK", "SX"}
 #
 # KHÔNG chữa được ở đây, và cố ý nói ra: tên không đứng sau từ đánh dấu ("minh long có phải nộp
 # thuế không"), hoặc đứng sau một từ thông dụng không thuộc `_CUM_MO_TA` ("công ty cho thuê xe thanh
-# vân"), vẫn lọt. Tên sau một cụm mô tả đã nằm trong `_CUM_MO_TA` thì được xoá ("công ty vận tải minh long").
+# vân": "xe" là từ dừng nên "thanh vân" sau nó lọt), vẫn lọt. Tên có âm tiết thông dụng đứng NGAY sau từ đánh dấu hay sau cụm mô tả ("công ty hoàng gia", "công ty thanh vân") thì đã chữa ở A9b (`_CUM_DUNG`). Tên sau một cụm mô tả đã nằm trong `_CUM_MO_TA` thì được xoá ("công ty vận tải minh long").
 _SO_TU_TEN_TOI_DA = 3
 
 _TU_THONG_DUNG = frozenset(
@@ -216,18 +216,18 @@ _TU_THONG_DUNG = frozenset(
     tôi mình ta chúng họ bên phía chỗ nhà ở tại trong ngoài trên dưới sau trước giữa
     theo về đến tới từ qua sang vào ra lên xuống do bởi vì như
     mua bán nhập xuất trả nợ đòi thu chi nộp kê khai ký gửi nhận đặt giao hủy huỷ hoàn
-    đổi xin yêu cầu cung cấp dùng sử dụng làm tính lập ghi thanh toán chuyển lưu
-    xử lý thực hiện áp tìm hiểu quay đăng điền đưa thối trừ cộng
-    hàng hoá hóa đơn tiền giá thuế doanh nghiệp vận tải cước phí xe kho tài chính cá nhân
-    tổ chức cổ phần trách nhiệm hữu hạn thương mại dịch vụ sản khẩu đại lý nước nội địa
-    lẻ sỉ mẹ con công ty cty phụ thuộc liên quan nghiệp vụ hộ kinh gia đình
-    mới cũ thân thiết thường xuyên tiềm năng mục tiêu hài lòng khó tính trung thành vip
-    tháng năm ngày tuần quý kỳ lần lúc hôm nay mai qua cuối đầu
+    đổi xin yêu cầu cung cấp dùng sử dụng làm tính lập ghi toán chuyển lưu
+    xử thực hiện áp tìm hiểu quay đăng điền đưa thối trừ cộng
+    hàng hoá hóa đơn tiền giá thuế doanh nghiệp vận tải cước phí xe kho cá
+    tổ chức cổ phần trách nhiệm hạn mại dịch vụ sản khẩu nước nội địa
+    lẻ sỉ mẹ con công ty cty phụ thuộc nghiệp vụ hộ kinh
+    mới cũ thân thiết tiềm năng mục tiêu hài lòng khó tính vip
+    tháng năm ngày tuần quý kỳ lần lúc hôm nay qua cuối đầu
     nợ công đã hết quá hạn còn thiếu dư số lượng tổng đủ
     gì nào sao đâu bao nhiêu mấy
-    sạn vãng lai quen du lịch cọc chậm tư nhân bảo hiểm luật kiểm toán cửa người lớn nhỏ
+    sạn vãng lai quen du lịch cọc chậm hiểm luật kiểm toán cửa người lớn nhỏ
     xác rồi lo ngại logistics online offline startup freight forwarder khác nhau giống
-    kém hiệu quả phân phối cạnh tranh trẻ
+    kém quả phân phối cạnh tranh trẻ
     """.split()
 )
 
@@ -237,14 +237,14 @@ _TU_THONG_DUNG = frozenset(
 # DẤU CHÍNH XÁC, cụm nhiều từ khớp liền nhau; cụm dài thử trước ("mới thành lập" trước "mới"). Vòng quét thử cụm TRƯỚC khi coi một từ là tên, nên "xây dựng"
 # không còn bị xoá thành hai từ tên (bản cũ: "xây", "dựng" không thuộc `_TU_THONG_DUNG` nên bị xoá và tính vào ba từ).
 #
-# KHÔNG đưa vào: từ hay làm tên (phát, thành, tân, đại, đạt, an, bình, hưng, việt, nam, long, minh, hà, hải, thế, sao, huy, bảo, hoà, thanh, vân), và các
-# danh xưng chưa đo (anh, chị, tập đoàn, cửa hàng): thêm từng cái ở PR sau, kèm số đo chặn oan.
+# KHÔNG đưa vào ở dạng ĐƠN: từ hay làm tên (phát, thành, tân, đại, đạt, an, bình, hưng, việt, nam, long, minh, hà, hải, thế, sao, huy, bảo, hoà, thanh, vân, gia, tài, chính, lý);
+# chỉ đưa CẢ CỤM thông dụng chứa chúng ("tài chính", "bảo hiểm", "đại lý", "gia công", "hữu hạn"; A9b). Các danh xưng chưa đo (anh, chị, tập đoàn, cửa hàng): thêm từng cái ở PR sau, kèm số đo chặn oan.
 _CUM_MO_TA = tuple(sorted(
     (
         ("vận", "tải"), ("xây", "dựng"), ("thương", "mại"), ("dịch", "vụ"), ("sản", "xuất"), ("cổ", "phần"),
         ("nhà", "nước"), ("nước", "ngoài"), ("cá", "nhân"), ("doanh", "nghiệp"), ("mới", "thành", "lập"), ("mới",),
         ("nhỏ", "và", "vừa"), ("cho", "thuê"), ("xăng", "dầu"), ("logistics",), ("tư", "nhân"), ("phân", "phối"),
-        ("trách", "nhiệm", "hữu", "hạn"),
+        ("trách", "nhiệm", "hữu", "hạn"), ("hữu", "hạn"), ("tài", "chính"), ("bảo", "hiểm"), ("đại", "lý"), ("gia", "công"),
     ),
     key=len, reverse=True,
 ))
@@ -252,6 +252,26 @@ _CUM_MO_TA = tuple(sorted(
 
 def _do_dai_mo_ta(tu: list[str], j: int, cum: tuple = _CUM_MO_TA) -> int:
     """Cụm mô tả bắt đầu ở `tu[j]` dài mấy từ (0 nếu không có): thử cụm dài trước, khớp theo dấu chính xác."""
+    for c in cum:
+        if j + len(c) <= len(tu) and [t.strip(".,;:!?") for t in tu[j : j + len(c)]] == list(c):
+            return len(c)
+    return 0
+
+
+# Cụm DỪNG: từ ghép thông dụng mà MỘT âm tiết của nó cũng là âm tiết hay làm tên ("thanh" trong "thanh toán", "gia" trong "gia đình"). Trước A9b (23/11/2026)
+# từng âm tiết nằm riêng trong `_TU_THONG_DUNG`, nên "công ty hoàng gia" dừng ở "gia" và "công ty thanh vân" dừng ngay ở "thanh": tên khách đi nguyên văn
+# ra ngoài (lỗ R2 có từ BR-26). Giờ chỉ CẢ CỤM mới dừng vòng quét; âm tiết đứng riêng là ứng viên tên như mọi từ lạ khác (xoá, tính vào ba từ).
+# Khớp theo DẤU CHÍNH XÁC, cụm dài thử trước. Thêm một cụm là nới một lớp R2: kèm một câu công khai thật bị cắt nhầm trong `tests/test_a9b_cum_dung.py`.
+_CUM_DUNG = tuple(sorted(
+    (
+        ("thanh", "toán"), ("gia", "đình"), ("trung", "thành"), ("thành", "lập"), ("xử", "lý"), ("liên", "quan"), ("hiệu", "quả"), ("thường", "xuyên"),
+    ),
+    key=len, reverse=True,
+))
+
+
+def _do_dai_cum_dung(tu: list[str], j: int, cum: tuple = _CUM_DUNG) -> int:
+    """Cụm dừng bắt đầu ở `tu[j]` dài mấy từ (0 nếu không có)."""
     for c in cum:
         if j + len(c) <= len(tu) and [t.strip(".,;:!?") for t in tu[j : j + len(c)]] == list(c):
             return len(c)
@@ -271,12 +291,12 @@ def _do_dai_danh_dau(tu: list[str], i: int) -> int:
     return 0
 
 
-def _tu_la_ten_thuong(w: str) -> bool:
+def _tu_la_ten_thuong(w: str, tu_dung: frozenset = _TU_THONG_DUNG) -> bool:
     """Từ viết thường, toàn chữ, không thuộc `_TU_THONG_DUNG`: ứng viên tên riêng."""
-    return bool(w) and w.isalpha() and w.islower() and w not in _TU_THONG_DUNG
+    return bool(w) and w.isalpha() and w.islower() and w not in tu_dung
 
 
-def _xoa_ten_rieng(query: str, cum_mo_ta: tuple = _CUM_MO_TA) -> str:
+def _xoa_ten_rieng(query: str, cum_mo_ta: tuple = _CUM_MO_TA, cum_dung: tuple = _CUM_DUNG, tu_dung: frozenset = _TU_THONG_DUNG) -> str:
     """Bỏ tên riêng đứng ngay sau một từ đánh dấu đối tác: chuỗi từ viết hoa, rồi tới
     `_SO_TU_TEN_TOI_DA` từ thường lạ. Ném `_KhongLocSach` nếu còn từ lạ thứ tư."""
     tu = (query or "").split()
@@ -326,8 +346,10 @@ def _xoa_ten_rieng(query: str, cum_mo_ta: tuple = _CUM_MO_TA) -> str:
             while j < len(tu):
                 if _do_dai_mo_ta(tu, j, cum_mo_ta):
                     break      # nhường cho bước dưới: "xây dựng" là mô tả công khai, không phải hai từ tên
+                if _do_dai_cum_dung(tu, j, cum_dung):
+                    break      # "thanh toán", "gia đình"...: cụm thông dụng, không phải tên (âm tiết đứng riêng mới là ứng viên tên)
                 w = tu[j].strip(".,;:!?")
-                if not _tu_la_ten_thuong(w):
+                if not _tu_la_ten_thuong(w, tu_dung):
                     break
                 so_tu += 1
                 if so_tu > _SO_TU_TEN_TOI_DA:
