@@ -207,7 +207,8 @@ async def _fetch_report_lines(store_id, request_id: str):
             "(hoặc đưa file MISA xuất ra) thì tôi tính được ngay."
         )
     try:
-        raw = fetch(workspace_id=store_id) or {}
+        # Truy vấn DB là việc đồng bộ tốn thời gian: ra khỏi event loop (AGENTS §4.1 #2).
+        raw = await chay_ngoai_loop(fetch, workspace_id=store_id) or {}
         sales = list(raw.get("sales") or [])
         expenses = list(raw.get("expenses") or [])
     except Exception:
