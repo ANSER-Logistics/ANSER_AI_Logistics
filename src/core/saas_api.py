@@ -17,7 +17,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.config import Config
-from src.core.utils import hom_nay_vn, loai_loi
+from src.core.utils import bo_dau, hom_nay_vn, loai_loi
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,86 @@ def parse_period(question: str) -> KyHoi:
 
 
 # =====================================================================
+#  TÌM HÀNG THEO TỪ KHOÁ TRONG CÂU HỎI
+# ---------------------------------------------------------------------
+#  `lookup_product` từng đưa NGUYÊN câu hỏi vào `LIKE '%câu hỏi%'`, nên "còn bao nhiêu thùng dầu động cơ CF-4 15W40" không khớp tên hàng nào
+#  (tên hàng không chứa nguyên câu). Cũng không bỏ dấu: người dùng gõ "thuy luc" thì không thấy "thuỷ lực". Ở đây rút từ khoá bằng LUẬT (không
+#  model, R1), so khớp KHÔNG DẤU trong mã (SQL chung cho SQLite lẫn PostgreSQL không có `unaccent`), rồi xếp hạng theo độ phủ.
+# =====================================================================
+
+# Từ chức năng và từ hỏi, đã bỏ dấu. KHÔNG có "co" (có/cơ) và "tai" (tại/tải: "lốp xe tải"), vì bỏ dấu làm chúng lẫn nhau; không có đơn vị (thùng, lít, kg...) vì
+# tên hàng chứa chúng ("Dầu động cơ thùng 18 lít").
+_TU_BO_TIM_HANG = frozenset(
+    "con bao nhieu gia cua cho toi minh em anh chi la the nao khong ko k may ban hang hoa san pham mat loai kho ton "
+    "so luong dang hien xin vui long giup kiem tra xem check hoi biet tim tu o trong va voi hay hoac thi se da "
+    "can muon lay mua nhap xuat nhe nha a oi vay day di roi ha ak duoc "
+    "hom nay tuan thang nam qua truoc doanh thu".split()
+)
+_NGUONG_PHU = 0.5          # tỉ lệ trọng số từ khoá phải khớp tên hàng; thấp hơn thì coi là trùng ngẫu nhiên ("xe" trong "lốp xe tải" và "nhớt xe máy")
+_NGUONG_SO_VOI_TOT_NHAT = 0.6
+TOI_DA_HANG_TRA = 20
+TOI_DA_HANG_DOC = 5000     # trần số hàng đọc để so khớp trong mã; vượt thì lùi về LIKE theo cụm từ khoá
+
+
+@dataclass(frozen=True)
+class TuKhoa:
+    """Từ khoá tìm hàng của một câu: `co_so` là các từ (không dấu), `noi` là mã nối từ cặp chữ-ngắn + số liền kề ("aw 68" -> aw68 = (aw, 68))."""
+
+    co_so: frozenset
+    noi: dict
+
+    def __bool__(self) -> bool:
+        return bool(self.co_so)
+
+    def hien_thi(self) -> frozenset:
+        return self.co_so | frozenset(self.noi)
+
+
+def _tach(chuoi, bo: frozenset = frozenset()):
+    """(từ dài từ 2 ký tự, các mã nối) của `chuoi` không dấu. Chỉ nối hai từ liền kề, và không nối khi một trong hai là từ thừa ở `bo`."""
+    tu = re.findall(r"[a-z0-9]+", bo_dau(chuoi))
+    noi = {}
+    for a, b in zip(tu, tu[1:]):
+        if a in bo or b in bo:
+            continue
+        if (a.isalpha() and len(a) <= 3 and b.isdigit()) or (a.isdigit() and b.isalpha() and len(b) <= 3):
+            noi[a + b] = (a, b)
+    return {t for t in tu if len(t) >= 2}, noi
+
+
+def tu_khoa_tim_hang(cau: str) -> TuKhoa:
+    """Từ khoá tìm hàng trong câu hỏi (không dấu, đã bỏ từ hỏi và từ chức năng). Rỗng (`bool` False) = câu không nhắc mặt hàng nào."""
+    tu, noi = _tach(cau, _TU_BO_TIM_HANG)
+    return TuKhoa(frozenset(t for t in tu if t not in _TU_BO_TIM_HANG), noi)
+
+
+def _trong_so(t: str) -> float:
+    """Mã hàng và số hiệu (15w40, aw68, cf4) nói nhiều hơn từ thường: khớp "cf4" đáng giá hơn khớp "dau"."""
+    return 1.0 + (1.5 if any(c.isdigit() for c in t) else 0.0) + (0.5 if len(t) >= 5 else 0.0)
+
+
+def diem_khop_hang(tu_khoa: TuKhoa, ten_hang: str) -> float:
+    """
+    Độ phủ của từ khoá lên tên hàng, trong [0, 1]: tổng trọng số từ khoá khớp / tổng trọng số mọi từ khoá.
+
+    Một từ khoá khớp khi bằng một từ của tên, hoặc (từ dài từ 3 ký tự) là tiền tố của một từ trong tên. Mã nối khớp thì cả hai phần của nó
+    được tính là khớp ("aw 68" khớp "AW68"), nhưng mã nối KHÔNG khớp thì không bị trừ điểm: nó chỉ để cứu, không để phạt.
+    """
+    if not tu_khoa:
+        return 0.0
+    tu_ten, noi_ten = _tach(ten_hang)
+    ten = tu_ten | set(noi_ten)
+    khop = {
+        t for t in tu_khoa.co_so
+        if t in ten or (len(t) >= 3 and any(n.startswith(t) for n in ten))
+    }
+    for ma, (a, b) in tu_khoa.noi.items():
+        if ma in ten:
+            khop |= {x for x in (a, b) if x in tu_khoa.co_so}
+    return sum(_trong_so(t) for t in khop) / sum(_trong_so(t) for t in tu_khoa.co_so)
+
+
+# =====================================================================
 #  DÒNG BÁN HÀNG CHO BÁO CÁO (nhánh REPORT của /chat, tool `report`)
 # =====================================================================
 SO_QUY_BAO_CAO = 4          # khớp `ReportRequest.periods_back` mặc định: quý hiện tại + 3 quý trước
@@ -202,31 +282,59 @@ class SaasAPI:
             raise RuntimeError("Kết nối CSDL chưa sẵn sàng")
 
     def lookup_product(self, query, workspace_id=1):
+        """
+        Hàng của kho `workspace_id` khớp câu hỏi `query`, chuỗi JSON (tối đa `TOI_DA_HANG_TRA` hàng, khớp nhất trước) hoặc một câu tiếng Việt nói rõ vì sao không có.
+
+        `query` là NGUYÊN VĂN tin nhắn người dùng. Từ khoá rút bằng luật (`tu_khoa_tim_hang`), so khớp không dấu trong mã trên toàn bộ hàng của kho
+        (một truy vấn, tham số hoá, không nối chuỗi người dùng vào SQL). Kho quá lớn (trên `TOI_DA_HANG_DOC` hàng) thì lùi về `LIKE` theo từ khoá dài nhất.
+        """
         self._require_engine()
+        tu_khoa = tu_khoa_tim_hang(query)
+        if not tu_khoa:
+            return (
+                "Câu hỏi không nhắc tên hay mã mặt hàng nào nên chưa tra kho. "
+                "Hỏi lại kèm tên hoặc mã hàng (ví dụ: dầu động cơ CF-4 15W40) thì tôi tra ngay."
+            )
         try:
             with self.engine.connect() as conn:
-                # LOWER(...) LIKE LOWER(...) thay cho ILIKE: `ILIKE` là cú pháp
-                # riêng của PostgreSQL, nên mọi lần tra cứu đều ném
-                # OperationalError khi `DATABASE_URL` trống và Config lùi về
-                # SQLite. Lỗi đó bị `except SQLAlchemyError` nuốt và trả ra "Lỗi
-                # hệ thống khi tìm sản phẩm" — trông y hệt một sự cố DB thật.
-                # Hai cách viết cho cùng kết quả trên Postgres.
                 sql = text(f"""
                     SELECT {P_ID}, {P_NAME}, {P_PRICE}, {P_STOCK}
                     FROM {PRODUCTS_TABLE}
                     WHERE {P_WAREHOUSE} = :ws_id
-                      AND LOWER({P_NAME}) LIKE LOWER(:query)
-                    LIMIT 20
+                    LIMIT :gioi_han
                 """)
                 rows = conn.execute(
-                    sql, {"ws_id": workspace_id, "query": f"%{query}%"}
+                    sql, {"ws_id": workspace_id, "gioi_han": TOI_DA_HANG_DOC + 1}
                 ).fetchall()
+                if len(rows) > TOI_DA_HANG_DOC:
+                    # LOWER(...) LIKE LOWER(...) thay cho ILIKE (ILIKE chỉ có ở PostgreSQL; DB trống thì Config lùi về SQLite).
+                    # Không bỏ dấu được ở đường này: kho lớn hãy gõ có dấu.
+                    goc = [t for t in re.findall(r"\w+", str(query).lower()) if bo_dau(t) in tu_khoa.co_so]
+                    cum = max(goc, key=len)
+                    rows = conn.execute(
+                        text(f"""
+                            SELECT {P_ID}, {P_NAME}, {P_PRICE}, {P_STOCK}
+                            FROM {PRODUCTS_TABLE}
+                            WHERE {P_WAREHOUSE} = :ws_id AND LOWER({P_NAME}) LIKE LOWER(:query)
+                            LIMIT {TOI_DA_HANG_TRA}
+                        """),
+                        {"ws_id": workspace_id, "query": f"%{cum}%"},
+                    ).fetchall()
+                    xep = [(1.0, r) for r in rows]
+                else:
+                    xep = [(diem_khop_hang(tu_khoa, r[1] or ""), r) for r in rows]
+                    tot_nhat = max((d for d, _ in xep), default=0.0)
+                    nguong = max(_NGUONG_PHU, _NGUONG_SO_VOI_TOT_NHAT * tot_nhat)
+                    xep = sorted(
+                        ((d, r) for d, r in xep if d >= nguong),
+                        key=lambda x: (-x[0], str(x[1][1])),
+                    )[:TOI_DA_HANG_TRA]
 
-                if not rows:
-                    return f"Không tìm thấy sản phẩm '{query}' trong kho."
+                if not xep:
+                    return f"Không tìm thấy sản phẩm '{str(query).strip()[:120]}' trong kho."
 
                 results = []
-                for r in rows:
+                for _, r in xep:
                     price = f"{r[2]:,.0f} VND" if r[2] is not None else "N/A"
                     results.append({
                         "id": r[0],
@@ -240,7 +348,7 @@ class SaasAPI:
                 "Lỗi truy vấn sản phẩm workspace_id=%s loi=%s",
                 workspace_id, loai_loi(),
             )
-            return f"Lỗi hệ thống khi tìm sản phẩm '{query}'."
+            return "Lỗi hệ thống khi tìm sản phẩm."
 
     def get_sales_report(self, workspace_id=1, period="today"):
         self._require_engine()
