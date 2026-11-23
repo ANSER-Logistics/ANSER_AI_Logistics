@@ -284,9 +284,9 @@ Gộp kết quả trùng theo repo và số issue/PR. Với mỗi việc còn m�
 
 ### 5.0b. Kiểm tra PR còn mở khi việc trước của người dùng đã được đánh dấu xong
 
-Khi gặp việc trước của người dùng có trạng thái `Done` hoặc issue đã đóng vì hoàn thành, tìm đúng PR liên quan và kiểm tra trạng thái hiện tại. Đọc tiêu chí nghiệm thu, bình luận mới nhất, yêu cầu sửa của người duyệt và các PR hoặc commit được dẫn. Đối chiếu phần thay đổi còn lại với nhánh đích, kể cả khi mã đã được squash hoặc đưa vào qua PR khác.
+Áp cho PR **do chính người dùng mở** (không đụng PR của người khác, §5.5). Khi gặp việc trước của người dùng có trạng thái `Done` hoặc issue đã đóng vì hoàn thành, tìm đúng PR liên quan và kiểm tra trạng thái hiện tại. Đọc tiêu chí nghiệm thu, bình luận mới nhất, yêu cầu sửa của người duyệt và các PR hoặc commit được dẫn. Đối chiếu phần thay đổi còn lại với nhánh đích, kể cả khi mã đã được squash hoặc đưa vào qua PR khác.
 
-Nếu PR vẫn mở, mọi tiêu chí đã đạt và nhánh đích đã có toàn bộ thay đổi cần thiết, ghi ngắn gọn bằng chứng (liên kết tới PR đã gộp hoặc commit), rồi đóng PR dư và kiểm tra lại trạng thái trên GitHub. Nếu còn thay đổi cần gộp, yêu cầu sửa chưa xử lý hoặc chưa đủ bằng chứng, giữ PR mở và nói rõ phần còn chờ. PR đã gộp hoặc đã đóng thì không cần thao tác thêm.
+Nếu PR vẫn mở, mọi tiêu chí đã đạt và nhánh đích đã có toàn bộ thay đổi cần thiết, **liệt kê bằng chứng** (liên kết tới PR đã gộp hoặc commit) và **đề xuất đóng**. Agent không tự đóng: §5.5 cấm đóng PR. Người dùng xác nhận thì họ đóng, hoặc nới §5.5 bằng cách sửa chính mục đó. Nếu còn thay đổi cần gộp, yêu cầu sửa chưa xử lý hoặc chưa đủ bằng chứng, giữ PR mở và nói rõ phần còn chờ. PR đã gộp hoặc đã đóng thì không cần thao tác thêm.
 
 ### 5.1. Trước khi viết code
 
@@ -329,7 +329,7 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 
 | Trường | Issue | PR | Giá trị hợp lệ (đo 18/11/2026) |
 |---|---|---|---|
-| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả và người được nhờ đích danh duyệt PR (xem dưới) | Login thành viên |
+| **Assignees** | Người sẽ làm. Việc giao cho người thì gắn đúng người đó (§5.0) | Tác giả (`@me`) | Login thành viên |
 | **Labels** | Đúng một | Đúng một | `bug` (sửa lỗi), `enhancement` (thêm/đổi tính năng), `documentation` (tài liệu, cấu hình AI), `question`. Issue thêm được `good first issue`, `help wanted`. `duplicate`, `invalid`, `wontfix` chỉ người duyệt gắn lúc đóng |
 | **Type** | Bắt buộc | PR không có trường này | `Task` (việc khác, tài liệu, hỗ trợ), `Bug`, `Feature`. Cùng nghĩa với label |
 | **Priority** | Bắt buộc | Bắt buộc | `Urgent`, `High`, `Medium`, `Low` |
@@ -344,8 +344,6 @@ Mẫu là issue [#126](https://github.com/ANSER-Logistics/ANSER_AI_Logistics/iss
 | **Liên kết** | Việc con gắn làm **sub-issue** của việc cha. Việc bị chặn thì gắn **blocked by** | `Closes #N` (xong việc) hoặc `Refs #N` (một phần) trong body | |
 | **Title, body** | Khuôn của #100/#103: *Vì sao cần bạn · Việc cần làm · Quy tắc phải giữ · Xong là khi*. Phải tự đứng được | `loại(phạm vi): mô tả`. Body có tóm tắt, thay đổi, **kết quả `pytest`** (§5.3), và các mục §7 (chi phí VNĐ/tháng, chỉ số, PR bên `anser-brain-docs` nếu đổi hành vi) | |
 | **Tự merge, auto-merge** | — | **Cấm** gộp vào `main` và bật auto-merge: chỉ chủ dự án gộp vào `main` (§6.0). Vào nhánh tính năng thì agent hoặc chủ dự án gộp sau khi CI xanh và PR đã được duyệt (chủ dự án chốt 17/11/2026); người mở PR không tự gộp PR của mình | |
-
-Khi người dùng hoặc tác giả PR nhờ đích danh một người duyệt mã (ví dụ “nhờ @tranthanh-riu xem giúp PR này”), thêm người đó vào **cả Reviewers và Assignees**. Dùng đúng tài khoản được chỉ định, giữ tác giả, người được giao và các reviewer hiện có. Ví dụ với PR đã mở: `gh pr edit <N> --add-reviewer tranthanh-riu --add-assignee tranthanh-riu`. Chỉ áp dụng khi lời nhắn thực sự yêu cầu duyệt; một lượt nhắc để cảm ơn hay cung cấp bối cảnh không phải yêu cầu duyệt. Tác giả PR không thể tự duyệt. Kiểm lại bằng `gh pr view <N> --json assignees,reviewRequests,reviews` và báo rõ nếu GitHub không cho gắn một trong hai vai trò.
 
 **Chọn Priority và Effort thế nào.** Chưa có thang chính thức. Theo cách chủ dự án đã gắn: #126 là việc hỗ trợ 30–45 phút, chỉ bình luận, được gắn Priority `Low`, Effort `Medium`. Không chắc thì hỏi người giao việc. **Không để trống.**
 

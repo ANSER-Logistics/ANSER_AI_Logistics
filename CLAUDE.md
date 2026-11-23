@@ -33,5 +33,4 @@ If `graphify-out/graph.json` exists, run `graphify query "<question>"`, `graphif
 - Ask the owner before moving any secret into env or changing how secrets are managed (AGENTS.md R2b).
 
 When finding work for the user, follow AGENTS.md §5.0a for assigned issues, review requests and mentions.
-When a previous task is marked complete, follow AGENTS.md §5.0b to verify its discussion and changes before closing a redundant PR.
-For an explicitly named PR reviewer, follow AGENTS.md §5.4 and add that person as both reviewer and assignee.
+When one of the user's own PRs stays open after its task is marked complete, follow AGENTS.md §5.0b: verify, list the evidence and propose closing; do not close it yourself.

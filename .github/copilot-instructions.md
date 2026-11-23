@@ -51,5 +51,4 @@ Fill every GitHub field when you create it, so members can read the project boar
 - If the `gh` token lacks the `project` scope, set every other field, say so in the body, and tell the user to run `gh auth refresh -s project`. Do not skip silently.
 
 When finding work for the user, follow AGENTS.md §5.0a for assigned issues, review requests and mentions.
-When a previous task is marked complete, follow AGENTS.md §5.0b to verify its discussion and changes before closing a redundant PR.
-For an explicitly named PR reviewer, follow AGENTS.md §5.4 and add that person as both reviewer and assignee.
+When one of the user's own PRs stays open after its task is marked complete, follow AGENTS.md §5.0b: verify, list the evidence and propose closing; do not close it yourself.
