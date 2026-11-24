@@ -127,7 +127,7 @@ chết (soát #21, 10/11/2026).
   thức trên worker dùng chung một embedder, có ngoại lệ (`Already borrowed`) hay
   kết quả lệch không. Cần embedder thật (Colab). Mã thoát 0/1/2 = không thấy vấn
   đề / có vấn đề / không đo được. Logic của nó có test ở
-  `tests/test_do_router_dung_chung_embedder.py`.
+  `tests/offline_training/test_do_router_dung_chung_embedder.py`.
 - `do_lai_br33_colab.ipynb` — một phiên Colab cho #84 (BR-33: `Qwen3-8B-AWQ` so
   với `anser-v3-awq`, ctx 32768) và #85. Không train, không sinh dữ liệu.
 

@@ -61,7 +61,7 @@ class CauHinhSai(ValueError):
     """`ENV` / `VLLM_BASE_URL` không ghép thành một cấu hình chạy được.
 
     Định nghĩa ở đây (tầng thấp) chứ không ở `engine.py`: `kiem_url_noi_bo` ném nó, và
-    `engine.py` import `serving.py`, nên import ngược lại là vòng (`tests/test_layering.py`).
+    `engine.py` import `serving.py`, nên import ngược lại là vòng (`tests/contracts/test_layering.py`).
     `engine.CauHinhSai` vẫn dùng được: đó là CÙNG một lớp, được import lại.
     """
 
