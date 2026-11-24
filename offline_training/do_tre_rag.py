@@ -25,6 +25,12 @@ CHẠY (Colab; nạp model thật nên không chạy trong CI)
     python offline_training/do_tre_rag.py --device cpu  --lan 100 --json tre_rag_cpu.json
     python offline_training/do_tre_rag.py --device cuda --lan 100 --json tre_rag_gpu.json
 Phần thuần (phân vị, đếm vượt ngưỡng, tóm tắt) có test trong `tests/test_do_tre_rag.py`.
+
+CHẾ ĐỘ LƯỚI (#214): nạp kho MỘT lần rồi đo nhiều cấu hình xếp hạng lại, mỗi cấu hình `n:max_length[:thiết bị]`
+(n = số ứng viên dense truyền vào `search(n_candidates=...)`; BM25 vẫn góp tối đa 5 như production; max_length 0 = mặc
+định của model). Cấu hình ĐẦU là gốc để so: ngoài độ trễ, in tỷ lệ câu hỏi giữ nguyên top-3 và giữ nguyên quyết định
+"không tìm thấy" so với gốc. Đó là đại lượng TẠM thay cho chất lượng, không phải recall/MRR (chờ bộ đo #34).
+    python offline_training/do_tre_rag.py --device cpu --lan 100 --cau-hinh 10:0 6:0 4:0 10:512 10:256 6:384 10:0:cuda
 """
 
 from __future__ import annotations
@@ -244,6 +250,97 @@ def chay(lan: int, device: str) -> dict[str, Any]:
     }
 
 
+def doc_cau_hinh(chuoi: str) -> tuple[int, int, str | None]:
+    """`n:max_length[:thiết bị]` -> (n, max_length, thiết bị hoặc None). max_length 0 = mặc định của model."""
+    phan = chuoi.split(":")
+    if len(phan) not in (2, 3):
+        raise ValueError(f"cấu hình {chuoi!r} phải có dạng n:max_length hoặc n:max_length:thiết_bị")
+    try:
+        n, ml = int(phan[0]), int(phan[1])
+    except ValueError:
+        raise ValueError(f"cấu hình {chuoi!r}: n và max_length phải là số nguyên") from None
+    if n < 1 or ml < 0 or (0 < ml < 64):
+        raise ValueError(f"cấu hình {chuoi!r}: n ≥ 1, max_length = 0 hoặc ≥ 64")
+    thiet_bi = phan[2] if len(phan) == 3 and phan[2] else None
+    if thiet_bi not in (None, "cpu", "cuda"):
+        raise ValueError(f"cấu hình {chuoi!r}: thiết bị chỉ nhận cpu hoặc cuda")
+    return n, ml, thiet_bi
+
+
+def so_voi_goc(goc: list[list[tuple[str, int]]], moi: list[list[tuple[str, int]]]) -> dict[str, Any]:
+    """Theo từng câu hỏi: top-k có GIỮ NGUYÊN tập đoạn không, và quyết định "không tìm thấy" (danh sách rỗng) có đổi không."""
+    if len(goc) != len(moi):
+        raise ValueError("hai lần chạy phải cùng số câu hỏi")
+    giu_top = sum(1 for a, b in zip(goc, moi) if set(a) == set(b))
+    giu_quyet = sum(1 for a, b in zip(goc, moi) if bool(a) == bool(b))
+    n = len(goc)
+    return {"n": n, "giu_top_pct": None if not n else round(100 * giu_top / n, 1),
+            "giu_quyet_dinh_pct": None if not n else round(100 * giu_quyet / n, 1)}
+
+
+def chay_luoi(lan: int, device: str, cau_hinh: list[tuple[int, int, str | None]]) -> dict[str, Any]:
+    import gc
+
+    from sentence_transformers import CrossEncoder
+
+    from src.core.config import kb_reranker_id
+    from src.core.knowledge import KnowledgeBase
+
+    kb = KnowledgeBase(persist_dir=tempfile.mkdtemp(prefix="do_tre_rag_luoi_"), device=device)
+    t0 = time.perf_counter()
+    doan, nap = _nap_kho(kb)                          # nạp kho MỘT lần, dùng chung mọi cấu hình
+    nap_kho_s = round(time.perf_counter() - t0, 1)
+    bm25, cap_bm25 = kb._bm25_for(WS)
+
+    ket_qua: list[dict[str, Any]] = []
+    top_goc: list[list[tuple[str, int]]] | None = None
+    for n, ml, tb in cau_hinh:
+        so: dict[str, list[float]] = defaultdict(list)
+        thiet_bi = tb or device
+        ce: Any = CrossEncoder(kb_reranker_id(), device=thiet_bi, max_length=ml or None)
+        thuc = getattr(ce, "max_seq_length", None) or getattr(ce, "max_length", None)
+        if ml and thuc != ml:
+            raise RuntimeError(f"đặt max_length={ml} nhưng CrossEncoder báo {thuc}: không đo cấu hình sai")
+        kb._reranker = DoGio(ce, "predict", "xep_hang_lai", so)
+        kb._embedder = DoGio(getattr(kb._embedder, "_goc", kb._embedder), "encode", "nhung_cau_hoi", so)
+        kb._collection = DoGio(getattr(kb._collection, "_goc", kb._collection), "query", "chroma", so)
+        kb._bm25_cache[WS] = (DoGio(bm25, "get_scores", "bm25", so), cap_bm25)
+
+        top: list[list[tuple[str, int]]] = []
+        khong_thay = 0
+        for i in range(lan + 1):
+            cau = CAU_HOI[i % len(CAU_HOI)]
+            t1 = time.perf_counter()
+            ra = kb.search(WS, cau, n_candidates=n)
+            so["tong"].append((time.perf_counter() - t1) * 1000)
+            if i < len(CAU_HOI):                       # mỗi câu một lần: kết quả tất định, lặp lại không thêm gì
+                top.append([(p.source, p.chunk_index) for p in ra])
+                khong_thay += not ra
+        top_goc = top_goc if top_goc is not None else top
+        ket_qua.append({
+            "cau_hinh": f"{n}:{ml}:{thiet_bi}", "n_ung_vien_dense": n, "max_length": thuc, "thiet_bi_reranker": thiet_bi,
+            "tre_ms": {b: tom_tat(so[b]) for b in (*BUOC, "tong")},
+            "khong_tim_thay": khong_thay, "so_voi_goc": so_voi_goc(top_goc, top),
+        })
+        del ce
+        kb._reranker = None
+        gc.collect()
+    return {"may": _may(), "device": device, "lan": lan, "nap_kho_s": nap_kho_s, "nap_kho": nap,
+            "so_doan": len(doan), "cau_hinh": ket_qua}
+
+
+def in_bang_luoi(kq: dict[str, Any]) -> None:
+    print(f"\nMáy: {kq['may']}\nEmbedder trên {kq['device']} | nạp kho {kq['nap_kho_s']} s, {kq['so_doan']} đoạn")
+    print(f"\n{'cấu hình (n:max_len:tb)':<26}{'xếp hạng p50':>13}{'p95':>9}{'tổng p50':>10}{'p95':>9}"
+          f"{'giữ top':>9}{'giữ quyết':>10}{'không thấy':>11}")
+    for c in kq["cau_hinh"]:
+        x, t, s = c["tre_ms"]["xep_hang_lai"], c["tre_ms"]["tong"], c["so_voi_goc"]
+        print(f"{c['cau_hinh']:<26}{str(x['p50']):>13}{str(x['p95']):>9}{str(t['p50']):>10}{str(t['p95']):>9}"
+              f"{str(s['giu_top_pct']) + '%':>9}{str(s['giu_quyet_dinh_pct']) + '%':>10}{c['khong_tim_thay']:>11}")
+    print("\n'giữ top' / 'giữ quyết': % câu hỏi có cùng tập đoạn trả về / cùng quyết định 'không tìm thấy' như cấu hình ĐẦU."
+          "\nĐại lượng tạm, KHÔNG phải recall/MRR: cấu hình gốc chưa chắc đúng (chờ bộ đo #34).")
+
+
 def in_bang(kq: dict[str, Any]) -> None:
     print(f"\nMáy: {kq['may']}\nThiết bị: {kq['device']} | nạp model {kq['nap_model_s']} s | "
           f"nạp kho {kq['nap_kho_s']} s, {kq['so_doan']} đoạn")
@@ -262,11 +359,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--device", default=os.getenv("KB_DEVICE", "cpu"), help="cpu (mặc định production) hoặc cuda")
     ap.add_argument("--lan", type=int, default=100, help="số lần truy vấn tính vào phân vị (chưa kể lần đầu)")
     ap.add_argument("--json", default="", help="ghi kết quả đầy đủ ra file này")
+    ap.add_argument("--cau-hinh", nargs="+", default=[], metavar="N:MAXLEN[:TB]",
+                    help="chế độ lưới (#214): nạp kho một lần, đo từng cấu hình; cấu hình đầu là gốc để so")
     a = ap.parse_args(argv)
     if a.lan < 1:
         ap.error("--lan phải ≥ 1")
-    kq = chay(a.lan, a.device)
-    in_bang(kq)
+    try:
+        luoi = [doc_cau_hinh(c) for c in a.cau_hinh]
+    except ValueError as exc:
+        ap.error(str(exc))
+    if luoi:
+        kq = chay_luoi(a.lan, a.device, luoi)
+        in_bang_luoi(kq)
+    else:
+        kq = chay(a.lan, a.device)
+        in_bang(kq)
     if a.json:
         Path(a.json).write_text(json.dumps(kq, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"\nĐã ghi {a.json}")
