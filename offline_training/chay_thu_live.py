@@ -48,9 +48,13 @@ if TOKEN:
 # "Giá chưa gồm VAT" thêm 28/10/2026: từ đó câu không nói rõ thì `vat` HỎI LẠI
 # thay vì tính (BAO_CAO_BR04 §5.2), và ca này đo đường tool chạy, không đo câu
 # hỏi lại. Số đo p95 trước ngày này dùng câu cũ, ngắn hơn ~6 token.
+#
+# "Thuế suất 10%" thêm ở #259: từ 15/11/2026 hàng mà bảng tra nói "được giảm" (cước vận tải) thì
+# Brain HỎI LẠI "8% hay 10%" khi câu không nói (luật 3 ở `doc_dau_vao.py`, lý do `thue_suat`), đúng
+# chỉ đạo của chủ dự án. Lượt chạy thật #257 (24/11) trượt ở đây vì thế. 10% vẫn giữ ca này sai: 6.050.000.
 HOA_DON = ('Kiểm tra hoá đơn này giúp tôi: {"Cước vận chuyển HN-HP": 5000000, '
            '"Phụ phí xăng dầu": 500000}, tổng ghi 6.500.000đ có đúng không? '
-           'Giá chưa gồm VAT.')
+           'Giá chưa gồm VAT, thuế suất 10%.')
 
 CAU = [
     ("Xin chào, bạn giúp được gì cho công việc kho vận?", "chat thường", None),

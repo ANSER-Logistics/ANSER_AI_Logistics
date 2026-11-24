@@ -49,6 +49,13 @@ API_TOKEN = (os.environ.get("BRAIN_API_TOKEN")
 if API_TOKEN:
     HEADERS["X-API-Token"] = API_TOKEN
 
+# Người hỏi: `user_id` trong thân POST /chat VÀ header `X-User-Id` khi hỏi kết quả phải là MỘT giá trị.
+# `GET /api/v1/task/{id}` chỉ trả task cho đúng chủ, sai hay thiếu header là 404 (cố ý trông như task không
+# tồn tại, xem `get_task_status` trong chat.py). Trước #259 script gửi `user_id: 1` mà không gửi header, nên
+# mọi ca chờ hết POLL_MAX rồi thành [TIMEOUT]: lượt chạy thật #257 (24/11/2026) đọc thành "sáu ca hỏng".
+NGUOI_HOI = 1
+HEADERS["X-User-Id"] = str(NGUOI_HOI)
+
 
 def dau_van(tok: str) -> str:
     """Vân tay token để đối chiếu bằng mắt — KHÔNG in cả token ra log."""
@@ -298,7 +305,10 @@ TESTS = [
     {
         "id":     "T5",
         "name":   "Tính thuế — chỉ văn xuôi",
-        "prompt": "Đơn hàng 3 triệu 500 nghìn, thuế GTGT 8% thì phải nộp bao nhiêu tiền thuế?",
+        # "giá chưa gồm VAT" thêm ở #259: câu không nói cơ sở giá thì chốt đầu vào HỎI LẠI ("đã gồm VAT
+        # chưa?", lý do `thue`, từ 28/10/2026) thay vì tính, đúng thiết kế. Ca này đo phép tính, không đo
+        # câu hỏi lại. 3.500.000 × 8% = 280.000.
+        "prompt": "Đơn hàng 3 triệu 500 nghìn, giá chưa gồm VAT, thuế GTGT 8% thì phải nộp bao nhiêu tiền thuế?",
         "checks": [
             ("KHÔNG có JSON",      lambda a, j: j is None),
             ("số tiền đúng",       lambda a, j: "280" in a.replace(".", "").replace(",", "")),
@@ -342,7 +352,7 @@ async def ask(client: httpx.AsyncClient, prompt: str) -> tuple[str, float]:
     t0 = time.time()
     r = await client.post(
         f"{BRAIN_URL}/chat",
-        json={"message": prompt, "user_id": 1, "store_id": 1},
+        json={"message": prompt, "user_id": NGUOI_HOI, "store_id": 1},
     )
     r.raise_for_status()
     body = r.json()
@@ -359,6 +369,11 @@ async def ask(client: httpx.AsyncClient, prompt: str) -> tuple[str, float]:
     for _ in range(POLL_MAX):
         await asyncio.sleep(POLL_GIAY)
         rr = await client.get(f"{BRAIN_URL}/api/v1/task/{task_id}")
+        if rr.status_code == 404:
+            # Task vừa tạo mà 404 thì gần như chắc là sai người hỏi (`X-User-Id`), không phải chậm:
+            # báo ngay thay vì chờ hết POLL_MAX rồi in [TIMEOUT].
+            return (f"[404] GET /api/v1/task/{task_id}: task không tồn tại hoặc X-User-Id "
+                    f"không khớp user_id={NGUOI_HOI}"), time.time() - t0
         bb = rr.json()
         if bb.get("status") == "completed":
             return bb.get("result", {}).get("answer", ""), time.time() - t0
