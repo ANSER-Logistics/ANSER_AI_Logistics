@@ -76,4 +76,5 @@ class CoderAgent(BaseAgent):
             max_new_tokens=MAX_WORKFLOW_TOKENS,
             temperature=0.1,
             json_schema=self.middleware.get_workflow_json_schema(),
+            tac_vu="n8n",
         )
