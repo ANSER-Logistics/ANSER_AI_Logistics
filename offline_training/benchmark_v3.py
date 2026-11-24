@@ -395,6 +395,60 @@ def in_token(nhan: str, tt: dict[str, Any] | None) -> None:
           f" · giây/lời gọi p50 {tt['giay_p50']} p95 {tt['giay_p95']} ({tt['n_goi']} lời gọi{thieu})")
 
 
+def gop_token_vong(cac_vong: list[dict[str, Any] | None]) -> dict[str, Any] | None:
+    """
+    Gom `token` của MỘT nhánh qua nhiều vòng tải (notebook #176). Mỗi phần tử là một vòng mà nhánh CÓ lời gọi;
+    None = vòng đó có lời gọi nhưng không lời gọi nào có `usage` (mọi câu quá giờ, hay server không trả).
+    Vòng nhánh không gọi gì (vd không câu n8n nào cần thử lại) thì KHÔNG đưa vào: đó không phải thiếu số đo.
+
+    Không vòng nào đo được thì trả None. Thiếu một phần (vòng None, hay lời gọi thiếu usage) thì vẫn trả số trên các
+    lời gọi có số đo nhưng đánh `can_duoi=True`: ngữ cảnh thật có thể lớn hơn, nên không được kết luận "đủ" từ đó.
+    p95 lấy vòng xấu nhất, không trung bình các p95.
+    """
+    do = [t for t in cac_vong if t]
+    if not do:
+        return None
+    giay = {k: [t[k] for t in do if t.get(k) is not None] for k in ("giay_p50", "giay_p95")}
+    n_vong_khong_do = len(cac_vong) - len(do)
+    n_thieu_usage = sum(t["n_thieu_usage"] for t in do)
+    return {
+        "prompt_max": max(t["prompt_max"] for t in do),
+        "max_tokens": max(t["max_tokens"] for t in do),
+        "da_dung_max": max(t["da_dung_max"] for t in do),
+        "ctx_can": max(t["ctx_can"] for t in do),
+        "giay_p50": max(giay["giay_p50"]) if giay["giay_p50"] else None,
+        "giay_p95": max(giay["giay_p95"]) if giay["giay_p95"] else None,
+        "n_goi": sum(t["n_goi"] for t in do),
+        "n_thieu_usage": n_thieu_usage,
+        "n_vong_khong_do": n_vong_khong_do,
+        "can_duoi": bool(n_vong_khong_do or n_thieu_usage),
+    }
+
+
+def ctx_can_server(cac_nhanh: list[dict[str, Any] | None]) -> dict[str, Any]:
+    """
+    Ngữ cảnh tối thiểu của MỘT server = max `ctx_can` qua các nhánh nó phục vụ (kết quả `gop_token_vong`; None = nhánh
+    có chạy mà không đo được). Không nhánh nào đo được thì `ctx_can` là None, KHÔNG phải 0: trước đây `max([...] or
+    [0])` cho ra 0 rồi bảng in "đủ" cho một server chưa đo được gì (review #254).
+    """
+    do = [t for t in cac_nhanh if t]
+    return {
+        "ctx_can": max(t["ctx_can"] for t in do) if do else None,
+        "can_duoi": len(do) < len(cac_nhanh) or any(t["can_duoi"] for t in do),
+    }
+
+
+def ket_luan_ctx(ctx: dict[str, Any], max_model_len: int) -> str:
+    """Đủ/thiếu chỉ khi số đo cho phép: cận dưới đã vượt trần thì chắc chắn THIẾU, nhưng cận dưới dưới trần chưa nói được gì."""
+    if ctx["ctx_can"] is None:
+        return "chưa kết luận: không đo được"
+    if ctx["ctx_can"] > max_model_len:
+        return "THIẾU"
+    if ctx["can_duoi"]:
+        return "chưa kết luận: số là cận dưới (thiếu usage ở một số lời gọi)"
+    return "đủ"
+
+
 def kiem_ket_qua(ket_qua: dict[str, dict]) -> None:
     """
     Chốt chặn TRƯỚC khi ghi JSON: mỗi nhánh phải mang dữ liệu CỦA CHÍNH NÓ.
