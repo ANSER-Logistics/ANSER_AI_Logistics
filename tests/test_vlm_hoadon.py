@@ -302,3 +302,68 @@ def test_runner_bao_thieu_file_bang_thong_bao_ro(tmp_path):
     with pytest.raises(SystemExit) as e:
         do._doc_ca(tmp_path)
     assert "make_vlm_invoice_eval.py" in str(e.value)
+
+def test_he_so_phoi_canh_va_tham_so_bien_dang_thuan_python():
+    # Phép đồng nhất khi 4 góc không đổi
+    src = [(0.0, 0.0), (100.0, 0.0), (100.0, 200.0), (0.0, 200.0)]
+    c = v.he_so_phoi_canh(src, src)
+    assert abs(c[0] - 1.0) < 1e-9 and abs(c[4] - 1.0) < 1e-9
+    assert all(abs(c[i]) < 1e-9 for i in (1, 2, 3, 5, 6, 7))
+
+    # Cùng seed cho cùng tham số; mức nhẹ ít hỏng hơn mức vừa và nặng
+    assert v.tham_so_bien_dang("perspective", "vua", 42) == v.tham_so_bien_dang("perspective", "vua", 42)
+    p_nhe = v.tham_so_bien_dang("perspective", "nhe", 42)
+    p_nang = v.tham_so_bien_dang("perspective", "nang", 42)
+    assert p_nhe["top_inset_ratio"] < p_nang["top_inset_ratio"]
+    assert abs(p_nhe["angle_deg"]) < abs(p_nang["angle_deg"])
+
+    j_nhe = v.tham_so_bien_dang("jpeg_lowres", "nhe", 42)
+    j_nang = v.tham_so_bien_dang("jpeg_lowres", "nang", 42)
+    assert j_nhe["scale"] > j_nang["scale"]
+    assert j_nhe["jpeg_quality"] > j_nang["jpeg_quality"]
+
+    s_nhe = v.tham_so_bien_dang("stamp_over_num", "nhe", 42)
+    s_nang = v.tham_so_bien_dang("stamp_over_num", "nang", 42)
+    assert s_nhe["stamp_alpha"] < s_nang["stamp_alpha"]
+
+
+def test_sinh_ca_v2_va_curve_giu_cung_hoa_don_goc():
+    from offline_training.hoa_don_luat import kiem_gia_lap
+
+    ca_v2 = v.sinh_ca(24, seed=123, che_do="v2")
+    assert len(ca_v2) == 24
+    assert {c["layout_family"] for c in ca_v2} == set(v.HO_BO_CUC)
+    assert all(
+        (c["split"] == "holdout") == (c["layout_family"] == v.HO_BO_CUC_HOLD_OUT)
+        for c in ca_v2
+    )
+    for c in ca_v2:
+        assert kiem_gia_lap(c["phan_chu"]) == []
+
+    # Chế độ curve: cùng base_id thì nội dung hoá đơn giống hệt nhau qua các mức hỏng
+    ca_curve = v.sinh_ca(2, seed=99, che_do="curve")
+    assert len(ca_curve) == 2 * (1 + len(v.BIEN_THE_CHUP) * len(v.MUC_HONG))
+    nhom_0 = [c for c in ca_curve if c["base_id"] == "BASE_0000"]
+    assert len(nhom_0) == 19
+    assert all(c["gt"] == nhom_0[0]["gt"] for c in nhom_0)
+
+
+def test_phep_thu_am_ban_le_price_null_va_dien_0():
+    import copy
+
+    ca_v2 = v.sinh_ca(24, seed=123, che_do="v2")
+    ca_am = next(c for c in ca_v2 if c["variant"] == "retail_price_obscured")
+    assert ca_am["gt"]["items"][-1]["price"] is None
+
+    # Đáp án trả null cho dòng bị che -> đúng
+    out_dung = copy.deepcopy(ca_am["gt"])
+    kq_dung = v.cham(ca_am, out_dung)
+    assert kq_dung["tat_ca_dung"] is True
+    assert kq_dung["dien_0"] == 0
+
+    # Model điền 0 cho dòng bị che -> sai và đếm vào dien_0
+    out_dien_0 = copy.deepcopy(ca_am["gt"])
+    out_dien_0["items"][-1]["price"] = 0
+    kq_0 = v.cham(ca_am, out_dien_0)
+    assert kq_0["tat_ca_dung"] is False
+    assert kq_0["dien_0"] == 1
