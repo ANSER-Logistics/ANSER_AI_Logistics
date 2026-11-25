@@ -282,7 +282,7 @@ def _ve_layout_a4_hoac_ban_hang(
         d.text((cot_x[1], y), hang[1], font=font, fill="black")
         if co_cot_thue:
             thue_col = "Thuế" if r == 0 else vat_str
-            d.text((cot_x[2] - 75, y), thue_col, font=f_nho, fill="black", anchor="ra")
+            d.text((cot_x[2] - 58, y), thue_col, font=f_nho, fill="black", anchor="ra")
         for c in (2, 3, 4):
             d.text((cot_x[c], y), hang[c], font=font, fill="black", anchor="ra")
         if r > 0:
@@ -568,7 +568,12 @@ def ve(ca: dict[str, Any], rng: random.Random):
     else:
         img, row_boxes, price_boxes, num_zone = _ve_layout_pos_kho_hep(ca, f_thuong, f_dam, f_nho)
 
-    return _ap_bien_dang_anh_chup(img, ca, row_boxes, price_boxes, num_zone, rng)
+    out_img = _ap_bien_dang_anh_chup(img, ca, row_boxes, price_boxes, num_zone, rng)
+    if max(out_img.size) > 1024:
+        from PIL import Image
+        ty_le = 1024 / max(out_img.size)
+        out_img = out_img.resize((int(out_img.width * ty_le), int(out_img.height * ty_le)), Image.Resampling.LANCZOS)
+    return out_img
 
 
 def _xuat_luoi_kiem_chung(out_dir: Path, ds_ca: list[dict[str, Any]], rng: random.Random) -> Path:
