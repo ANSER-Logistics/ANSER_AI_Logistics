@@ -57,7 +57,7 @@ jobs:
       # vao dung luc te nhat de no hong: cuoi giai doan, luc sao luu va push.
       # Mot F821 o do lam mat chinh buoc bao ve cong viec.
       #
-      # KHONG them chung vao tests/test_quy_tac_code.py: ca hai la script chay
+      # KHONG them chung vao tests/contracts/test_quy_tac_code.py: ca hai la script chay
       # tuong tac nen `print` la cach xuat DUNG o do, giong moi script trong
       # offline_training/. Quy tac "khong print" la quy tac cua SERVICE.
         run: ruff check src tests offline_training launch_demo.py execute_backup_and_push.py

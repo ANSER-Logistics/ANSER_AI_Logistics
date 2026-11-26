@@ -3,7 +3,7 @@
  * ky_hmac_v1.js — ký một yêu cầu tới Brain theo giao thức ANSER-HMAC-V1 (đặc tả ở docstring đầu src/api/hmac_auth.py, issue #193).
  *
  * BẢN SAO phía JavaScript của `hmac_auth.chuoi_can_ky` và `hmac_auth.ky`, để n8n (node Code) và Body (Node/TypeScript) không phải tự đoán giao thức.
- * Bản sao thì lệch được: `tests/test_hmac_ky_js.py` chạy file này bằng Node trên bốn vector vàng của Python và cho Python kiểm lại chữ ký do file này
+ * Bản sao thì lệch được: `tests/integration/workflows/test_hmac_ky_js.py` chạy file này bằng Node trên bốn vector vàng của Python và cho Python kiểm lại chữ ký do file này
  * tạo ra; đổi giao thức ở Python mà không đổi ở đây thì test đỏ.
  *
  * DÙNG TRONG n8n (node Code, "Run Once for Each Item"):

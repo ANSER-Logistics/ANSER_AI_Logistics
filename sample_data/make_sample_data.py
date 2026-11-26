@@ -9,7 +9,7 @@ thì bộ soi lỗi không tìm ra gì, và ta kết luận nhầm rằng "chạ
 
 Nên bảng này GIEO LỖI CÓ CHỦ ĐÍCH — mỗi lỗi ứng với đúng một phép kiểm trong
 `core/inventory.py`. Danh sách lỗi gieo nằm ở `LOI_GIEO` ngay dưới, và
-`tests/test_sample_data.py` chạy bộ soi lên chính file này rồi đối chiếu: thiếu
+`tests/contracts/test_sample_data.py` chạy bộ soi lên chính file này rồi đối chiếu: thiếu
 một lỗi là bộ soi hỏng, thừa một lỗi là bộ soi báo oan. Bảng mẫu vì vậy vừa là
 dữ liệu chạy thử vừa là đề bài có đáp án.
 
@@ -145,7 +145,7 @@ _GIEO = [
 
 DONG = _SACH + _GIEO
 
-# Đáp án. `tests/test_sample_data.py` đối chiếu với kết quả soi thật.
+# Đáp án. `tests/contracts/test_sample_data.py` đối chiếu với kết quả soi thật.
 LOI_GIEO: dict[str, tuple[str, ...]] = {d.code: d.loi_gieo for d in DONG if d.loi_gieo}
 
 

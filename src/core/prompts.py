@@ -34,7 +34,7 @@ from src.core.utils import hom_nay_vn
 # thì đi vòng agentic và không bao giờ tới `answer_general`/`answer_retrieval`.
 # Nên luật này nói thật "lượt này bạn không có công cụ", và chỉ hứa duy nhất điều
 # có thật: câu tính THUẾ GTGT gửi lại kèm đủ số liệu thì luật chọn tool bắt được
-# và chạy `vat` (khoá bằng tests/test_prompt_khong_tu_tinh.py).
+# và chạy `vat` (khoá bằng tests/integration/api/test_prompt_khong_tu_tinh.py).
 #
 # MỘT định nghĩa (R4): hai prompt cùng nhúng hằng này, không chép tay hai bản.
 # KHÔNG được có dấu ngoặc nhọn trong đây — RETRIEVAL_SYSTEM đi qua str.format.
