@@ -22,7 +22,7 @@ Then read only the files and line ranges it returns (`src=... loc=L...`). Overvi
 
 ## 2. Docs live elsewhere
 
-Architecture, SRS, onboarding and roadmap are in the **private** repo `ANSER-Logistics/anser-brain-docs` (since 15/11/2026). This repo keeps only `AGENTS.md`, `.agents/` and per-folder `README.md`. Link to docs with absolute URLs; `tests/test_tai_lieu_khop_ma.py` fails on any broken relative link in a `.md`.
+Architecture, SRS, onboarding and roadmap are in the **private** repo `ANSER-Logistics/anser-brain-docs` (since 15/11/2026). This repo keeps only `AGENTS.md`, `.agents/` and per-folder `README.md`. Link to docs with absolute URLs; `tests/contracts/test_tai_lieu_khop_ma.py` fails on any broken relative link in a `.md`.
 
 ## 3. Module map (feature branch, verified 16/11/2026)
 
@@ -43,7 +43,7 @@ Deterministic core (`src/core/`, pure code, no LLM, R1):
 | Tax ID check | `tax_id.py` → `kiem_ma_so_thue()` |
 | Numbers grounding guard | `grounding.py` → `narration_numbers_ok()`, `customer_leak()` |
 | Tool inputs read from the user's sentence | `doc_dau_vao.py` (amounts like "3tr5", tax rate) |
-| **Which tool runs** | `tool_planner.py` → `plan_tools()`, rule-based, the model does not choose. Backtest: `offline_training/do_nghiep_vu.py`, `tests/test_nghiep_vu_backtest.py` |
+| **Which tool runs** | `tool_planner.py` → `plan_tools()`, rule-based, the model does not choose. Backtest: `offline_training/do_nghiep_vu.py`, `tests/offline_training/test_nghiep_vu_backtest.py` |
 | **VLM output sanitizing** | `sanitize.py` → `lam_sach_chuoi()`, `lam_sach_cay()`, patterns in `_MAU_CHI_DAN` |
 | Shared finding shape | `findings.py` → `finding()` |
 
@@ -75,7 +75,7 @@ Most connected in the graph: `audit_inventory`, `InventoryLine`, `Prompts`, `Mod
 ## 5. Stale or legacy
 
 - `.agents/agents.md`, `.agents/workflows/`: v1 setup (Gemini team, `ENV=COLAB`, A100, Qwen2-VL-7B), superseded by AGENTS.md v2. The four v1 skills (`async-data-miner`, `fastapi-background-tasker`, `ocr-invoice-parser`, `webhook-dispatcher`) carry a ⚠️ block saying what is outdated.
-- Skills live in two identical copies, `.claude/skills/` and `.agents/skills/` (Codex, Gemini). Edit one, copy to the other; `tests/test_skill_dong_bo.py` fails on drift.
+- Skills live in two identical copies, `.claude/skills/` and `.agents/skills/` (Codex, Gemini). Edit one, copy to the other; `tests/contracts/test_skill_dong_bo.py` fails on drift.
 - `src/archive/`, `src/evaluate_system.py`, `Prompts.DB_SCHEMA`, `offline_training/db_schema.txt`: deleted. Do not recreate.
 - `Prompts.INVOICE_SYSTEM`: declared, never referenced (AGENTS.md R4).
 - `reconciliation.py` does not exist yet (S5).

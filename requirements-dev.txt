@@ -4,14 +4,14 @@
 # và pytest đổi cách thu test ở các mốc major.
 pytest>=8.2,<10
 pytest-cov
-# tests/test_server.py::test_chat_background_task dùng @pytest.mark.asyncio nhưng
+# tests/integration/api/test_server.py::test_chat_background_task dùng @pytest.mark.asyncio nhưng
 # thiếu plugin -> test này FAIL im lặng suốt (không phải skip, mà là fail).
 pytest-asyncio>=0.23
 ruff
 mypy
 pre-commit
 
-# `tests/test_agentic_plan.py` dung `pytest.importorskip("jsonschema")` de kiem
+# `tests/unit/agents/test_agentic_plan.py` dung `pytest.importorskip("jsonschema")` de kiem
 # rang lieu grammar CO SINH RA NOI mot hinh dang hay khong. Thieu goi nay thi
 # nhung test do khong fail — chung SKIP, va nhan xanh khong noi gi ve chot chan
 # quan trong nhat cua vong agentic. Phat hien 23/08/2026: 3 test nam im nhu vay.
@@ -19,7 +19,7 @@ jsonschema
 
 # `xgrammar` CỐ Ý KHÔNG CÓ Ở ĐÂY — đã cân, 09/11/2026.
 #
-# Cùng file `tests/test_agentic_plan.py` còn HAI test nữa dùng
+# Cùng file `tests/unit/agents/test_agentic_plan.py` còn HAI test nữa dùng
 # `pytest.importorskip("xgrammar")`, và chúng đã skip im lặng nhiều tháng. Đó
 # đúng là chuyện khối chú thích `jsonschema` ở trên cảnh báo — chỉ là lần này
 # không ai học lại bài học đó.
@@ -41,7 +41,7 @@ jsonschema
 # `jsonschema` không".
 #
 # Nên chúng chạy ở nơi vốn đã có vLLM: phiên đo trên Colab. Ai chạy phiên đo
-# thì chạy luôn `pytest tests/test_agentic_plan.py` — ở đó xgrammar có sẵn và
+# thì chạy luôn `pytest tests/unit/agents/test_agentic_plan.py` — ở đó xgrammar có sẵn và
 # không tốn gì thêm.
 #
 # Ghi ra đây để lần sau không ai phải đo lại, và để cái skip đó thôi im lặng.
