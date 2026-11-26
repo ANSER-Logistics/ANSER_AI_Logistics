@@ -36,7 +36,7 @@
 #          docker compose --profile vision up -d
 #      rồi `/health` phải báo `vision_backend: "server"`, `vllm_vision_server.ok`.
 #
-# `tests/test_deploy_config.py` giữ danh sách này đồng bộ với code: nối xong cái
+# `tests/contracts/test_deploy_config.py` giữ danh sách này đồng bộ với code: nối xong cái
 # nào thì test đỏ, buộc phải sửa cả chú thích này.
 
 services:
@@ -45,7 +45,7 @@ services:
     # phiên #13: `requirements-gpu.txt`, vllm>=0.10.2,<0.12). Ghim cứng vì API
     # vLLM trôi liên tục. Bản cũ v0.8.5 chưa ai đo grammar `guided_json`/`anyOf`
     # trên đó, và không còn cài được trên Python 3.13 của Colab (#35).
-    # `tests/test_deploy_config.py` khoá: mọi image vLLM cùng một bản, và bản đó
+    # `tests/contracts/test_deploy_config.py` khoá: mọi image vLLM cùng một bản, và bản đó
     # nằm trong khoảng `requirements-gpu.txt` cho phép.
     image: vllm/vllm-openai:v0.11.2
     container_name: anser-vllm-text
@@ -169,7 +169,7 @@ services:
       # tunnel — trong khi người vận hành vừa bị `:?` bắt điền token nên đinh
       # ninh là đã khoá. Phát hiện 13/08/2026 khi chạy test nội bộ qua HTTP thật.
       #
-      # `tests/test_deploy_config.py` khoá lại chuyện này: nó đọc chính file
+      # `tests/contracts/test_deploy_config.py` khoá lại chuyện này: nó đọc chính file
       # compose và đối chiếu với tên biến mà code gọi os.getenv.
       API_AUTH_TOKEN: ${API_TOKEN:?thiếu API_TOKEN trong .env}
       VLLM_API_KEY: ${VLLM_API_KEY:-}

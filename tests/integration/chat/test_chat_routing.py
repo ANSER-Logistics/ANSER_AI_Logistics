@@ -1,0 +1,560 @@
+"""
+tests/integration/chat/test_chat_routing.py — đường phục vụ của /chat: RAG và vòng agentic.
+
+VÌ SAO CÓ FILE NÀY
+------------------
+Nhánh RETRIEVAL gọi `kb.search(user_msg, top_k=2)` trong khi chữ ký là
+`search(workspace_id, query, top_k)`. Lời gọi đó ném TypeError, rơi vào
+`except Exception` ngay dưới, ghi một dòng warning rồi im lặng chuyển sang tra
+web. Kho tài liệu CHƯA TỪNG chạy ở đường phục vụ, và triệu chứng duy nhất là
+"câu trả lời hơi chung chung" — không lỗi, không cảnh báo, không ai biết.
+
+Không một test đơn vị nào của `KnowledgeBase` bắt được chuyện này: bản thân
+`search()` luôn đúng. Chỗ hỏng nằm ở LỜI GỌI. Nên các test dưới đây kiểm đúng
+mối nối giữa hai bên, và cố tình dùng KB giả có chữ ký THẬT.
+"""
+
+from __future__ import annotations
+
+import inspect
+
+import pytest
+
+from src.core.knowledge import KnowledgeBase
+from src.core.retrieval_policy import KHONG_CO_TAI_LIEU
+from tests.support.chat import _hoi, _KhoGia, _SaasGia, client
+
+# ---------------------------------------------------------------------------
+# Regression: lời gọi kho tri thức
+# ---------------------------------------------------------------------------
+
+def test_chu_ky_kho_gia_khop_ban_that():
+    """Khoá KB giả vào chữ ký thật — nếu không, test dưới vô nghĩa."""
+    that = inspect.signature(KnowledgeBase.search)
+    gia = inspect.signature(_KhoGia.search)
+    assert list(that.parameters)[:4] == list(gia.parameters)[:4]
+
+
+def test_retrieval_goi_kho_dung_pham_vi_va_cau_hoi(moi_truong, monkeypatch):
+    from src.api import dependencies as deps
+
+    kho = _KhoGia(passages=[])
+    monkeypatch.setattr(deps.runtime, "kb", kho, raising=False)
+    _hoi("nghị định 72 quy định thuế suất bao nhiêu")
+
+    assert len(kho.calls) == 1, "kho tri thức phải được hỏi, không được bỏ qua"
+    goi = kho.calls[0]
+    assert goi["query"] == "nghị định 72 quy định thuế suất bao nhiêu"
+    # Phạm vi KHÔNG phải store_id: hợp đồng là của cả công ty, không của kho hàng.
+    assert goi["workspace_id"] and goi["workspace_id"] != "1"
+
+
+def test_tim_thay_tai_lieu_thi_dua_vao_ngu_canh(moi_truong, monkeypatch):
+    from src.api import dependencies as deps
+    from src.core.knowledge import Passage
+
+    doan = Passage(
+        text="Bên B thanh toán trong 30 ngày kể từ ngày nhận hàng.",
+        source="hop_dong.docx", score=0.9, heading="Điều 5",
+    )
+    monkeypatch.setattr(deps.runtime, "kb", _KhoGia(passages=[doan]), raising=False)
+    _hoi("quy định thanh toán trong hợp đồng thế nào")
+
+    assert moi_truong.contexts, "phải gọi answer_retrieval với ngữ cảnh"
+    ctx = moi_truong.contexts[0]
+    assert "TÀI LIỆU NỘI BỘ" in ctx and "30 ngày" in ctx
+    assert "hop_dong.docx" in ctx, "phải dẫn được nguồn"
+
+
+# ---------------------------------------------------------------------------
+# Chính sách tra web
+# ---------------------------------------------------------------------------
+
+def test_cau_hoi_noi_bo_khong_thay_tai_lieu_thi_khong_tra_web(
+    moi_truong, monkeypatch
+):
+    """
+    Trả một trang trên mạng cho câu "chính sách công nợ bên mình" là trình bày
+    thông tin của công ty khác như thể là quy định của họ.
+    """
+    from src.api import dependencies as deps
+    from src.api.routes import chat as chat_mod
+
+    da_tra_web = []
+    monkeypatch.setattr(deps.runtime, "kb", _KhoGia(passages=[]), raising=False)
+    monkeypatch.setattr(
+        chat_mod, "web_search_fallback",
+        lambda q: da_tra_web.append(q) or "kết quả web",
+    )
+
+    tra_loi = _hoi("chính sách công nợ bên mình quy định thế nào")
+
+    assert da_tra_web == [], "không được tra web cho câu hỏi tài liệu nội bộ"
+    assert tra_loi == KHONG_CO_TAI_LIEU
+
+
+def test_cau_hoi_luat_thi_van_duoc_tra_web(moi_truong, monkeypatch):
+    from src.api import dependencies as deps
+    from src.api.routes import chat as chat_mod
+
+    da_tra_web = []
+    monkeypatch.setattr(deps.runtime, "kb", _KhoGia(passages=[]), raising=False)
+    monkeypatch.setattr(
+        chat_mod, "web_search_fallback",
+        lambda q: da_tra_web.append(q) or "Nghị định 72/2024 quy định...",
+    )
+
+    _hoi("nghị định 72 quy định thuế suất bao nhiêu")
+
+    assert len(da_tra_web) == 1
+    assert "KẾT QUẢ TÌM KIẾM" in moi_truong.contexts[0]
+
+
+# ---------------------------------------------------------------------------
+# Khép vòng: nạp qua HTTP -> hỏi qua /chat
+# ---------------------------------------------------------------------------
+
+def test_tai_lieu_nap_qua_http_thi_chat_tra_cuu_duoc(moi_truong, monkeypatch):
+    """
+    Phép kiểm duy nhất chứng minh hai đầu KHỚP NHAU.
+
+    Đường nạp và đường tra dùng hai khoá phạm vi khác nhau là hỏng câm: giao
+    diện vẫn liệt kê đủ tài liệu, chat vẫn trả lời trôi chảy, chỉ là chưa bao
+    giờ đọc tới file nào. Không test nào ở một phía bắt được — nên test này
+    dùng `KnowledgeBase` THẬT và đi qua đúng endpoint mà Body gọi.
+    """
+    from io import BytesIO
+
+    docx = pytest.importorskip("docx")
+    from src.api import dependencies as deps
+    from src.core.config import Config
+    from tests.unit.core.test_knowledge import FakeCollection, FakeEmbedder, FakeReranker
+
+    kb = KnowledgeBase(
+        embedder=FakeEmbedder(), reranker=FakeReranker(), collection=FakeCollection(),
+    )
+    monkeypatch.setattr(deps.runtime, "kb", kb, raising=False)
+
+    d = docx.Document()
+    d.add_paragraph("QUY ĐỊNH CÔNG NỢ")
+    d.add_paragraph("Khách hàng thanh toán trong 30 ngày kể từ ngày nhận hàng.")
+    buf = BytesIO()
+    d.save(buf)
+
+    # Nạp bằng ĐÚNG khoá mà Body dùng (BRAIN_KB_WORKSPACE, mặc định "default").
+    nap = client.post(
+        "/knowledge/documents",
+        files={"file": ("quy_dinh.docx", BytesIO(buf.getvalue()),
+                        "application/octet-stream")},
+        data={"workspace_id": Config().kb_workspace_id},
+    )
+    assert nap.status_code == 200, nap.text
+    assert nap.json()["chunks"] > 0
+
+    _hoi("quy định công nợ thanh toán bao nhiêu ngày")
+
+    assert moi_truong.contexts, "chat phải hỏi kho tri thức"
+    ctx = moi_truong.contexts[0]
+    assert "TÀI LIỆU NỘI BỘ" in ctx, f"chat không đọc tới tài liệu đã nạp: {ctx!r}"
+    assert "30 ngày" in ctx and "quy_dinh.docx" in ctx
+
+
+# ---------------------------------------------------------------------------
+# DATA_INTERNAL — kỳ phải đọc từ CÂU HỎI, không đóng cứng
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def saas_gia(monkeypatch):
+    from src.api.routes import chat as chat_mod
+
+    gia = _SaasGia()
+    monkeypatch.setattr(chat_mod, "_get_saas", lambda: gia)
+    return gia
+
+
+def test_ky_lay_tu_cau_hoi_chu_khong_dong_cung(moi_truong, monkeypatch, saas_gia):
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    _hoi("tháng này doanh số thế nào")
+
+    assert saas_gia.periods == ["month"], "đóng cứng 'today' thì hỏng ở đây"
+    assert "THÁNG NÀY" in moi_truong.contexts[0]
+
+
+def test_ky_chua_truy_van_duoc_thi_khong_dua_so_hom_nay_vao(
+    moi_truong, monkeypatch, saas_gia
+):
+    """
+    Chỗ đắt nhất của cả nhánh này. Đưa số HÔM NAY vào ngữ cảnh cho câu hỏi
+    "tháng trước" thì model trả lời trôi chảy bằng con số của kỳ khác, và chốt
+    chặn neo số liệu KHÔNG bắt được — con số ấy có thật trong ngữ cảnh.
+    """
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    tra_loi = _hoi("tháng trước bán được bao nhiêu")
+
+    assert saas_gia.periods == [], "không được truy vấn kỳ nào khi chưa hỗ trợ"
+    # #261: không còn gọi model cho trường hợp này: câu trả lời do MÃ dựng (R1), model không có chỗ bịa lý do.
+    assert moi_truong.contexts == [], "kỳ chưa hỗ trợ thì không được hỏi model"
+    assert "tháng trước" in tra_loi and "hôm nay, tuần này và tháng này" in tra_loi
+    assert "20.000.000" not in tra_loi, "số của kỳ khác không được lọt vào câu trả lời"
+
+
+@pytest.mark.parametrize("cau", [
+    "tổng tiền bán được trong 14 ngày qua", "doanh thu 30 ngày gần nhất", "bán được bao nhiêu từ đầu năm", "bán được trong hai tuần",
+    "7 ngày qua bán được gì", "doanh số năm nay",
+])
+def test_khoang_ngay_tu_do_khong_bi_doc_thanh_hom_nay(moi_truong, monkeypatch, saas_gia, cau):
+    """#261 (T2 của lượt chạy thật 24/11): "14 ngày qua" từng rơi về "hôm nay" và nhận số của MỘT ngày; v5 còn bịa lý do thiếu dữ liệu."""
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    moi_truong.answer = "Doanh số bị giới hạn bởi chính sách bảo mật thông tin."      # model mà được hỏi thì sẽ nói thế
+    tra_loi = _hoi(cau)
+    assert saas_gia.periods == [] and moi_truong.contexts == []
+    assert "bảo mật" not in tra_loi and "chỉ truy vấn được" in tra_loi
+
+
+@pytest.mark.parametrize("cau", ["hôm nay bán được bao nhiêu", "tuần này doanh số thế nào", "còn bao nhiêu thùng dầu 15W40", "hàng nhập gần đây"])
+def test_cau_co_ky_ho_tro_hoac_khong_nhac_ky_van_di_nhu_cu(moi_truong, monkeypatch, saas_gia, cau):
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    _hoi(cau)
+    assert len(saas_gia.periods) == 1 and len(moi_truong.contexts) == 1
+
+
+def test_db_hong_thi_ma_noi_khong_lay_duoc_khong_de_model_viet_ly_do(moi_truong, monkeypatch, saas_gia):
+    from src.api import dependencies as deps
+
+    def hong(*a, **k):
+        raise RuntimeError("mất kết nối")
+
+    monkeypatch.setattr(saas_gia, "get_sales_report", hong)
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    moi_truong.answer = "Doanh số bị giới hạn bởi chính sách bảo mật thông tin."
+    tra_loi = _hoi("hôm nay bán được bao nhiêu")
+    assert moi_truong.contexts == [] and "không tự đoán số" in tra_loi and "bảo mật" not in tra_loi
+
+
+# ---------------------------------------------------------------------------
+# Vòng agentic
+# ---------------------------------------------------------------------------
+
+def test_cau_nhieu_buoc_di_vao_vong_agentic(moi_truong, monkeypatch):
+    """
+    Câu ba bước phải đi vào vòng agentic, và vì chưa có nguồn dữ liệu bán hàng
+    thì nói thẳng — KHÔNG để model tự nghĩ ra doanh thu rồi báo cáo trên số đó.
+    """
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "REPORT"
+    moi_truong.decisions = [
+        {"thought": "cần số liệu", "tool": "report", "arguments": {"sales": []}},
+    ]
+
+    tra_loi = _hoi("quý này lãi hay lỗ, mặt hàng nào lãi nhất")
+
+    assert "chưa nối được" in tra_loi or "chưa lấy được" in tra_loi
+    assert moi_truong.decisions == [], "vòng agentic phải thực sự chạy"
+
+
+def test_cau_chao_hoi_khong_bi_keo_vao_vong_agentic(moi_truong, monkeypatch):
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "GENERAL"
+    moi_truong.answer = "Chào bạn, tôi giúp được gì?"
+
+    assert _hoi("xin chào") == "Chào bạn, tôi giúp được gì?"
+
+
+def test_nhanh_logistics_khong_bi_vong_agentic_giành_mat(moi_truong, monkeypatch):
+    """
+    LOGISTICS đã có luồng struct riêng và đang chạy được. Bảng luật tool không
+    được giành lấy nó.
+    """
+    from src.api import dependencies as deps
+    from src.core.tool_planner import plan_tools
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    assert plan_tools("nhà xe nào rẻ nhất cho chuyến này") == ["carrier_selection"]
+
+    moi_truong.category = "LOGISTICS"
+
+    async def trich_xuat(*a, **kw):
+        return '{"origin": null}'
+
+    moi_truong.extract_quote_request = trich_xuat
+    tra_loi = _hoi("nhà xe nào rẻ nhất cho chuyến này")
+
+    # Đi vào nhánh báo giá (hỏi thêm trường thiếu), KHÔNG vào vòng agentic.
+    assert "tôi cần thêm" in tra_loi.lower()
+
+
+# ---------------------------------------------------------------------------
+# Hoá đơn VẬN TẢI dán kèm — đường vòng của router (tái hiện 23/08/2026)
+# ---------------------------------------------------------------------------
+
+# Hoá đơn thật của khách: TÊN DÒNG HÀNG là dịch vụ vận chuyển, nên luật từ khoá
+# LOGISTICS của SemanticRouter khớp ngay (method=keyword, score=1.0) dù ý định
+# của người hỏi là SOÁT LẠI TỔNG TIỀN.
+# "đơn giá chưa gồm VAT": từ 28/10/2026 câu không nói rõ thì `vat` hỏi lại
+# trước khi tính — test này về ĐỊNH TUYẾN nên câu phải đủ để tool chạy.
+_HOA_DON_VAN_TAI = (
+    "Kiểm tra giúp tôi hoá đơn này có đúng không, đơn giá chưa gồm VAT, thuế suất 10%: "
+    '{"items": [{"name": "Cước vận chuyển HN-HP", "quantity": 2, '
+    '"unit_price": 1500000}], "total_amount": 3300000}'
+)
+
+
+def test_router_that_van_xep_hoa_don_van_tai_vao_logistics():
+    """
+    Khoá lại TIỀN ĐỀ của test dưới.
+
+    Nếu một ngày router hết xếp câu này vào LOGISTICS thì ngoại lệ trong
+    chat.py không còn cần thiết — và test dưới sẽ xanh vì lý do khác hẳn lý do
+    nó sinh ra. Assert này bắt ta phải đọc lại.
+    """
+    from src.agents.manager import SemanticRouter
+
+    router = SemanticRouter(tu_nap_embedder=False)   # chế độ từ khoá, không nạp model
+    assert router.route(_HOA_DON_VAN_TAI) == "LOGISTICS"
+
+
+def test_hoa_don_van_tai_dan_kem_van_vao_vong_agentic(moi_truong, monkeypatch):
+    """
+    Câu SOÁT HOÁ ĐƠN không được rơi vào luồng BÁO GIÁ chỉ vì tên dòng hàng.
+
+    Trước bản vá: cat == LOGISTICS -> vòng agentic bị bỏ qua -> kế hoạch
+    ["vat"] không bao giờ chạy, người dùng nhận về câu hỏi thêm tuyến/ngày giao
+    của luồng báo giá n8n.
+    """
+    from src.api import dependencies as deps
+    from src.core.tool_planner import plan_tools
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    assert "vat" in plan_tools(_HOA_DON_VAN_TAI), "tiền đề: kế hoạch phải có vat"
+
+    moi_truong.category = "LOGISTICS"
+    moi_truong.decisions = [
+        {"thought": "tính lại tổng", "tool": "vat",
+         "arguments": {"items": [{"name": "Cước vận chuyển HN-HP", "quantity": 2,
+                                  "unit_price": 1500000}],
+                       "stated_total": 3300000}},
+        {"thought": "đã có số", "answer": "Tôi đã tính lại tổng hoá đơn giúp bạn."},
+    ]
+
+    da_trich_xuat = []
+
+    async def trich_xuat(*a, **kw):
+        da_trich_xuat.append(a)
+        return '{"origin": null}'
+
+    moi_truong.extract_quote_request = trich_xuat
+
+    tra_loi = _hoi(_HOA_DON_VAN_TAI)
+
+    assert moi_truong.decisions == [], "vòng agentic phải thực sự chạy"
+    assert da_trich_xuat == [], "KHÔNG được rơi vào luồng báo giá n8n"
+    assert "tôi cần thêm" not in tra_loi.lower()
+    assert tra_loi == "Tôi đã tính lại tổng hoá đơn giúp bạn."
+
+
+def test_cau_bao_gia_that_van_di_luong_logistics(moi_truong, monkeypatch):
+    """Mặt còn lại: ngoại lệ trên KHÔNG được kéo câu báo giá thật ra khỏi n8n."""
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "LOGISTICS"
+
+    da_trich_xuat = []
+
+    async def trich_xuat(*a, **kw):
+        da_trich_xuat.append(a)
+        return '{"origin": null}'
+
+    moi_truong.extract_quote_request = trich_xuat
+    tra_loi = _hoi("báo giá xe 5 tấn đi Hải Phòng ngày mai")
+
+    assert len(da_trich_xuat) == 1, "câu báo giá thật phải đi đường trích xuất"
+    assert "tôi cần thêm" in tra_loi.lower()
+
+
+# ---------------------------------------------------------------------------
+# Ý định 2 và 3 của "báo giá" (chốt 28/10/2026, sau BR-05)
+# ---------------------------------------------------------------------------
+
+_TINH_GIA_BAN = (
+    "Chú mới nhận báo giá từ nhà xe: họ chào 11.450.000 đồng cho chuyến kho Long "
+    "Biên đi Nam Định, biên lợi nhuận 12%, giá dầu hiện tại 25.000 đồng/lít."
+)
+_SO_CHAO_GIA = (
+    "Anh vừa nhận báo giá chuyến KCN Quế Võ đi Hà Nội xe 5T: Trường Thịnh "
+    "9.100.000 đồng, chiết khấu 8%, công nợ 30 ngày; Đại An 10.700.000 đồng, "
+    "chiết khấu 8%, công nợ 45 ngày. Em chọn giúp anh phương án nào tối ưu?"
+)
+
+
+def test_router_khong_xep_bien_loi_nhuan_vao_report():
+    """BR-05: 6/6 câu tính giá bán bị router đưa vào REPORT vì "biên lợi nhuận"."""
+    from src.agents.manager import SemanticRouter
+
+    router = SemanticRouter(tu_nap_embedder=False)
+    assert router.route(_TINH_GIA_BAN) != "REPORT"
+    assert router.route("báo cáo lợi nhuận quý này") == "REPORT"
+
+
+def _theo_doi_trich_xuat(moi_truong) -> list:
+    da = []
+
+    async def trich_xuat(*a, **kw):
+        da.append(a)
+        return '{"origin": null}'
+
+    moi_truong.extract_quote_request = trich_xuat
+    return da
+
+
+def test_tinh_gia_ban_xep_logistics_van_vao_vong_agentic_goi_quote(moi_truong, monkeypatch):
+    """
+    Có chữ "báo giá" nên router xếp LOGISTICS — nhưng luồng n8n chỉ nhận
+    tuyến/xe/ngày, nó vứt đúng con số 11.450.000 người dùng vừa đưa.
+    """
+    from src.api import dependencies as deps
+    from src.core.tool_planner import plan_tools
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    assert plan_tools(_TINH_GIA_BAN) == ["quote"], "tiền đề: kế hoạch phải là quote"
+
+    moi_truong.category = "LOGISTICS"
+    moi_truong.decisions = [
+        {"thought": "đủ dữ kiện", "tool": "quote",
+         "arguments": {"carrier_cost": 11450000,
+                       "pricing_rule": {"base_margin_pct": 12},
+                       "current_fuel_price": 25000}},
+        {"thought": "đã có số", "answer": "Tôi đã tính giá bán từ giá nhà xe giúp bạn."},
+    ]
+    da_trich_xuat = _theo_doi_trich_xuat(moi_truong)
+
+    tra_loi = _hoi(_TINH_GIA_BAN)
+
+    assert moi_truong.decisions == [], "vòng agentic phải thực sự chạy"
+    assert da_trich_xuat == [], "KHÔNG được rơi vào luồng báo giá n8n"
+    assert tra_loi == "Tôi đã tính giá bán từ giá nhà xe giúp bạn."
+
+
+def test_so_chao_gia_vao_carrier_selection_va_xep_hang_tu_loi_chao_trong_cau(
+    moi_truong, monkeypatch
+):
+    """
+    Trước 28/10/2026 `carrier_selection` chỉ lấy nhà xe/lời chào từ HỆ THỐNG
+    (chưa có nguồn), nên người dùng nhận câu hỏi lại danh sách nhà xe dù đã liệt
+    kê. Nay mã bóc lời chào từ chính câu (`doc_dau_vao.tham_so_chon_nha_xe`),
+    model chỉ điền tuyến — và tool THẬT SỰ chạy.
+    """
+    from src.api import dependencies as deps
+    from src.api.routes import tools as tools_mod
+    from src.core.tool_planner import plan_tools
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    assert plan_tools(_SO_CHAO_GIA) == ["carrier_selection"]
+
+    da_chay: list[dict] = []
+    goc = tools_mod.run_tool
+
+    async def ghi_lai(ten, args):
+        da_chay.append({"ten": ten, "args": args})
+        return await goc(ten, args)
+
+    monkeypatch.setattr(tools_mod, "run_tool", ghi_lai)
+
+    moi_truong.category = "LOGISTICS"
+    moi_truong.decisions = [
+        {"thought": "so lời chào", "tool": "carrier_selection",
+         "arguments": {"request": {"origin": "KCN Quế Võ", "destination": "Hà Nội",
+                                   "vehicle_type": "5T"}}},
+        {"thought": "đã xếp hạng", "answer": "Tôi đã xếp hạng hai nhà xe giúp anh."},
+    ]
+    da_trich_xuat = _theo_doi_trich_xuat(moi_truong)
+
+    tra_loi = _hoi(_SO_CHAO_GIA)
+
+    assert moi_truong.decisions == [], "vòng agentic phải thực sự chạy"
+    assert da_trich_xuat == [], "KHÔNG được rơi vào luồng báo giá n8n"
+    assert [c["name"] for c in da_chay[0]["args"]["carriers"]] == ["Trường Thịnh", "Đại An"]
+    assert [o["price"] for o in da_chay[0]["args"]["offers"]] == [9_100_000, 10_700_000]
+    assert tra_loi == "Tôi đã xếp hạng hai nhà xe giúp anh."
+
+
+def test_tra_loi_cau_hoi_vat_o_luot_sau_thi_tinh_tren_hoa_don_luot_truoc(
+    moi_truong, monkeypatch
+):
+    """
+    Lượt 1: hoá đơn không nói giá đã gồm VAT chưa -> Brain hỏi lại. Lượt 2:
+    người dùng chỉ gõ "chưa gồm VAT" — câu đó tự nó không có kế hoạch nào, nên
+    phải được ghép với hoá đơn của lượt 1 rồi chạy `vat` thật.
+    """
+    from src.api import dependencies as deps
+    from src.api.routes import chat as chat_mod
+    from src.api.routes import tools as tools_mod
+    from src.core.doc_dau_vao import CAU_HOI_THUE
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    hoa_don = ('Kiểm tra hoá đơn này giúp tôi: {"Cước vận chuyển HN-HP": 5000000, '
+               '"Phụ phí xăng dầu": 500000}, thuế suất 10%, tổng ghi 6.500.000đ có đúng không?')
+    monkeypatch.setattr(chat_mod, "_load_history", lambda uid: [
+        {"role": "user", "content": hoa_don},
+        {"role": "assistant", "content": CAU_HOI_THUE},
+    ])
+
+    da_chay: list[dict] = []
+    goc = tools_mod.run_tool
+
+    async def ghi_lai(ten, args):
+        kq = await goc(ten, args)
+        da_chay.append({"ten": ten, "args": args, "kq": kq})
+        return kq
+
+    monkeypatch.setattr(tools_mod, "run_tool", ghi_lai)
+    moi_truong.category = "GENERAL"
+    moi_truong.decisions = [
+        {"thought": "tính lại", "tool": "vat",
+         "arguments": {"items": [{"name": "Cước", "price": 5000000, "qty": 1}],
+                       "stated_total": 6500000}},
+        {"thought": "đã có số", "answer": "Tổng đúng là 6.050.000đ, lệch 450.000đ."},
+    ]
+
+    tra_loi = _hoi("chưa gồm VAT")
+
+    assert moi_truong.decisions == [], "vòng agentic phải thực sự chạy"
+    assert da_chay and da_chay[0]["ten"] == "vat"
+    assert len(da_chay[0]["args"]["items"]) == 2, "B bóc đủ hai dòng từ hoá đơn lượt trước"
+    assert da_chay[0]["args"]["prices_include_vat"] is False
+    assert da_chay[0]["kq"]["calculated_total"] == 6_050_000
+    assert "6.050.000" in tra_loi
+
+
+def test_chat_chan_cau_suy_bien_truoc_khi_ra_ngoai(moi_truong, monkeypatch):
+    """
+    BR-05 yêu cầu 9 (29/10/2026): bản fine-tune hết ý thì trôi sang chữ Hán và
+    lặp tới trần token. Nhánh GENERAL không có `grounding_ctx`, nên trước chốt
+    suy biến đoạn rác đó đi thẳng ra màn hình khách.
+    """
+    from src.api import dependencies as deps
+    from src.core.grounding import LOI_SUY_BIEN
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "GENERAL"
+    moi_truong.answer = "Doanh thu quý này ổn định. " + "无所不能" * 200
+
+    assert _hoi("Tình hình kinh doanh quý này thế nào?") == LOI_SUY_BIEN

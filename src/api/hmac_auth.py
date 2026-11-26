@@ -7,7 +7,7 @@ VÌ SAO
 một bên thì hỏng cả hai. HMAC ký từng yêu cầu bằng khoá riêng của từng bên gọi, kèm thời điểm và số dùng một lần (nonce), nên
 yêu cầu bị chép lại thì vô dụng sau 5 phút, sửa một byte là sai chữ ký, và thu hồi được từng bên.
 
-GIAO THỨC (V1; nghiên cứu: `NGHIEN_CUU_HMAC` ở repo tài liệu, bốn vector vàng ở `tests/test_hmac_auth.py`)
+GIAO THỨC (V1; nghiên cứu: `NGHIEN_CUU_HMAC` ở repo tài liệu, bốn vector vàng ở `tests/integration/api/test_hmac_auth.py`)
 ------------------------------------------------------------------------------------------------------
 Bên gọi gửi bốn header:
 

@@ -77,7 +77,7 @@ assert eval_file.exists(), f"Thiếu {eval_file} — chạy build_dataset_v3.py 
 # ── 2. Model + tokenizer ────────────────────────────────────────────────
 print(f"Tải {MODEL_ID}...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-model = AutoModelForCausalLM.from_pretrained(
+model: Any = AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
     quantization_config=BitsAndBytesConfig(
         load_in_4bit=True,

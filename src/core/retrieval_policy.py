@@ -261,7 +261,7 @@ def _do_dai_mo_ta(tu: list[str], j: int, cum: tuple = _CUM_MO_TA) -> int:
 # Cụm DỪNG: từ ghép thông dụng mà MỘT âm tiết của nó cũng là âm tiết hay làm tên ("thanh" trong "thanh toán", "gia" trong "gia đình"). Trước A9b (23/11/2026)
 # từng âm tiết nằm riêng trong `_TU_THONG_DUNG`, nên "công ty hoàng gia" dừng ở "gia" và "công ty thanh vân" dừng ngay ở "thanh": tên khách đi nguyên văn
 # ra ngoài (lỗ R2 có từ BR-26). Giờ chỉ CẢ CỤM mới dừng vòng quét; âm tiết đứng riêng là ứng viên tên như mọi từ lạ khác (xoá, tính vào ba từ).
-# Khớp theo DẤU CHÍNH XÁC, cụm dài thử trước. Thêm một cụm là nới một lớp R2: kèm một câu công khai thật bị cắt nhầm trong `tests/test_a9b_cum_dung.py`.
+# Khớp theo DẤU CHÍNH XÁC, cụm dài thử trước. Thêm một cụm là nới một lớp R2: kèm một câu công khai thật bị cắt nhầm trong `tests/unit/core/test_a9b_cum_dung.py`.
 _CUM_DUNG = tuple(sorted(
     (
         ("thanh", "toán"), ("gia", "đình"), ("trung", "thành"), ("thành", "lập"), ("xử", "lý"), ("liên", "quan"), ("hiệu", "quả"), ("thường", "xuyên"),

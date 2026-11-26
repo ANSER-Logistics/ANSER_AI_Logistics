@@ -665,7 +665,7 @@ async def tool_partner_audit(
         #
         # Không loại ra thì `model_dump()` và tham số `role=` va nhau:
         # "got multiple values for keyword argument 'role'" —
-        # `tests/test_body_contract.py` bắt được ngay khi thêm trường (04/11/2026).
+        # `tests/integration/api/test_body_contract.py` bắt được ngay khi thêm trường (04/11/2026).
         return rcv.audit_partners(
             [pi.Partner(**p.model_dump(exclude={"role"}), role=pi.KHACH_HANG)
              for p in req.customers],
