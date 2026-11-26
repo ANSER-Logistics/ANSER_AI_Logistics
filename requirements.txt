@@ -22,7 +22,7 @@ ddgs<10
 # `<1` từ #30 (20/11/2026). Trần chặt `<0.137` cũ (#6) có vì từ 0.162
 # `include_router` gói route vào `_IncludedRouter`, nên duyệt `app.routes` thấy 0
 # endpoint và 46 ca kiểm token skip im lặng. Các test giờ lấy bảng route từ
-# `app.openapi()` (tests/bang_route.py): 24 cặp (method, path) giống từng phần tử
+# `app.openapi()` (tests/support/bang_route.py): 24 cặp (method, path) giống từng phần tử
 # trên 0.136.3 lẫn 0.165.0. `test_bang_route_khong_rong` vẫn đỏ to nếu bảng vỡ.
 fastapi<1
 json_repair<0.65

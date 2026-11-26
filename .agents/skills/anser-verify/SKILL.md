@@ -28,7 +28,7 @@ Run these too when the change touches them:
 | prompts, `workflow_schema.py`, n8n catalog, `offline_training/` | `ENV=LOCAL python offline_training/make_extraction_seeds.py --n 60 --n-eval 10 && python offline_training/make_n8n_pairs.py && python offline_training/build_dataset_v3.py && python offline_training/preflight_check.py` |
 | `src/api/routes/tools.py` input schemas, before anything reaches `main` | `python offline_training/doi_chieu_hop_dong_body.py` (exit 1 = Body sends a field Brain rejects) |
 | a function that returns different shapes on the "missing data" path | `python offline_training/soat_hinh_dang_tra_ve.py`, then answer the AGENTS.md R1 table for each hit |
-| any `.md` file | `ENV=LOCAL pytest tests/test_tai_lieu_khop_ma.py -q` (every relative link must resolve; docs links go to `anser-brain-docs` as absolute URLs) |
+| any `.md` file | `ENV=LOCAL pytest tests/contracts/test_tai_lieu_khop_ma.py -q` (every relative link must resolve; docs links go to `anser-brain-docs` as absolute URLs) |
 
 Report: paste the pytest summary line and every failure. Never describe a red test as green.
 

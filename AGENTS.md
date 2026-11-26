@@ -94,7 +94,7 @@ Ngoại lệ duy nhất — nguồn công khai, **chỉ đọc, không kèm tham
 
 > ⚠️ `src/evaluate_system.py` **ĐÃ XOÁ** (07/11/2026, chủ dự án duyệt). Chặn chạy từ 04/11, xoá hẳn ba ngày sau. Lấy lại bằng `git show db7c48c^:src/evaluate_system.py`. Nó đã bị [`benchmark_v3.py`](offline_training/benchmark_v3.py) thay thế. Ngoài rủi ro R2 (gửi prompt + ground truth + đầu ra model tới DeepSeek, không rào nào chặn việc lỡ chạy trên dữ liệu khách), judge của nó chấm theo **định dạng Make.com** — thứ R4 đã bỏ — nên mọi điểm số nó đưa ra đều đo sai thứ. `benchmark_v3` chấm n8n bằng chính `validate_workflow()` của runtime và chấm narration bằng `src/core/grounding.py`, tức phép kiểm lúc đo và lúc chạy là MỘT. Lý do đầy đủ ở docstring đầu file.
 
-> ⚠️ `requirements.txt` có `openai`. Đo 12/11/2026: **`src/` không import nó**; chỉ `offline_training/` import gói đó, và chỉ **ba file** (`dgen_common.py`, `day1_test_batch.py`, `day2_full_batch.py` — gọi DeepSeek trên kịch bản hư cấu). `providers.py` (và `benchmark_v3.py` qua nó) gọi endpoint bằng `httpx`, không dùng gói `openai` — nên gỡ `openai` khỏi `requirements.txt` không làm bộ đo hỏng. Dùng nó để gọi API ngoài với dữ liệu khách là vi phạm R2. Provider `anthropic:` của `providers.py` gửi câu hỏi đo ra ngoài, nên chỉ chạy trên bộ đề **hoàn toàn hư cấu** (chủ dự án chốt 15/11/2026, để có một model mạnh đánh giá lại năng lực nghiệp vụ); bộ "đã ẩn danh" không đủ. `benchmark_v3` chỉ đọc bốn file `generated/eval_*.jsonl` và `tests/test_providers.py` khoá điều đó.
+> ⚠️ `requirements.txt` có `openai`. Đo 12/11/2026: **`src/` không import nó**; chỉ `offline_training/` import gói đó, và chỉ **ba file** (`dgen_common.py`, `day1_test_batch.py`, `day2_full_batch.py` — gọi DeepSeek trên kịch bản hư cấu). `providers.py` (và `benchmark_v3.py` qua nó) gọi endpoint bằng `httpx`, không dùng gói `openai` — nên gỡ `openai` khỏi `requirements.txt` không làm bộ đo hỏng. Dùng nó để gọi API ngoài với dữ liệu khách là vi phạm R2. Provider `anthropic:` của `providers.py` gửi câu hỏi đo ra ngoài, nên chỉ chạy trên bộ đề **hoàn toàn hư cấu** (chủ dự án chốt 15/11/2026, để có một model mạnh đánh giá lại năng lực nghiệp vụ); bộ "đã ẩn danh" không đủ. `benchmark_v3` chỉ đọc bốn file `generated/eval_*.jsonl` và `tests/offline_training/test_providers.py` khoá điều đó.
 
 **R2b — Kỷ luật bí mật (bổ sung 27/07/2026, sau sự cố lộ mật khẩu Neon):**
 
@@ -135,7 +135,7 @@ Bản trước của mục này ghi *"Ba nơi sau phải luôn khớp nhau. Sử
 **Đối chiếu bằng lệnh, đừng nhớ.** Đo 12/11/2026: **12** node type trong catalog dự phòng (10 ở lần đo 04/11; thêm `emailSend`, `splitOut` khi khớp với workflow thật của Body ở PR #24), cả bốn chỗ (catalog, prompt, `allowed_types()`, grammar) khớp tuyệt đối; `BLOCKED_NODE_TYPES` rời khỏi catalog.
 
 ```bash
-pytest tests/test_agent_middleware.py tests/test_deterministic_core.py -q
+pytest tests/unit/core/test_agent_middleware.py tests/unit/core/test_deterministic_core.py -q
 ```
 
 Lệch pha còn có thể xảy ra ở quy mô nhỏ hơn ba file: `render_node_catalog()` viết ra thứ **model được dạy**, `validate_workflow()` kiểm thứ **model phải làm**. Hai hàm cùng file, cùng đọc một dict, nhưng là hai vòng lặp riêng — thêm một điều kiện lọc ở một bên là dạy model một định dạng mà bên kia từ chối. Ba test chặn đúng chỗ đó: tập node khớp, `typeVersion` khớp, và node bị chặn không lọt vào prompt.
@@ -219,7 +219,7 @@ Yêu cầu nghiệp vụ trực tiếp từ chủ dự án: *"hôm nay 25 nghìn
 | # | Quy tắc |
 |---|---|
 | 1 | **Constrained decoding thay cho retry.** Đầu ra JSON dùng `guided_json`. Đừng "hy vọng model làm đúng rồi retry" |
-| 2 | **Không chặn event loop.** Inference nặng qua `run_in_executor` hoặc HTTP tới vLLM server. Hàm đồng bộ tốn thời gian gọi trong `async def` (đọc xlsx, bóc PDF, tìm web, SQL) đi qua `chay_ngoai_loop`; mọi thao tác `KnowledgeBase` đi qua `chay_tren_kho` (MỘT worker, vì `add_document` mà chạy song song với `search` thì để lại đoạn giá cũ cạnh bản mới). Cả hai ở `src/api/chay_ngoai_loop.py`; `tests/test_khong_chan_event_loop*.py` đo độ trễ của loop và canh việc này. KHÔNG `asyncio.Lock` ở mức module, KHÔNG `wait_for` trên đường kho tri thức |
+| 2 | **Không chặn event loop.** Inference nặng qua `run_in_executor` hoặc HTTP tới vLLM server. Hàm đồng bộ tốn thời gian gọi trong `async def` (đọc xlsx, bóc PDF, tìm web, SQL) đi qua `chay_ngoai_loop`; mọi thao tác `KnowledgeBase` đi qua `chay_tren_kho` (MỘT worker, vì `add_document` mà chạy song song với `search` thì để lại đoạn giá cũ cạnh bản mới). Cả hai ở `src/api/chay_ngoai_loop.py`; `tests/integration/chat/test_khong_chan_event_loop*.py` đo độ trễ của loop và canh việc này. KHÔNG `asyncio.Lock` ở mức module, KHÔNG `wait_for` trên đường kho tri thức |
 | 3 | **Log có cấu trúc, không `print`.** `logger` + `extra={"request_id": ...}` |
 | 4 | **Không nuốt exception.** `except Exception: pass` bị cấm. Ít nhất phải `logger.warning` kèm ngữ cảnh |
 | 5 | **Tool tự validate đầu vào.** Không tin tham số model điền |
@@ -281,6 +281,12 @@ Khi người dùng hỏi còn việc gì, tra bằng tài khoản đang đăng n
 - Lượt nhắc trực tiếp: tìm cả issue và PR với `gh search issues --owner ANSER-Logistics --mentions @me` và `gh search prs --owner ANSER-Logistics --mentions @me`. Đọc phần trao đổi mới nhất để xác định còn cần phản hồi gì.
 
 Gộp kết quả trùng theo repo và số issue/PR. Với mỗi việc còn mở, dẫn liên kết, nêu ai đang chờ và hành động tiếp theo. Hỏi người dùng muốn xử lý hoặc giao agent phần nào; nếu họ đã giao rõ thì làm tiếp trong phạm vi đó. Một lượt nhắc để biết hoặc một yêu cầu đã trả lời không tạo thêm việc. Nếu thiếu quyền xem nguồn nào, ghi rõ phạm vi đã kiểm.
+
+### 5.0b. Đề xuất đóng PR của người dùng khi việc đã hoàn thành
+
+Khi việc được đánh dấu `Done`, kiểm tra tác giả PR có đúng là người dùng đang đăng nhập. Với PR còn mở do người dùng đó tạo, đọc tiêu chí nghiệm thu, bình luận và yêu cầu sửa mới nhất. Đối chiếu thay đổi với nhánh đích, kể cả khi mã được gộp qua PR khác hoặc squash.
+
+Nếu mọi tiêu chí đã đạt và nhánh đích đã chứa đủ thay đổi, gửi người dùng liên kết PR cùng commit hoặc PR đã gộp làm bằng chứng và đề xuất đóng. Người dùng quyết định và tự đóng theo §5.5. Nếu còn việc, nêu rõ phần đang chờ.
 
 ### 5.1. Trước khi viết code
 
@@ -619,9 +625,9 @@ File này là nguồn sự thật cho **mọi** agent (Codex đọc nó trực t
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code | Import AGENTS.md + cách dùng skill và graph |
 | [`GEMINI.md`](GEMINI.md) | Gemini CLI | Import AGENTS.md (Gemini mặc định đọc `GEMINI.md`, không đọc `AGENTS.md`) |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
-| [`.claude/settings.json`](.claude/settings.json), [`.geminiignore`](.geminiignore) | Claude Code, Gemini CLI | **Chặn đọc** ảnh, PDF upload và nhật ký hỏi đáp ở gốc `src/data/`, và `.env` (R2, ở tầng công cụ chứ không bằng lời dặn). `tests/test_cau_hinh_ai_chan_du_lieu_khach.py` giữ hai file và `.graphifyignore` khớp nhau |
+| [`.claude/settings.json`](.claude/settings.json), [`.geminiignore`](.geminiignore) | Claude Code, Gemini CLI | **Chặn đọc** ảnh, PDF upload và nhật ký hỏi đáp ở gốc `src/data/`, và `.env` (R2, ở tầng công cụ chứ không bằng lời dặn). `tests/contracts/test_cau_hinh_ai_chan_du_lieu_khach.py` giữ hai file và `.graphifyignore` khớp nhau |
 | [`.claude/skills/`](.claude/skills/) | Claude Code | Skill dự án |
-| [`.agents/skills/`](.agents/skills/) | Codex, Gemini CLI | **Bản sao giống hệt** `.claude/skills/` — `tests/test_skill_dong_bo.py` chặn lệch và kiểm frontmatter |
+| [`.agents/skills/`](.agents/skills/) | Codex, Gemini CLI | **Bản sao giống hệt** `.claude/skills/` — `tests/contracts/test_skill_dong_bo.py` chặn lệch và kiểm frontmatter |
 
 Sáu skill, ở cả hai thư mục:
 
