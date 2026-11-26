@@ -55,6 +55,7 @@ QUA_LON = b'{"detail":"Payload Too Large"}'
 DO_DAI_SAI = b'{"detail":"Invalid Content-Length"}'
 
 _CHU_SO_ASCII = frozenset("0123456789")
+_OWS = " \t"
 SAI, QUA_TRAN, TRONG_TRAN = "sai", "qua_tran", "trong_tran"
 
 
@@ -93,7 +94,9 @@ class GioiHanThanMiddleware:
         dai = None
         for k, v in scope["headers"]:
             if k.lower() == b"content-length":
-                dai = v.decode("latin-1").strip()
+                # Chỉ cắt OWS của HTTP (dấu cách, tab — RFC 9110 §5.6.3). `str.strip()` trơn cắt cả U+00A0, U+0085,
+                # \x0b, \x0c, \r, \n (latin-1 giải mã ra được hết), nên `\xa05` từng lọt thành 5 (wikiepeidia, #253).
+                dai = v.decode("latin-1").strip(_OWS)
                 break
 
         if dai is not None:

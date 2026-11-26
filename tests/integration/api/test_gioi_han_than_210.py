@@ -161,6 +161,29 @@ def test_content_length_hop_le_qua_tran_413(cl):
     assert da_doc == 0
 
 
+# Khoảng trắng ở hai đầu: chỉ dấu cách và tab là OWS hợp lệ của HTTP (RFC 9110 §5.6.3). Mọi khoảng trắng khác mà
+# `str.strip()` trơn sẽ cắt (NBSP, NEL, VT, FF, CR, LF, FS–US) phải ra 400 — bản đầu của #253 nhận chúng (wikiepeidia).
+KHOANG_TRANG_LA = [b"\xa0", b"\x85", b"\x0b", b"\x0c", b"\r", b"\n", b"\x1c", b"\x1f"]
+
+
+@pytest.mark.parametrize("ws", KHOANG_TRANG_LA, ids=repr)
+@pytest.mark.parametrize("vi_tri", ["dau", "cuoi"])
+def test_content_length_khoang_trang_ngoai_ows_400(ws, vi_tri):
+    cl = ws + b"2" if vi_tri == "dau" else b"2" + ws
+    ma, ra, da_doc = _goi_asgi(app, "POST", "/tools/vat", b"{}", {"content-length": cl})
+    assert ma == 400, (ma, ra[:120])
+    assert da_doc == 0
+
+
+@pytest.mark.parametrize("ows", [b" ", b"\t", b" \t ", b"\t\t"], ids=repr)
+def test_content_length_ows_hai_dau_van_nhan(ows):
+    than = json.dumps(THAN_VAT, ensure_ascii=False).encode()
+    ma, ra, _ = _goi_asgi(app, "POST", "/tools/vat", than,
+                          {"content-type": "application/json",
+                           "content-length": ows + str(len(than)).encode() + ows})
+    assert ma == 200 and json.loads(ra)["calculated_total"] == 2_200_000
+
+
 def test_content_length_so_0_dau_trong_tran_di_qua():
     than = json.dumps(THAN_VAT, ensure_ascii=False).encode()
     ma, ra, _ = _goi_asgi(app, "POST", "/tools/vat", than,
