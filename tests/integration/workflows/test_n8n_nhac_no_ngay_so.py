@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-WF = Path(__file__).resolve().parent.parent / "workflows" / "logistics" / "logistics_debt_reminder.json"
+WF = Path(__file__).resolve().parents[3] / "workflows" / "logistics" / "logistics_debt_reminder.json"
 NOW = "2026-07-27T03:00:00Z"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="cần Node để chạy đoạn JS thật của workflow n8n (CI có sẵn Node)")
@@ -61,7 +61,8 @@ def test_ba_ca_cua_issue_265():
     assert "Khách Tiền" in mo_ta and "4.550.000" in mo_ta and "quá hạn 26 ngày" in mo_ta
     assert "NaN" not in mo_ta and "NaN" not in ra["discord_body"]
     assert "2 dòng không đọc được" in mo_ta and "RC-OLD" in mo_ta and "RC-FUT" in mo_ta
-    assert "Khách Cũ" not in mo_ta and "Khách Xa" not in mo_ta, "dòng không đọc được chỉ hiện MÃ, không hiện nội dung ô lạ"
+    assert "Khách Cũ" in mo_ta and "Khách Xa" in mo_ta, "chủ DN cần thấy KHÁCH nào để đi sửa ô"
+    assert "31/12/2000" not in mo_ta and "15/07/2999" not in mo_ta, "nội dung ô ngày/tiền lạ không được đưa vào thông báo"
 
 
 def test_chi_co_dong_khong_doc_duoc_van_bao_khong_im_lang():
@@ -106,10 +107,11 @@ def test_khong_co_han_thi_khong_tinh_la_giu_hanh_vi_cu():
     assert _chay([_no(han="")])["has_report"] is False
 
 
-def test_ma_la_chi_giu_ky_tu_an_toan_va_co_do_dai_toi_da():
-    ra = _chay([_no(ma="RC-1 <script>\nđộc", han="xx")])
+def test_ma_va_ten_la_chi_giu_ky_tu_an_toan_va_co_do_dai_toi_da():
+    ra = _chay([_no(ma="RC-1 <script>\nđộc", ten="Khách *đậm* `mã` \n| x" + "y" * 100, han="xx")])
     mo_ta = _mo_ta(ra)
     assert "<" not in mo_ta and "\nđộc" not in mo_ta
+    assert "*đậm*" not in mo_ta and "`" not in mo_ta and "yyyy" in mo_ta and "y" * 70 not in mo_ta
     ra = _chay([_no(ma=f"RC{i}", han="xx") for i in range(30)])
     assert "30 dòng không đọc được" in _mo_ta(ra) and "…" in _mo_ta(ra)
 
