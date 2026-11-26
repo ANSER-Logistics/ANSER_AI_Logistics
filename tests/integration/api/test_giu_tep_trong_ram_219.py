@@ -95,8 +95,52 @@ def test_nang_nguong_thap(monkeypatch):
     assert MultiPartParser.spool_max_size == TRAN_THAN_MAC_DINH
 
 
-def test_starlette_doi_thuoc_tinh_thi_dung_khong_lang_le(monkeypatch):
-    """Nâng Starlette mà `spool_max_size` biến mất: không biết tệp có chạm đĩa không, nên phải ném lỗi chứ không chạy tiếp."""
+def test_starlette_khong_co_ca_hai_thuoc_tinh_thi_dung_khong_lang_le(monkeypatch):
+    """Không thấy thuộc tính ngưỡng nào: không biết tệp có chạm đĩa không, nên phải ném lỗi chứ không chạy tiếp."""
     monkeypatch.delattr(MultiPartParser, "spool_max_size")
-    with pytest.raises(RuntimeError, match="spool_max_size"):
+    assert not hasattr(MultiPartParser, "max_file_size")
+    with pytest.raises(RuntimeError, match="spool_max_size.*max_file_size"):
+        giu_tep_trong_ram.giu_trong_ram()
+
+
+# --- Starlette 0.27–0.45 gọi ngưỡng là `max_file_size` (review của Minh trên PR #279) ----------------------------------
+# FastAPI 0.115.8 + Starlette 0.45.3 thoả `fastapi<1`. CI cài bản mới, nên giả lập lớp parser cũ bằng cách đổi tên thuộc tính.
+
+
+@pytest.fixture
+def parser_starlette_cu(monkeypatch):
+    """MultiPartParser kiểu 0.45.3: có `max_file_size` = 1 MiB, không có `spool_max_size`."""
+    monkeypatch.delattr(MultiPartParser, "spool_max_size")
+    monkeypatch.setattr(MultiPartParser, "max_file_size", 1024 * 1024, raising=False)
+
+
+def test_starlette_cu_nang_max_file_size(parser_starlette_cu):
+    assert giu_tep_trong_ram.giu_trong_ram() == "max_file_size"
+    assert MultiPartParser.max_file_size == TRAN_THAN_MAC_DINH
+    assert not hasattr(MultiPartParser, "spool_max_size")
+
+
+def test_starlette_cu_khong_ha_nguong_da_cao_hon(parser_starlette_cu, monkeypatch):
+    monkeypatch.setattr(MultiPartParser, "max_file_size", TRAN_THAN_MAC_DINH * 2)
+    giu_tep_trong_ram.giu_trong_ram()
+    assert MultiPartParser.max_file_size == TRAN_THAN_MAC_DINH * 2
+
+
+def test_starlette_moi_dung_spool_max_size():
+    assert giu_tep_trong_ram.giu_trong_ram() == "spool_max_size"
+
+
+def test_co_ca_hai_ten_thi_uu_tien_ten_moi(monkeypatch):
+    """Bản nào đó có cả hai: `spool_max_size` mới là cái đặt cỡ bản đệm, `max_file_size` có thể mang nghĩa khác."""
+    monkeypatch.setattr(MultiPartParser, "spool_max_size", 1024 * 1024)
+    monkeypatch.setattr(MultiPartParser, "max_file_size", 7, raising=False)
+    assert giu_tep_trong_ram.giu_trong_ram() == "spool_max_size"
+    assert MultiPartParser.spool_max_size == TRAN_THAN_MAC_DINH
+    assert MultiPartParser.max_file_size == 7
+
+
+@pytest.mark.parametrize("gia_tri", [None, True, "1048576", 1.5])
+def test_thuoc_tinh_sai_kieu_thi_dung(monkeypatch, gia_tri):
+    monkeypatch.setattr(MultiPartParser, "spool_max_size", gia_tri)
+    with pytest.raises(RuntimeError):
         giu_tep_trong_ram.giu_trong_ram()
