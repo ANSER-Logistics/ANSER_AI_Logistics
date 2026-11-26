@@ -406,6 +406,8 @@ Chủ dự án chốt ở #124: model thị giác pilot là bản **tự lượn
    ```
 4. Kiểm thư mục tự đứng được: `vllm serve` **thẳng từ thư mục trên Drive** (không từ bản sao), cùng cờ với #189, rồi đo 28 ca như §8.2. Kết quả phải trùng #189 theo từng ca (`so_sanh_vlm.py`). Lệch ca nào thì tokenizer hay processor mới chép khác bản đã dùng ở #189, phải đọc lại trước khi dùng.
 
+   **Đã làm 26/11/2026** (Colab L4, vLLM 0.11.2, mã `e0b9e62`). Tệp chép từ `Qwen/Qwen2.5-VL-7B-Instruct@cc594898137f460bfe9f0759e9844b3ce807cfb5`. Model lên sau 160 giây dù nạp thẳng từ Drive. Kết quả: 22/28 đúng hết, 28/28 tổng đúng, 26/28 không lỗi tiền, p50/p95 5,9/7,0 giây, tức trùng #189. So từng ca với #189: b = 0, c = 0. VRAM đỉnh 19 174 MiB, khi chạy một mình với `--gpu-memory-utilization 0.85`; con số này không phải cổng 3. Số đo nằm trên Drive `do_271_20261126_e0b9e62/`, MANIFEST ở #271.
+
 **Đặt lên máy chạy (compose).** Compose gắn `MODELS_DIR` (mặc định `./models`) vào `/models` của container `vllm-vision`, chỉ đọc. Chép cả thư mục vào `./models/q25vl7b-w4a16-tu-luong-tu/`, kiểm, rồi đặt `.env`:
 ```bash
 cd models/q25vl7b-w4a16-tu-luong-tu && sha256sum -c MANIFEST.sha256    # mọi dòng phải "OK"
