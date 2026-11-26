@@ -5,12 +5,23 @@
 # KIẾN TRÚC: model chạy trong tiến trình RIÊNG, Brain gọi qua HTTP.
 #
 #   ┌─────────────┐   HTTP    ┌──────────────┐
-#   │   brain     │──────────▶│  vllm-text   │  GPU ~62%   Qwen3-8B AWQ
+#   │   brain     │──────────▶│  vllm-text   │  GPU ~43%   anser-v5 (Qwen3-8B AWQ), ngữ cảnh 14.336
 #   │  (CPU only) │           └──────────────┘
 #   │  FastAPI    │   HTTP    ┌──────────────┐
-#   │  engine     │──────────▶│ vllm-vision  │  GPU ~25%   Qwen3-VL-2B
+#   │  engine     │──────────▶│ vllm-vision  │  GPU ~44%   Qwen2.5-VL-7B AWQ, ngữ cảnh 8.192
 #   │  tất định   │           └──────────────┘
 #   └─────────────┘
+#
+# PILOT MỘT GPU (#273, chốt ở #124 và #176): cả hai model trên MỘT L4 22,5 GB. Đo 20/11/2026
+# (#124, vLLM 0.11.2, tải đồng thời 10 phút): VRAM đỉnh 88,4%, không OOM. Mặc định dưới đây là đúng
+# các số đó; máy khác (3090/4090 24 GB) thì chỉ đổi .env (R5), đo lại bằng
+# `offline_training/ke_hoach_vram.py`.
+#
+# Trọng số vision 7B là bản TỰ lượng tử hoá AWQ từ bản gốc bf16 Apache-2.0 (#189), không phải
+# `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` (tệp LICENSE kèm theo khác thẻ, #124). Đặt trong .env:
+#     VISION_MODEL_ID=/models/<thư mục trọng số>      (MODELS_DIR mount ở /models)
+# Mặc định của VISION_MODEL_ID vẫn là Qwen3-VL-2B, khớp src/core/config.py và .env.example
+# (tests/test_giay_phep_model.py): một đường dẫn cục bộ không làm được mặc định chung.
 #
 # Vì sao Brain KHÔNG cần GPU: mọi phần nặng nằm sau HTTP. Brain còn lại là
 # FastAPI + các engine tất định (pricing, reporting, inventory, calibration) —
@@ -60,15 +71,17 @@ services:
     # Qua shell để BỎ HẲN cờ khi biến rỗng: `--quantization=` rỗng là lỗi của
     # vLLM, và danh sách `command:` không bỏ được phần tử. `$$` là `$` để shell
     # TRONG container mở rộng, không phải compose.
-    #   --max-model-len: BR-04, chốt 28/10/2026
+    #   --max-model-len: 14.336 cho pilot một GPU (#124, đo chung GPU với vision 7B). Một mình
+    #     một GPU thì 32.768 (BR-04, chốt 28/10/2026) và TEXT_GPU_FRACTION 0.62.
+    #   --served-model-name: anser-v5 (#176, chủ dự án chốt). Phải khớp VLLM_MODEL của brain.
     #   --disable-log-requests: P2, prompt chứa dữ liệu khách
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-
         exec vllm serve /models/${TEXT_MODEL_DIR:?thiếu TEXT_MODEL_DIR trong .env}
-        --served-model-name=anser-v3
-        --max-model-len=${TEXT_MAX_MODEL_LEN:-32768}
-        --gpu-memory-utilization=${TEXT_GPU_FRACTION:-0.62}
+        --served-model-name=anser-v5
+        --max-model-len=${TEXT_MAX_MODEL_LEN:-14336}
+        --gpu-memory-utilization=${TEXT_GPU_FRACTION:-0.43}
         --port=8001
         --disable-log-requests
         $${TEXT_QUANTIZATION:+--quantization=$$TEXT_QUANTIZATION}
@@ -105,9 +118,11 @@ services:
     command:
       - --model=${VISION_MODEL_ID:-Qwen/Qwen3-VL-2B-Instruct}
       - --served-model-name=anser-vision
-      - --max-model-len=${VISION_MAX_MODEL_LEN:-4096}
-      - --gpu-memory-utilization=${VISION_GPU_FRACTION:-0.25}
-      - --limit-mm-per-prompt=image=2
+      - --max-model-len=${VISION_MAX_MODEL_LEN:-8192}
+      - --gpu-memory-utilization=${VISION_GPU_FRACTION:-0.44}
+      # Dạng JSON: đã chạy ở vLLM 0.11.2 trong phép đo #124. Không qua shell (danh sách `command:`)
+      # nên dấu nháy đơn là của YAML, vLLM nhận nguyên chuỗi {"image":2}.
+      - '--limit-mm-per-prompt={"image":2}'
       - --port=8002
     volumes:
       - ${MODELS_DIR:-./models}:/models:ro
@@ -138,7 +153,13 @@ services:
     environment:
       ENV: SERVER
       VLLM_BASE_URL: http://vllm-text:8001
-      VLLM_MODEL: anser-v3
+      VLLM_MODEL: anser-v5
+      # Server text THỨ HAI chỉ cho workflow n8n (#176 phương án b, PR #257). CHỈ bật khi có GPU thứ
+      # hai (hoặc đo lại VRAM cho ba server): pilot một GPU KHÔNG đủ chỗ. Rỗng = n8n đi server chính.
+      # Bật: thêm service vllm-text-n8n (anser-v3) rồi bỏ chú thích hai dòng dưới, cùng hai khoá
+      # tương ứng trong .env.example.
+      #   VLLM_N8N_BASE_URL: http://vllm-text-n8n:8003
+      #   VLLM_N8N_MODEL: anser-v3
       # Rỗng mặc định vì `vllm-vision` thuộc profile `vision` (xem đầu file).
       # Đặt trong .env cùng lúc bật profile; quên một trong hai là /health báo
       # `degraded` (có URL mà container không chạy) hoặc vision tắt.
@@ -154,6 +175,12 @@ services:
       P95_NGUONG_MS: ${P95_NGUONG_MS:-5000}
       P95_CUA_SO: ${P95_CUA_SO:-200}
       P95_MAU_TOI_THIEU: ${P95_MAU_TOI_THIEU:-30}
+      # Giới hạn tốc độ theo khách (#218, src/api/gioi_han_toc_do.py). RỖNG = mặc định trong mã (gpu 30/phút đỉnh 10,
+      # tools 300/phút đỉnh 60), nên con số chỉ sống ở MỘT nơi (R4). 0 ở *_PER_MIN = tắt nhóm đó. Hỏng thì không khởi động.
+      RATE_LIMIT_GPU_PER_MIN: ${RATE_LIMIT_GPU_PER_MIN:-}
+      RATE_LIMIT_GPU_BURST: ${RATE_LIMIT_GPU_BURST:-}
+      RATE_LIMIT_TOOLS_PER_MIN: ${RATE_LIMIT_TOOLS_PER_MIN:-}
+      RATE_LIMIT_TOOLS_BURST: ${RATE_LIMIT_TOOLS_BURST:-}
       # Tuổi giá dầu (AGENTS §3.1c): cũ từ WARN ngày thì cảnh báo, từ MAX ngày thì
       # /tools/quote trả 422. RỖNG = mặc định trong src/core/pricing.py, nên con số
       # mặc định chỉ sống ở MỘT nơi (R4). Hỏng thì dịch vụ không khởi động.
