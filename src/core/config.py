@@ -22,7 +22,7 @@ MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
 # `knowledge.py` thật sự nạp model; đổi mặc định ở một nơi thì `Config` (dùng cho báo cáo đo) báo sai model.
 # Là HÀM chứ không phải hằng số lúc import, để đổi env rồi nạp lại có hiệu lực và test gán env được.
 # Cả hai model phải dùng thương mại được: bge-m3 (MIT), ViRanker (Apache-2.0, chuyên tiếng Việt, nền BGE-M3).
-# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại (`tests/test_giay_phep_model.py` chặn).
+# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại (`tests/contracts/test_giay_phep_model.py` chặn).
 KB_EMBEDDER_MAC_DINH = "BAAI/bge-m3"
 KB_RERANKER_MAC_DINH = "namdp-ptit/ViRanker"
 
@@ -149,7 +149,7 @@ class Config:
         # TẠM THỜI: chưa có số đo tiếng Việt của model này trên bộ hoá đơn hư cấu
         # (BR-33 / #98 / #114). Đo xong thì giữ hoặc đổi sang ứng viên Apache-2.0
         # hoặc MIT khác bằng env — không cần sửa mã.
-        # `tests/test_giay_phep_model.py` chặn việc đưa một model phi thương mại
+        # `tests/contracts/test_giay_phep_model.py` chặn việc đưa một model phi thương mại
         # trở lại làm mặc định (config, .env.example, compose).
         self.vision_model_id = os.getenv("VISION_MODEL_ID", "Qwen/Qwen3-VL-2B-Instruct")
 

@@ -823,7 +823,7 @@ def smoke_test_guided(nha: NhaCungCap) -> list[str]:
                     "nhưng `$defs` phải được NÂNG LÊN GỐC của lược đồ quyết định — "
                     "`#/$defs/X` là con trỏ tính từ gốc tài liệu, không từ object "
                     "chứa nó.\n"
-                    "Chạy `pytest tests/test_agentic_plan.py -k schema` để khoanh vùng."
+                    "Chạy `pytest tests/unit/agents/test_agentic_plan.py -k schema` để khoanh vùng."
                 )
             else:
                 # Bản dựng qua API hỏng vì lý do khác hẳn: tập JSON Schema mỗi

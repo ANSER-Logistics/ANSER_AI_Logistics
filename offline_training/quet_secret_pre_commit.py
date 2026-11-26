@@ -19,7 +19,7 @@ bản thành 12 file qua các bản backup, bị đẩy lên GitHub public.
 DÙNG LẠI `scan_secrets`, KHÔNG VIẾT MẪU LẦN HAI
 -----------------------------------------------
 Mẫu nhận diện nằm ở `build_dataset_v3.SECRET_PATTERNS` và đã có test phủ
-(`tests/test_training_pipeline_v3.py`). Chép mẫu sang đây là tạo nguồn thứ hai
+(`tests/offline_training/test_training_pipeline_v3.py`). Chép mẫu sang đây là tạo nguồn thứ hai
 cho cùng một khái niệm, đúng thứ R4 cấm — và nguồn thứ hai sẽ là nguồn không ai
 nhớ cập nhật.
 """
@@ -41,8 +41,8 @@ from offline_training.build_dataset_v3 import scan_secrets  # noqa: E402
 #           hook báo oan; nâng cấp thành dấu hiệu trong file (ví dụ một dòng
 #           `# quet-secret: bo-qua`) khi có file thứ tư.
 BO_QUA = {
-    "tests/test_training_pipeline_v3.py",
-    "tests/test_assistant_upgrades.py",
+    "tests/offline_training/test_training_pipeline_v3.py",
+    "tests/unit/agents/test_assistant_upgrades.py",
     # AGENTS.md VIẾT RA chính các mẫu regex trong quy tắc R2b, nên nó luôn khớp
     # với chính bộ quét. Đây là tài liệu quy tắc, không phải chỗ credential sống.
     "AGENTS.md",

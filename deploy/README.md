@@ -169,5 +169,5 @@ trong `.env` VÀ chạy `docker compose --profile vision up -d`; `/health` phả
 hoá). Nay cả hai container dùng `vllm/vllm-openai:v0.11.2`, và `--quantization` /
 `--dtype` chỉ thêm khi đặt `TEXT_QUANTIZATION` / `TEXT_DTYPE` trong `.env` (mặc
 định rỗng — vLLM tự nhận từ `config.json`, chọn nhân `awq_marlin`).
-`tests/test_deploy_config.py` khoá cả hai điều. **Chưa chạy trên GPU**: cần
+`tests/contracts/test_deploy_config.py` khoá cả hai điều. **Chưa chạy trên GPU**: cần
 `docker compose up` rồi `/health` trả `vllm_server.ok: true` với model AWQ.
