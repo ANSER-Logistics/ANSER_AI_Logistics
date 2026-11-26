@@ -429,6 +429,21 @@ Thành đã chạy v3, v4 và DeepSeek cạnh nhau trên một L4 (mục 6: `--m
 
 **Khuyến nghị của agent (chủ dự án quyết):** chạy 9.2 bước 1 trước. Nó rẻ, và kết quả đóng hoặc mở cả hướng hai LoRA. Nếu bước 1 hay bước 2 trượt thì chọn 9.3, không cần train gì thêm.
 
+### 9.4 Brain chọn server theo tác vụ (#176, 24/11/2026)
+
+Đo của Thành ở #176: hai server `anser-v3-awq` (n8n, 34/34 sau thử lại) và `anser-v5-awq` (bóc yêu cầu 91/98, diễn giải 24/27) cùng một L4, mỗi server `--max-model-len=8192 --gpu-memory-utilization=0.40`, VRAM 85,9%. Phía Brain chỉ chọn ĐỊA CHỈ và TÊN MODEL:
+
+| Biến | Ý nghĩa | Mặc định |
+|---|---|---|
+| `VLLM_BASE_URL`, `VLLM_MODEL` | server chính (mọi tác vụ trừ n8n), ví dụ `:8002` và `anser-v5` | như cũ |
+| `VLLM_N8N_BASE_URL`, `VLLM_N8N_MODEL` | server riêng sinh workflow n8n, ví dụ `:8001` và `anser-v3`; CHỈ host nội bộ (R2) | rỗng = n8n dùng server chính, hành vi như cũ |
+| `ANSER_N8N_MAX_CONCURRENT`, `ANSER_N8N_MAX_QUEUE`, `ANSER_N8N_WAIT_TIMEOUT_S` | guard riêng của server n8n | 4, 16, 20 |
+
+- Đặt `VLLM_N8N_BASE_URL` mà text không đi qua server vLLM (thiếu `VLLM_BASE_URL`) là LỖI CẤU HÌNH, không khởi động.
+- `/health` thêm `vllm_n8n_server` và guard `load.n8n`. Server n8n chết thì `degraded: true`, nhưng **không** mở mạch ngắt của `/chat` (`kenh="n8n"`): chỉ sinh workflow hỏng.
+- Thăm dò chủ động (`LLM_PROBE_INTERVAL_S`) vẫn chỉ gọi server chính; server n8n được `/health` kiểm mỗi lần gọi.
+- **Chưa quyết ở tầng triển khai:** ba model (v3, v5, vision 7B) không vừa một L4 24GB; compose giữ một server text cho tới khi chủ dự án chọn cấu trúc (hai server text và vision ngoài GPU này, hay v5 cộng vision, hay thêm GPU: R3).
+
 ## 10. Dữ liệu v6 (#91): hai họ rút từ ca hỏng thật của v5
 
 `make_n8n_pairs.py --bo-loc 60 --v6 40` thêm hai họ mẫu từ `make_n8n_v6.py` (hư cấu, qua `validate_workflow`, không dùng lại bước nào của bộ đo, có test):
