@@ -10,5 +10,31 @@
       "Read(./.env.*)",
       "Read(./deploy/.env)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; if [ ! -f \"$F\" ]; then exit 0; fi; PY=$(command -v py || command -v python3 || command -v python) && \"$PY\" \"$F\"",
+            "timeout": 180,
+            "statusMessage": "Cổng cứng ANSER"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; if [ ! -f \"$F\" ]; then exit 0; fi; PY=$(command -v py || command -v python3 || command -v python) && \"$PY\" \"$F\"",
+            "timeout": 180,
+            "statusMessage": "Cổng cứng ANSER"
+          }
+        ]
+      }
+    ]
   }
 }
