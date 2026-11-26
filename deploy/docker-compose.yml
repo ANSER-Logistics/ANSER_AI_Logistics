@@ -8,18 +8,20 @@
 #   │   brain     │──────────▶│  vllm-text   │  GPU ~43%   anser-v5 (Qwen3-8B AWQ), ngữ cảnh 14.336
 #   │  (CPU only) │           └──────────────┘
 #   │  FastAPI    │   HTTP    ┌──────────────┐
-#   │  engine     │──────────▶│ vllm-vision  │  GPU ~44%   Qwen2.5-VL-7B AWQ, ngữ cảnh 8.192
+#   │  engine     │──────────▶│ vllm-vision  │  GPU ~44%   Qwen2.5-VL-7B GPTQ W4A16, ngữ cảnh 8.192
 #   │  tất định   │           └──────────────┘
 #   └─────────────┘
 #
-# PILOT MỘT GPU (#273, chốt ở #124 và #176): cả hai model trên MỘT L4 22,5 GB. Đo 20/11/2026
-# (#124, vLLM 0.11.2, tải đồng thời 10 phút): VRAM đỉnh 88,4%, không OOM. Mặc định dưới đây là đúng
-# các số đó; máy khác (3090/4090 24 GB) thì chỉ đổi .env (R5), đo lại bằng
-# `offline_training/ke_hoach_vram.py`.
+# PILOT MỘT GPU (#273, chốt ở #124 và #176): cả hai model trên MỘT L4 22,5 GB. Cặp số 0.43/14336 và
+# 0.44/8192 lấy từ phép đo 20/11/2026 (#124, vLLM 0.11.2, tải đồng thời 10 phút): VRAM đỉnh 88,4%, không
+# OOM. LƯU Ý: phép đo đó chạy vision là bản `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` của Qwen, KHÔNG phải bản GPTQ
+# của pilot. Với bản GPTQ, 88,4% mới là SUY RA (cùng cỡ 4 bit); cổng VRAM < 92% cho bản GPTQ chờ đo ở #271
+# mục 4. Máy khác (3090/4090 24 GB) thì chỉ đổi .env (R5), đo lại bằng `offline_training/ke_hoach_vram.py`.
 #
-# Trọng số vision 7B là bản TỰ lượng tử hoá AWQ từ bản gốc bf16 Apache-2.0 (#189), không phải
-# `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` (tệp LICENSE kèm theo khác thẻ, #124). Đặt trong .env:
-#     VISION_MODEL_ID=/models/<thư mục trọng số>      (MODELS_DIR mount ở /models)
+# Trọng số vision của pilot là bản TỰ lượng tử hoá GPTQ W4A16 từ bản gốc bf16 Apache-2.0 (#189, chốt ở
+# #124; trọng số chuẩn bị ở #271), không phải `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` (tệp LICENSE kèm theo khác
+# thẻ, #124). Đặt trong .env:
+#     VISION_MODEL_ID=/models/<thư mục trọng số GPTQ>      (MODELS_DIR mount ở /models; cách đặt: RUNBOOK §8, #271)
 # Mặc định của VISION_MODEL_ID vẫn là Qwen3-VL-2B, khớp src/core/config.py và .env.example
 # (tests/test_giay_phep_model.py): một đường dẫn cục bộ không làm được mặc định chung.
 #
