@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-GOC = Path(__file__).resolve().parent.parent
+GOC = Path(__file__).resolve().parents[2]
 HOOK = GOC / ".claude" / "hooks" / "cong_cung.py"
 GIA = "postgres" + "ql://admin:Xk9mQ2pLw@ep-x.neon.tech/db"
 
@@ -140,3 +140,25 @@ def test_settings_dang_ky_hook_cho_ca_lenh_va_ghi_tep():
     for hooks in muc.values():
         assert any(".claude/hooks/cong_cung.py" in h["command"] for h in hooks)
     assert cau_hinh["permissions"]["deny"], "thêm hook không được làm mất danh sách chặn đọc"
+
+
+# ----------------------------------------------------------------------------- đang gộp
+
+def test_dang_gop_khong_bao_oan_tep_nguyen_van_tu_nhanh_kia_nhung_van_bat_tep_xung_dot_giai_tay(repo):
+    """Kéo nhánh tính năng vào nhánh mình mang theo fixture của người khác (đã nằm trên remote): không được chặn. Chỗ mình tự giải xung đột thì vẫn quét."""
+    _git(repo, "checkout", "-qb", "khac")
+    (repo / "fixture.py").write_text(f"u = '{GIA}'\n", encoding="utf-8")        # fixture hợp lệ của người khác
+    (repo / "a.txt").write_text("khac\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "khac")
+    _git(repo, "checkout", "-q", "-")
+    (repo / "a.txt").write_text("minh\n", encoding="utf-8")
+    _git(repo, "commit", "-qam", "minh")
+    gop = subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "merge", "--no-commit", "--no-ff", "khac"], cwd=repo, capture_output=True, text=True)    # xung đột ở a.txt
+    assert (repo / ".git" / "MERGE_HEAD").is_file(), gop.stdout + gop.stderr                                          # phải thật sự đang gộp
+    assert (repo / "fixture.py").is_file(), "fixture.py phải đến nguyên văn từ nhánh kia"
+    r = _hook("Bash", {"command": "git commit -m gop"}, cwd=repo)
+    assert r.returncode == 0, r.stderr
+    (repo / "a.txt").write_text(f"giai tay {GIA}\n", encoding="utf-8")        # bí mật lọt vào chỗ giải tay
+    r = _hook("Bash", {"command": "git commit -m gop"}, cwd=repo)
+    assert r.returncode == 2 and "a.txt" in r.stderr, r.stderr
