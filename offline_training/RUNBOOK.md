@@ -390,6 +390,45 @@ Bật hai server **lần lượt** theo lệnh in ra (text trước). Server vis
 **Hai chỗ cần sửa trong `deploy/docker-compose.yml` nếu chọn một trong hai ứng viên** (compose chưa từng được chạy): `--limit-mm-per-prompt=image=2` là cú pháp cũ, tài liệu vLLM 0.11.2 chỉ cho thấy dạng JSON `'{"image":2}'`; và `VISION_GPU_FRACTION=0.25` (5,6 GiB) quá nhỏ cho cả hai ứng viên (cần khoảng 0,44-0,47 theo bảng trên).
 
 
+### 8.6 Thư mục trọng số vision cho máy chạy (#271, 26/11/2026)
+
+Chủ dự án chốt ở #124: model thị giác pilot là bản **tự lượng tử hoá GPTQ W4A16** của `Qwen/Qwen2.5-VL-7B-Instruct` (#189: 22/28 ca đúng hết, 26/28 không lỗi tiền, p95 7,0 giây). Trọng số nằm ở Drive `ANSER_AI_Logistics/q25vl7b-w4a16-tu-luong-tu/`. Mục này biến thư mục đó thành một thư mục **tự đứng được**: chép sang máy nào, trỏ `VISION_MODEL_ID` vào là chạy, không phải vá gì thêm.
+
+**Vì sao phải vá.** Thư mục được ghi bằng `transformers` 5 (phiên lượng tử hoá), còn vLLM 0.11.2 chạy với `transformers` 4.57. Bản 4.57 tìm `preprocessor_config.json` và `chat_template.json`, mà thư mục chỉ có `processor_config.json` và `chat_template.jinja` (tên tệp của bản 5). Ở #189 mình vá một bản sao cục bộ trên Colab, nên thư mục trên Drive chưa bao giờ tự chạy được.
+
+**Vá một lần, trên Colab** (chỉ chép tệp cấu hình, không đụng `model.safetensors`):
+
+1. Chép từ repo gốc `Qwen/Qwen2.5-VL-7B-Instruct`, **ghim một commit** (ghi mã commit vào `NGUON.txt` trong thư mục): `preprocessor_config.json`, `chat_template.json`, `tokenizer.json`, `tokenizer_config.json`, `vocab.json`, `merges.txt`. Không chép `config.json` hay `generation_config.json`: `config.json` của thư mục mang `quantization_config` của bản lượng tử hoá.
+2. Chuyển các tệp do `transformers` 5 ghi mà bản 4.57 không dùng (`processor_config.json`, `chat_template.jinja`, và `tokenizer.json`, `tokenizer_config.json` cũ) vào thư mục con `_ghi_boi_transformers5/`. Không xoá, để còn so khi cần. Giữ `chat_template.jinja` ở gốc thì 4.57 có thể đọc nó thay cho `chat_template.json`: cùng lý do ô 1.4 của các notebook text đổi tên tệp này thành `.bak`.
+3. Lập `MANIFEST.sha256` ở gốc thư mục, định dạng của `sha256sum` (mọi tệp ở gốc, trừ chính nó):
+   ```bash
+   cd <thư mục trọng số> && sha256sum $(ls -p | grep -v / | grep -v '^MANIFEST.sha256$') > MANIFEST.sha256
+   ```
+4. Kiểm thư mục tự đứng được: `vllm serve` **thẳng từ thư mục trên Drive** (không từ bản sao), cùng cờ với #189, rồi đo 28 ca như §8.2. Kết quả phải trùng #189 theo từng ca (`so_sanh_vlm.py`). Lệch ca nào thì tokenizer hay processor mới chép khác bản đã dùng ở #189, phải đọc lại trước khi dùng.
+
+**Đặt lên máy chạy (compose).** Compose gắn `MODELS_DIR` (mặc định `./models`) vào `/models` của container `vllm-vision`, chỉ đọc. Chép cả thư mục vào `./models/q25vl7b-w4a16-tu-luong-tu/`, kiểm, rồi đặt `.env`:
+```bash
+cd models/q25vl7b-w4a16-tu-luong-tu && sha256sum -c MANIFEST.sha256    # mọi dòng phải "OK"
+# .env của máy chạy
+VISION_MODEL_ID=/models/q25vl7b-w4a16-tu-luong-tu
+VLLM_VISION_BASE_URL=http://vllm-vision:8002
+```
+rồi `docker compose --profile vision up -d`. Không đặt `--quantization`: vLLM đọc `quantization_config` (`compressed-tensors`, `pack-quantized`) trong `config.json` và tự chọn nhân Marlin.
+
+**Hai nơi lưu (chủ dự án chọn; agent không tự đẩy trọng số lên đâu):**
+
+| | (a) `./models/` trên máy chạy, chép từ Drive | (b) repo Hugging Face **riêng tư** của org |
+|---|---|---|
+| Truy cập | Chỉ ai có quyền vào Drive và máy chạy | Thành viên org trên Hugging Face; máy chạy cần **token đọc** |
+| Tải lần đầu | Chép 6,9 GB từ Drive (`rclone` hay tải tay). Drive giới hạn băng thông và hay đòi xác nhận với tệp lớn | `huggingface-cli download` qua CDN, nhanh và tiếp tục được khi đứt |
+| Phiên bản | Không có: thay tệp là mất bản cũ, chỉ `MANIFEST.sha256` cho biết đang dùng bản nào | Mỗi lần đẩy là một commit, ghim được `--revision` |
+| Bí mật | Không thêm bí mật nào | Thêm một token trên máy chạy: **R2b mục 3, phải hỏi chủ dự án trước khi đưa token vào `.env`** |
+| Giấy phép | Không phát hành ra ngoài | Repo riêng tư cũng không phải phát hành. Nếu sau này mở công khai: bản gốc là Apache-2.0 (thẻ model; repo không có tệp `LICENSE`, đã kiểm ở #189), nên phải kèm bản giấy phép và ghi rõ đây là bản đã lượng tử hoá (Apache-2.0 §4) |
+
+Với pilot một máy, (a) đủ và không thêm bí mật. (b) đáng làm khi có từ hai máy chạy trở lên hay cần đổi trọng số thường xuyên.
+
+**Chưa đo:** cổng 3 (đồng host với text `anser-v5`, VRAM dưới 92%) cho bản GPTQ này. Số 88,4% ở #124 đo trên bản AWQ của Qwen, cùng kích thước (6,57 so với 6,59 GiB) nên nhiều khả năng gần đúng, nhưng chưa kiểm.
+
 ## 9. Chọn hướng sau v5: hai LoRA trên nền AWQ, hay hai server (#91, 20/11/2026)
 
 Chủ dự án (20/11): "kiểm kĩ lại trên nền AWQ". Mục này ghi cái đã xác minh bằng ĐỌC NGUỒN (chưa chạy GPU) và phép kiểm rẻ nhất để quyết.
