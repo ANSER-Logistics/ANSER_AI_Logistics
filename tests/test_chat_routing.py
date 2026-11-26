@@ -295,12 +295,53 @@ def test_ky_chua_truy_van_duoc_thi_khong_dua_so_hom_nay_vao(
 
     monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
     moi_truong.category = "DATA_INTERNAL"
-    _hoi("tháng trước bán được bao nhiêu")
+    tra_loi = _hoi("tháng trước bán được bao nhiêu")
 
     assert saas_gia.periods == [], "không được truy vấn kỳ nào khi chưa hỗ trợ"
-    ctx = moi_truong.contexts[0]
-    assert "THÁNG TRƯỚC" in ctx and "CHƯA LẤY ĐƯỢC" in ctx
-    assert "20.000.000" not in ctx, "số của kỳ khác không được lọt vào ngữ cảnh"
+    # #261: không còn gọi model cho trường hợp này: câu trả lời do MÃ dựng (R1), model không có chỗ bịa lý do.
+    assert moi_truong.contexts == [], "kỳ chưa hỗ trợ thì không được hỏi model"
+    assert "tháng trước" in tra_loi and "hôm nay, tuần này và tháng này" in tra_loi
+    assert "20.000.000" not in tra_loi, "số của kỳ khác không được lọt vào câu trả lời"
+
+
+@pytest.mark.parametrize("cau", [
+    "tổng tiền bán được trong 14 ngày qua", "doanh thu 30 ngày gần nhất", "bán được bao nhiêu từ đầu năm", "bán được trong hai tuần",
+    "7 ngày qua bán được gì", "doanh số năm nay",
+])
+def test_khoang_ngay_tu_do_khong_bi_doc_thanh_hom_nay(moi_truong, monkeypatch, saas_gia, cau):
+    """#261 (T2 của lượt chạy thật 24/11): "14 ngày qua" từng rơi về "hôm nay" và nhận số của MỘT ngày; v5 còn bịa lý do thiếu dữ liệu."""
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    moi_truong.answer = "Doanh số bị giới hạn bởi chính sách bảo mật thông tin."      # model mà được hỏi thì sẽ nói thế
+    tra_loi = _hoi(cau)
+    assert saas_gia.periods == [] and moi_truong.contexts == []
+    assert "bảo mật" not in tra_loi and "chỉ truy vấn được" in tra_loi
+
+
+@pytest.mark.parametrize("cau", ["hôm nay bán được bao nhiêu", "tuần này doanh số thế nào", "còn bao nhiêu thùng dầu 15W40", "hàng nhập gần đây"])
+def test_cau_co_ky_ho_tro_hoac_khong_nhac_ky_van_di_nhu_cu(moi_truong, monkeypatch, saas_gia, cau):
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    _hoi(cau)
+    assert len(saas_gia.periods) == 1 and len(moi_truong.contexts) == 1
+
+
+def test_db_hong_thi_ma_noi_khong_lay_duoc_khong_de_model_viet_ly_do(moi_truong, monkeypatch, saas_gia):
+    from src.api import dependencies as deps
+
+    def hong(*a, **k):
+        raise RuntimeError("mất kết nối")
+
+    monkeypatch.setattr(saas_gia, "get_sales_report", hong)
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    moi_truong.answer = "Doanh số bị giới hạn bởi chính sách bảo mật thông tin."
+    tra_loi = _hoi("hôm nay bán được bao nhiêu")
+    assert moi_truong.contexts == [] and "không tự đoán số" in tra_loi and "bảo mật" not in tra_loi
 
 
 # ---------------------------------------------------------------------------

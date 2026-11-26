@@ -121,6 +121,12 @@ _KY_CHUA_CO = (
     ("tháng trước", re.compile(r"tháng (trước|rồi|vừa rồi|qua)", re.I)),
     ("quý", re.compile(r"quý\s*(này|trước|vừa rồi|rồi|[1-4]|i{1,3}v?|iv)", re.I)),
     ("năm", re.compile(r"năm (nay|ngoái|trước|vừa rồi|qua)|cả năm", re.I)),
+    # Khoảng ngày tự do ("14 ngày qua", "hai tuần", "30 ngày gần nhất") và "từ đầu kỳ" (#261, 24/11/2026). Trước đó các câu này không khớp luật nào nên rơi về
+    # "hôm nay": người dùng hỏi 14 ngày mà nhận con số của MỘT ngày, trôi chảy và sai, không có triệu chứng nào (lỗi mà cả khối này sinh ra để tránh).
+    ("khoảng ngày", re.compile(
+        r"\b(\d+|một|hai|ba|bốn|sáu|bảy|tám|chín|mười|mấy|vài)\s*(ngày|tuần|tháng|quý)\b"
+        r"|(ngày|tuần|tháng)\s+(gần đây|gần nhất|vừa qua)\b", re.I)),
+    ("từ đầu kỳ", re.compile(r"từ đầu\s*(năm|tháng|tuần|quý)|đầu (năm|quý) đến nay|(năm|tháng|quý) tới nay", re.I)),
 )
 
 _KY_CO = (

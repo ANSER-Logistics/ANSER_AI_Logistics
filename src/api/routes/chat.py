@@ -67,6 +67,16 @@ router = APIRouter()
 _saas = None
 
 # Thông báo khi không sinh nổi workflow hợp lệ
+# Câu trả lời do MÃ dựng cho nhánh DATA_INTERNAL khi không có số để đưa (#261, R1): trước đây ngữ cảnh chỉ nói "CHƯA LẤY ĐƯỢC" rồi để model tự viết lời, và v5 bịa
+# lý do ("bị giới hạn bởi chính sách bảo mật"). Không có chữ số nào ở đây, để chốt neo số liệu không có gì để chặn nhầm.
+_DATA_KY_CHUA_HO_TRO_MSG = (
+    "Tôi chưa lấy được doanh số {nhan}: hiện hệ thống chỉ truy vấn được doanh số của hôm nay, tuần này và tháng này. "
+    "Bạn hỏi lại theo một trong ba kỳ đó giúp tôi."
+)
+_DATA_KHONG_LAY_DUOC_MSG = (
+    "Tôi chưa lấy được dữ liệu bán hàng lúc này (chưa kết nối được tới cơ sở dữ liệu cửa hàng). "
+    "Tôi không tự đoán số, bạn thử lại sau hoặc xem trực tiếp trên màn hình báo cáo."
+)
 _WORKFLOW_FAILED_MSG = (
     "Tôi chưa dựng được quy trình hợp lệ cho yêu cầu này. "
     "Bạn mô tả rõ hơn giúp tôi 3 điểm: chạy vào lúc nào, "
@@ -1001,9 +1011,16 @@ async def chat_endpoint(
             from src.core.saas_api import parse_period
 
             ky = parse_period(user_msg)
-            try:
-                products = await chay_ngoai_loop(saas.lookup_product, user_msg, workspace_id=store_id)
-                if ky.ho_tro:
+            tra_loi_ma: str | None = None
+            db_context = ""
+            if not ky.ho_tro:
+                # KHÔNG đưa số hôm nay vào đây, và KHÔNG để model viết lời giải thích: thiếu số thì mã nói thiếu (R1, #261). Có số sai kỳ thì model trả
+                # lời trôi chảy và sai; được dặn "nói chưa lấy được" thì có lúc nó bịa lý do.
+                tra_loi_ma = _DATA_KY_CHUA_HO_TRO_MSG.format(nhan=ky.nhan)
+                metric.asked_back = True
+            else:
+                try:
+                    products = await chay_ngoai_loop(saas.lookup_product, user_msg, workspace_id=store_id)
                     sales = await chay_ngoai_loop(
                         saas.get_sales_report, workspace_id=store_id, period=ky.period
                     )
@@ -1011,28 +1028,21 @@ async def chat_endpoint(
                         f"[DOANH SỐ {ky.nhan.upper()}]\n"
                         f"{json.dumps(sales, ensure_ascii=False)}"
                     )
-                else:
-                    # KHÔNG đưa số hôm nay vào đây. Thiếu số thì model nói không
-                    # biết; có số sai kỳ thì nó trả lời trôi chảy và sai.
-                    khoi_ban = (
-                        f"[DOANH SỐ {ky.nhan.upper()}]\n"
-                        f"CHƯA LẤY ĐƯỢC — hệ thống mới truy vấn được hôm nay, "
-                        f"tuần này và tháng này. Nói rõ điều này với người dùng "
-                        f"và mời họ hỏi lại theo một trong ba kỳ đó."
+                    db_context = f"[SẢN PHẨM KHỚP TRUY VẤN]\n{products}\n\n{khoi_ban}"
+                except Exception:
+                    logger.warning(
+                        "Truy vấn DB thất bại: %s", loai_loi(),
+                        extra={"request_id": request_id},
                     )
-                    metric.asked_back = True
-                db_context = f"[SẢN PHẨM KHỚP TRUY VẤN]\n{products}\n\n{khoi_ban}"
-            except Exception:
-                logger.warning(
-                    "Truy vấn DB thất bại: %s", loai_loi(),
-                    extra={"request_id": request_id},
-                )
-                db_context = "(không lấy được dữ liệu từ cơ sở dữ liệu)"
+                    tra_loi_ma = _DATA_KHONG_LAY_DUOC_MSG
 
-            grounding_ctx = db_context
-            resp = dem.cong(await runtime.manager.answer_data(
-                user_msg, context=db_context, history=history
-            ))
+            if tra_loi_ma is not None:
+                resp = tra_loi_ma
+            else:
+                grounding_ctx = db_context
+                resp = dem.cong(await runtime.manager.answer_data(
+                    user_msg, context=db_context, history=history
+                ))
 
         # ------------------------------------------------------------------
         # RETRIEVAL — RAG tài liệu nội bộ, fallback web
