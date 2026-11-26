@@ -110,6 +110,12 @@ def tep_dang_doi(repo: Path) -> list[str]:
 def kiem_commit(repo: Path) -> None:
     goc_git = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
     tep = [t for t in tep_dang_doi(goc_git) if (goc_git / t).is_file() and (goc_git / t).stat().st_size <= TOI_DA_BYTE]
+    if (goc_git / _git(goc_git, "rev-parse", "--git-path", "MERGE_HEAD").strip()).is_file():
+        # Đang gộp: tệp nguyên văn từ nhánh được kéo vào đã nằm trên remote (kiem_push cũng không quét commit đã có trên remote), nên chỉ quét tệp
+        # KHÁC cả hai phía (xung đột đã giải tay) và tệp chưa theo dõi. Quét hết thì mọi lần kéo nhánh tính năng vào đều báo oan fixture của người khác.
+        khac = set(_git(goc_git, "diff", "--name-only", "MERGE_HEAD").splitlines())
+        chua_theo_doi = set(_git(goc_git, "ls-files", "--others", "--exclude-standard").splitlines())
+        tep = [t for t in tep if t in khac or t in chua_theo_doi]
     if not tep:
         return
     q = _bo_quet()

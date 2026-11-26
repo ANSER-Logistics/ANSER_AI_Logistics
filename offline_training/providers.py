@@ -38,7 +38,7 @@ TOÀN HƯ CẤU (`generated/eval_*.jsonl`, sinh từ kịch bản bịa; chủ d
 tiền vẫn để lại cấu trúc sổ sách của khách. Không bao giờ trên bản xuất sổ sách
 thật của khách. Ràng buộc nằm ở cấu trúc: `benchmark_v3` chỉ đọc bốn file
 `GENERATED_DIR/eval_{extraction,n8n,narration,agent}.jsonl`, và
-`tests/test_providers.py` khoá điều đó.
+`tests/offline_training/test_providers.py` khoá điều đó.
 """
 
 from __future__ import annotations
