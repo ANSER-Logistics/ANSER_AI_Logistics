@@ -445,6 +445,10 @@ class ModelEngine:
 
         self.llm = None
         self.server: VLLMServerClient | None = None
+        # Server text thứ hai CHỈ cho workflow n8n (#176): v3 gộp cho n8n, v5 gộp cho phần còn lại. Không đặt `VLLM_N8N_BASE_URL` thì None và
+        # mọi tác vụ đi một server như cũ (hành vi hiện nay không đổi).
+        self.n8n_server: VLLMServerClient | None = None
+        self.n8n_guard = None
         self.vision_server: VLLMServerClient | None = None
         self.vision_model = None
         self.vision_processor = None
@@ -461,6 +465,19 @@ class ModelEngine:
             )
         elif self.text_backend == "in_process":
             self._nap_text_trong_tien_trinh()
+
+        if os.getenv("VLLM_N8N_BASE_URL", "").strip():
+            # Fail-closed như mọi cấu hình sai khác (BR-03): đặt địa chỉ server n8n mà text không đi qua server vLLM thì địa chỉ đó bị bỏ qua lặng lẽ,
+            # và người vận hành tin rằng n8n đang chạy trên v3.
+            if self.text_backend != "server":
+                raise CauHinhSai(
+                    "VLLM_N8N_BASE_URL chỉ có nghĩa khi text đi qua vLLM server (đặt VLLM_BASE_URL). "
+                    f"Backend text hiện tại: {self.text_backend}."
+                )
+            self.n8n_server = VLLMServerClient.cho_n8n()
+            self.n8n_guard = guard_from_env("n8n")
+            logger.info("Workflow n8n qua server riêng %s (model=%s)", self.n8n_server.base_url,
+                        self.n8n_server.model or "<mặc định của server>")
 
         if self.vision_backend == "in_process":
             self._nap_vision_trong_tien_trinh()
@@ -624,9 +641,13 @@ class ModelEngine:
         temperature=0.1,
         json_schema: dict | None = None,
         history: list[dict] | None = None,
+        tac_vu: str = "chung",
     ) -> KetQuaSinh:
         """
         Sinh text theo ĐÚNG định dạng chat của Qwen.
+
+        `tac_vu="n8n"`: nếu có server thứ hai (`VLLM_N8N_BASE_URL`) thì gọi nó, với guard riêng. Lỗi mất kết nối của đường này KHÔNG
+        nuôi mạch ngắt toàn cục (`kenh="n8n"`, xem `background_worker`): server n8n chết thì chỉ sinh workflow hỏng, `/chat` còn lại vẫn chạy.
         Tự dựng messages [system, ...history, user] rồi để
         tokenizer.apply_chat_template chèn token ChatML chuẩn.
 
@@ -652,13 +673,21 @@ class ModelEngine:
 
         if self.text_backend == "server":
             assert self.server is not None
+            yeu_cau = ChatRequest(
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                guided_json=json_schema or None,
+            )
+            if tac_vu == "n8n" and self.n8n_server is not None:
+                async with self.n8n_guard.slot():
+                    try:
+                        return await self.n8n_server.chat(yeu_cau)
+                    except (BackendUnavailable, BackendTimeout) as e:
+                        e.kenh = "n8n"
+                        raise
             async with self.text_guard.slot():
-                return await self.server.chat(ChatRequest(
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    guided_json=json_schema or None,
-                ))
+                return await self.server.chat(yeu_cau)
 
         from vllm import SamplingParams
 
@@ -817,7 +846,8 @@ class ModelEngine:
             TASK_REGISTRY.set(task_id, {"status": "completed", "result": result})
             llm_suc_khoe.ghi_ok()
         except Exception as e:
-            if isinstance(e, (BackendUnavailable, BackendTimeout)):
+            # Chỉ lỗi của kênh chung nuôi mạch ngắt: server n8n riêng chết không được kéo `/chat` thường vào 503 `llm_unavailable`.
+            if isinstance(e, (BackendUnavailable, BackendTimeout)) and e.kenh == "chung":
                 llm_suc_khoe.ghi_loi()
             logger.error("Error in background worker for task %s: %s", task_id, loai_loi())
             TASK_REGISTRY.set(task_id, {"status": "failed", "error": str(e)})

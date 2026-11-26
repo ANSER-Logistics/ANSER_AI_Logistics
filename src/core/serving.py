@@ -75,11 +75,18 @@ class Overloaded(RuntimeError):
 
 
 class BackendUnavailable(RuntimeError):
-    """Không nối được tới server vLLM (chưa bật, sập, sai URL)."""
+    """Không nối được tới server vLLM (chưa bật, sập, sai URL).
+
+    `kenh`: kênh gọi bị lỗi ("chung" mặc định, "n8n" khi là server n8n riêng, #176). Chỉ lỗi kênh "chung" nuôi mạch ngắt toàn cục.
+    """
+
+    kenh: str = "chung"
 
 
 class BackendTimeout(RuntimeError):
-    """Server vLLM nhận request nhưng không trả lời kịp."""
+    """Server vLLM nhận request nhưng không trả lời kịp. `kenh` như ở `BackendUnavailable`."""
+
+    kenh: str = "chung"
 
 
 class BackendError(RuntimeError):
@@ -658,10 +665,11 @@ class VLLMServerClient:
         timeout_s: float = 120.0,
         api_key: Optional[str] = None,
         max_connections: int = 32,
+        ten_bien: str = "VLLM_BASE_URL",
     ):
         bruto = base_url or os.getenv("VLLM_BASE_URL") or ""
-        # R2: kiểm TRƯỚC khi chuẩn hoá và trước khi có bất kỳ HTTP client nào.
-        kiem_url_noi_bo(bruto, "VLLM_BASE_URL")
+        # R2: kiểm TRƯỚC khi chuẩn hoá và trước khi có bất kỳ HTTP client nào. `ten_bien` chỉ để thông báo lỗi nói đúng biến.
+        kiem_url_noi_bo(bruto, ten_bien)
         self.base_url: str = _chuan_hoa_base_url(bruto)
         self.model: str = model or os.getenv("VLLM_MODEL") or ""
         self.timeout_s = timeout_s
@@ -680,6 +688,16 @@ class VLLMServerClient:
         """
         c = cls(base_url=os.getenv("VLLM_VISION_BASE_URL", ""))
         c.model = os.getenv("VLLM_VISION_MODEL", "")
+        return c
+
+    @classmethod
+    def cho_n8n(cls) -> "VLLMServerClient":
+        """
+        Client cho server text THỨ HAI chuyên sinh workflow n8n (#176, phương án hai server): `VLLM_N8N_BASE_URL` + `VLLM_N8N_MODEL`.
+        Cùng mô hình với `cho_vision`: gán model SAU khi dựng, vì hàm khởi tạo rơi về `VLLM_MODEL` khi model rỗng, mà đó là model của server kia.
+        """
+        c = cls(base_url=os.getenv("VLLM_N8N_BASE_URL", ""), ten_bien="VLLM_N8N_BASE_URL")
+        c.model = os.getenv("VLLM_N8N_MODEL", "")
         return c
 
     @property

@@ -282,6 +282,12 @@ Khi người dùng hỏi còn việc gì, tra bằng tài khoản đang đăng n
 
 Gộp kết quả trùng theo repo và số issue/PR. Với mỗi việc còn mở, dẫn liên kết, nêu ai đang chờ và hành động tiếp theo. Hỏi người dùng muốn xử lý hoặc giao agent phần nào; nếu họ đã giao rõ thì làm tiếp trong phạm vi đó. Một lượt nhắc để biết hoặc một yêu cầu đã trả lời không tạo thêm việc. Nếu thiếu quyền xem nguồn nào, ghi rõ phạm vi đã kiểm.
 
+### 5.0b. Đề xuất đóng PR của người dùng khi việc đã hoàn thành
+
+Khi việc được đánh dấu `Done`, kiểm tra tác giả PR có đúng là người dùng đang đăng nhập. Với PR còn mở do người dùng đó tạo, đọc tiêu chí nghiệm thu, bình luận và yêu cầu sửa mới nhất. Đối chiếu thay đổi với nhánh đích, kể cả khi mã được gộp qua PR khác hoặc squash.
+
+Nếu mọi tiêu chí đã đạt và nhánh đích đã chứa đủ thay đổi, gửi người dùng liên kết PR cùng commit hoặc PR đã gộp làm bằng chứng và đề xuất đóng. Người dùng quyết định và tự đóng theo §5.5. Nếu còn việc, nêu rõ phần đang chờ.
+
 ### 5.1. Trước khi viết code
 
 1. **Đọc code, không đọc tài liệu cũ.** Tài liệu từng sai ở nhiều điểm quan trọng. Xác minh bằng file thật.
