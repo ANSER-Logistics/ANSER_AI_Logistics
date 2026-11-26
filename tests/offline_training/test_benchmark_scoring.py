@@ -1,0 +1,598 @@
+"""
+tests/offline_training/test_benchmark_scoring.py — chấm điểm benchmark phải đo ĐÚNG THỨ ĐANG ĐO.
+
+Buổi đo 05/08/2026 cho ra ba con số sai lệch, cả ba đều do khung đo chứ không do
+model. Nguy hiểm ở chỗ chúng trông y hệt số thật, và nếu tin thì sẽ đi train lại
+một model vốn không có vấn đề đó.
+
+Mẫu dùng ở đây lấy NGUYÊN VĂN từ báo cáo hỏng, không phải bịa ra cho vừa test.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from offline_training.benchmark_v3 import (
+    kiem_ket_qua,
+    parse_outputs,
+    score_agent,
+    score_n8n,
+    score_narration,
+    score_planner,
+    tach_tool_tu_json_cut,
+    tran_token,
+)
+
+# Nguyên văn hai mẫu trong tuned_report — JSON hợp lệ, đứt giữa chừng vì chạm
+# trần token khi model nhét cả mảng dòng bán vào `arguments`.
+CAT_CUT_REPORT = (
+    '{"thought": "Dữ liệu đầy đủ, gọi công cụ report để tính toán.", '
+    '"tool": "report", "arguments": {"granularity": "half_year", '
+    '"periods_back": 1, "sales": [{"date": "2024-04-15", "revenue": 45000000, '
+    '"cost_of_sales": 33825862}, {"d'
+)
+CAT_CUT_CARRIER = (
+    '{"thought": "Câu hỏi có đủ thông tin, gọi công cụ để trả lời.", '
+    '"tool": "carrier_selection", "arguments": {"carriers": [{"name": "Đại An", '
+    '"price": 9400000, "discount": 5, "credit_days": 15}, {"name": "Tân Cảng Bắc"'
+)
+
+
+# ---------------------------------------------------------------------------
+# Moi tên tool ra khỏi JSON cắt cụt
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("raw,mong_doi", [
+    (CAT_CUT_REPORT, "report"),
+    (CAT_CUT_CARRIER, "carrier_selection"),
+    ('{"tool": "vat", "arguments": {}}', "vat"),
+    ('{"thought": "x", "tool": "quote"', "quote"),
+])
+def test_moi_duoc_ten_tool_du_json_dut_giua_chung(raw, mong_doi):
+    assert tach_tool_tu_json_cut(raw) == mong_doi
+
+
+@pytest.mark.parametrize("raw", [
+    "",
+    '{"answer": "Anh cho em xin thêm điểm đến ạ."}',
+    "không phải json",
+])
+def test_khong_co_tool_thi_KHONG_bia_ra_mot_cai(raw):
+    """Moi nhầm ra một tool là biến 'model không chọn gì' thành 'model chọn sai'."""
+    assert tach_tool_tu_json_cut(raw) is None
+
+
+# ---------------------------------------------------------------------------
+# Agentic: cắt cụt KHÔNG được tính thành "chọn None"
+# ---------------------------------------------------------------------------
+
+def test_cat_cut_khong_con_bi_tinh_la_khong_goi_tool():
+    """
+    Bản cũ: JSON cắt cụt -> json.loads hỏng -> dict rỗng -> `chose = None` ->
+    "chọn None". Model ĐÃ chọn, chỉ chưa viết xong phần tham số.
+
+    Hai mẫu này đều là tool CẦN DỮ LIỆU HỆ THỐNG. Từ 05/08/2026 `arguments` của
+    chúng bị bỏ hẳn `sales`/`carriers` khỏi lược đồ nên chuyện cắt cụt gần như
+    không còn xảy ra — nhưng phần cứu vẫn phải giữ, vì đây là mẫu THẬT từ báo
+    cáo hỏng và nó chứng minh việc chấm không đổ lỗi nhầm cho model.
+    """
+    rows = [
+        {"_id": "AG0000", "tool": "report"},
+        {"_id": "AG0002", "tool": "carrier_selection"},
+    ]
+    kq = score_agent(rows, [CAT_CUT_REPORT, CAT_CUT_CARRIER])
+    assert kq["call_rate"] == 1.0
+    assert kq["cuu_tu_json_cut"] == 2
+    assert kq["failures"] == []
+    # Tham số của tool cần dữ liệu hệ thống KHÔNG được chấm: production ghi đè
+    # chúng, nên chấm ở đây là chấm thứ bị vứt đi.
+    assert kq["n_arg"] == 0
+
+
+def test_tham_so_cat_cut_van_bi_tinh_truot_voi_tool_model_phai_dien():
+    """
+    Cứu tên tool KHÔNG được biến thành cứu điểm. `quote` là tool model PHẢI tự
+    điền tham số (suy từ lời người dùng), nên `arguments` đứt giữa chừng là
+    trượt thật — production sẽ trả 422.
+    """
+    rows = [{"_id": "AG0003", "tool": "quote"}]
+    kq = score_agent(rows, ['{"thought": "x", "tool": "quote", "arguments": {"a'])
+    assert kq["call_rate"] == 1.0          # có gọi tool
+    assert kq["arg_fill_rate"] == 0.0      # nhưng tham số không dùng được
+    assert "quote" in kq["failures"][0][1]
+
+
+def test_tham_so_dung_kieu_thi_qua():
+    """Chấm bằng ĐÚNG pydantic của endpoint — không phải một bản kiểm riêng."""
+    rows = [{"_id": "AG0004", "tool": "vat"}]
+    kq = score_agent(rows, [
+        '{"thought": "x", "tool": "vat", "arguments": '
+        '{"items": [{"name": "A", "price": 100000, "qty": 1}], "stated_total": 110000}}'
+    ])
+    assert kq["arg_fill_rate"] == 1.0
+    assert kq["failures"] == []
+
+
+# ---------------------------------------------------------------------------
+# Bảng luật: chỗ "chọn đúng tool" nay được quyết định
+# ---------------------------------------------------------------------------
+
+def test_bang_luat_cham_duoc_ma_khong_can_gpu():
+    rows = [
+        {"_id": "P1", "tool": "report", "question": "quý này lãi hay lỗ"},
+        {"_id": "P2", "tool": "forecast_reorder",
+         "question": "có nên nhập thêm hàng không"},
+    ]
+    kq = score_planner(rows)
+    assert kq["tool_rate"] == 1.0 and kq["coverage"] == 1.0
+    assert kq["failures"] == []
+
+
+def test_bang_luat_bao_truot_khi_khong_luat_nao_khop():
+    """
+    Không khớp luật nào thì câu rơi về nhánh router cũ — vẫn trả lời được, nhưng
+    KHÔNG dùng tool tất định. Tính là trượt, nếu không thì bảng luật rỗng cũng
+    được 100%.
+    """
+    rows = [{"_id": "P3", "tool": "report", "question": "hôm nay trời đẹp nhỉ"}]
+    kq = score_planner(rows)
+    assert kq["tool_rate"] == 0.0 and kq["coverage"] == 0.0
+    assert "không luật nào khớp" in kq["failures"][0][1]
+
+
+def test_bang_luat_cham_ca_ca_hoi_lai():
+    """
+    Ca HỎI LẠI có `expected_tool = None`, nhưng bảng luật VẪN phải nhận ra ý
+    định — chính vì đã lên kế hoạch mà thiếu tham số nên model mới hỏi lại được.
+    """
+    rows = [{"_id": "P4", "tool": "report", "expected_tool": None,
+             "ask_back": True, "question": "quý vừa rồi lãi hay lỗ"}]
+    assert score_planner(rows)["tool_rate"] == 1.0
+
+
+def test_cham_duoc_tren_DUNG_hinh_dang_file_that():
+    """
+    REGRESSION. `eval_agent.jsonl` chỉ ghi `_id / question / ask_back /
+    expected_tool` — KHÔNG có `tool`. Bản đầu của `score_planner` đọc
+    `row["tool"]` nên mọi dòng ra None, trượt sạch, `tool_rate` = 0.0, và cổng
+    chặn đánh trượt cả buổi đo trong khi bảng luật không hề sai.
+
+    Hàng thật, chép đúng khoá mà `make_agent_traces.py` ghi ra.
+    """
+    rows = [
+        {"_id": "AG0001", "question": "quý này lãi hay lỗ",
+         "ask_back": False, "expected_tool": "report"},
+        {"_id": "AG0002", "question": "có nên nhập thêm hàng không",
+         "ask_back": False, "expected_tool": "forecast_reorder"},
+    ]
+    kq = score_planner(rows)
+    assert kq["tool_rate"] == 1.0, "phải chấm được bằng `expected_tool`"
+    assert kq["n_cham"] == 2
+
+
+def test_dong_khong_co_dap_an_thi_BO_QUA_chu_khong_tinh_truot():
+    """
+    File cũ trên Drive: ca hỏi lại có `expected_tool = None` và không có `tool`.
+    Đánh trượt những dòng đó là đổ lỗi cho bảng luật vì một chuyện của bộ sinh
+    dữ liệu — và làm cổng chặn nổ oan.
+    """
+    rows = [
+        {"_id": "AG0003", "question": "quý này lãi hay lỗ",
+         "ask_back": False, "expected_tool": "report"},
+        {"_id": "AG0004", "question": "làm báo cáo giúp tôi",
+         "ask_back": True, "expected_tool": None},          # không có đáp án
+    ]
+    kq = score_planner(rows)
+    assert kq["n"] == 2 and kq["n_cham"] == 1
+    assert kq["tool_rate"] == 1.0
+    assert kq["failures"] == []
+
+
+def test_khong_co_dap_an_nao_thi_bao_None_chu_khong_bao_0():
+    """0.0 nghĩa là "bảng luật sai hết"; None nghĩa là "không đo được". Khác nhau."""
+    rows = [{"_id": "X", "question": "quý này lãi hay lỗ", "ask_back": True,
+             "expected_tool": None}]
+    assert score_planner(rows)["tool_rate"] is None
+
+
+def test_bo_sinh_du_lieu_ghi_du_khoa_cho_bo_cham():
+    """
+    Chống lệch giữa bộ SINH và bộ CHẤM. Hai file, hai người sửa, không có gì nối
+    chúng lại ngoài test này.
+    """
+    import inspect
+
+    from offline_training import make_agent_traces
+
+    src = inspect.getsource(make_agent_traces)
+    for khoa in ('"_id"', '"question"', '"ask_back"', '"expected_tool"', '"tool"'):
+        assert khoa in src, f"make_agent_traces.py không còn ghi {khoa}"
+
+
+def test_thieu_du_kien_ma_goi_tool_van_bi_bat_du_json_cat_cut():
+    """Lỗi nguy hiểm nhất — gọi tool với tham số bịa — không được lọt."""
+    rows = [{"_id": "AG0010", "ask_back": True, "expected_tool": None}]
+    kq = score_agent(rows, [CAT_CUT_REPORT])
+    assert kq["ask_back_rate"] == 0.0
+    assert "report" in kq["failures"][0][1]
+
+
+def test_biet_hoi_lai_van_duoc_tinh_dung():
+    rows = [{"_id": "AG0011", "ask_back": True, "expected_tool": None}]
+    kq = score_agent(rows, ['{"answer": "Anh cho em xin điểm đến ạ."}'])
+    assert kq["ask_back_rate"] == 1.0
+
+
+def test_hoi_lai_qua_hoi_lai_cung_duoc_tinh_dung():
+    """
+    Khi đã có kế hoạch tool, production khoá `answer` (`bat_buoc_tool=True`) và
+    model hỏi lại bằng `hoi_lai`. Chỉ đọc `answer` là chấm trượt oan.
+    """
+    rows = [{"_id": "AG0012", "ask_back": True, "expected_tool": None}]
+    kq = score_agent(rows, ['{"thought": "thiếu điểm đến", "hoi_lai": "Anh đi đâu ạ?"}'])
+    assert kq["ask_back_rate"] == 1.0
+    assert kq["failures"] == []
+
+
+def test_bo_do_agentic_khoa_answer_nhu_production():
+    """Bộ đo PHẢI dựng lược đồ có kế hoạch với `bat_buoc_tool=True`, như `AgenticLoop`."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[2]
+           / "offline_training" / "benchmark_v3.py").read_text(encoding="utf-8")
+    assert "bat_buoc_tool=True" in src
+
+
+# ---------------------------------------------------------------------------
+# Narration: CẮT CỤT khác BỊA SỐ
+# ---------------------------------------------------------------------------
+
+def test_cau_bi_chat_doi_KHONG_bi_goi_la_bia_so():
+    """
+    Báo cáo thật có dòng `[carrier] bịa số 0006`. "0006" không phải một con số
+    bịa — đó là mảnh vụn của một con số bị chặt đôi giữa chừng. Gộp nó vào tỷ lệ
+    bịa số là chỉ người đi sửa sang nhầm hướng: họ sẽ đi sửa dữ liệu huấn luyện
+    trong khi việc cần làm chỉ là nới trần token.
+    """
+    rows = [{"_id": "NA0025", "kind": "carrier", "context": "giá 12000000 đồng"}]
+    kq = score_narration(rows, ["Cước tuyến này là 000"], ["length"])
+    assert kq["n_cat_cut"] == 1
+    assert "CẮT CỤT" in kq["failures"][0][1]
+    assert "bịa số" not in kq["failures"][0][1]
+
+
+def test_bia_so_that_van_bi_bat():
+    """Tách cắt cụt ra KHÔNG được làm lỗi bịa số biến mất."""
+    rows = [{"_id": "NA0000", "kind": "report", "context": "doanh thu 12000000"}]
+    kq = score_narration(rows, ["Doanh thu là 330078760 đồng."], ["stop"])
+    assert kq["n_cat_cut"] == 0
+    assert "bịa số" in kq["failures"][0][1]
+    assert kq["pass_rate"] == 0.0
+
+
+def test_ty_le_tren_phan_do_duoc_bo_ca_cat_cut_ra_khoi_mau_so():
+    rows = [
+        {"_id": "A", "kind": "quote", "context": "giá 12000000"},
+        {"_id": "B", "kind": "quote", "context": "giá 12000000"},
+        {"_id": "C", "kind": "quote", "context": "giá 12000000"},
+    ]
+    outs = ["Giá 12000000 đồng.", "Giá 12000000 đồng.", "Giá 120"]
+    kq = score_narration(rows, outs, ["stop", "stop", "length"])
+    assert kq["pass_rate"] == pytest.approx(2 / 3)
+    assert kq["pass_rate_do_duoc"] == 1.0, "hai câu viết xong đều sạch"
+    assert kq["n_cat_cut"] == 1
+
+
+def test_khong_truyen_finish_thi_van_chay_nhu_cu():
+    """Gọi cũ không có `finishes` — không được vỡ."""
+    rows = [{"_id": "A", "kind": "quote", "context": "giá 12000000"}]
+    kq = score_narration(rows, ["Giá 12000000 đồng."])
+    assert kq["pass_rate"] == 1.0
+    assert kq["n_cat_cut"] == 0
+
+
+# ---------------------------------------------------------------------------
+# parse_outputs: đếm đúng, giữ mẫu để nhìn tận mắt
+# ---------------------------------------------------------------------------
+
+def test_dem_dung_so_dau_ra_hong_va_giu_mau():
+    preds, tk = parse_outputs(['{"a": 1}', "rác", CAT_CUT_REPORT], "thử")
+    assert tk["parse_fail"] == 2
+    assert preds[0] == {"a": 1} and preds[1] == {} and preds[2] == {}
+    assert len(tk["mau"]) == 2, "phải giữ mẫu thô, không thì lại đoán mò"
+
+
+def test_JSON_khong_phai_object_cung_tinh_la_hong():
+    """`json.loads('[1,2]')` chạy được nhưng `.get()` thì không."""
+    preds, tk = parse_outputs(["[1, 2]", '"chuỗi"'], "thử")
+    assert tk["parse_fail"] == 2
+    assert preds == [{}, {}]
+
+
+# ---------------------------------------------------------------------------
+# Kết quả từng câu — nền cho việc so hai bản theo cặp
+# ---------------------------------------------------------------------------
+
+def test_moi_scorer_tra_ve_ket_qua_tung_cau():
+    """
+    Không có `per_row` thì `compare_runs` không so được, và ta quay lại cảnh
+    nhìn hai con số trung bình — thứ giấu hoàn toàn vùng thoái lui.
+    """
+    rows = [
+        {"_id": "AG1", "question": "quý này lãi hay lỗ", "tool": "report"},
+        {"_id": "AG2", "question": "xin chào", "tool": "report"},
+    ]
+    kq = score_planner(rows)
+    assert kq["per_row"] == [True, False]
+    assert kq["row_ids"] == ["AG1", "AG2"]
+
+
+def test_per_row_dai_bang_so_cau_da_cham():
+    rows = [{"_id": "P1", "question": "quý này lãi hay lỗ", "expected_tool": "report"},
+            {"_id": "P2", "question": "làm báo cáo", "expected_tool": None}]
+    kq = score_planner(rows)
+    assert len(kq["per_row"]) == len(kq["row_ids"]) == kq["n_cham"] == 1
+
+
+def test_thieu__id_thi_lui_ve_so_thu_tu_chu_khong_no():
+    """Bộ eval cũ không có `_id`. Ném KeyError ở đây là chặn cả buổi đo."""
+    rows = [{"question": "quý này lãi hay lỗ", "tool": "report"}]
+    assert score_planner(rows)["row_ids"] == ["#0"]
+
+
+def test_agent_per_row_khop_voi_row_ids():
+    rows = [
+        {"_id": "A1", "ask_back": True},
+        {"_id": "A2", "tool": "vat"},
+    ]
+    kq = score_agent(rows, [
+        '{"thought": "thiếu số", "answer": "Đơn bao nhiêu tiền ạ?"}',
+        '{"thought": "x", "tool": "vat", "arguments": '
+        '{"items": [{"name": "A", "price": 1, "qty": 1}], "stated_total": 1}}',
+    ])
+    assert kq["per_row"] == [True, True]
+    assert len(kq["row_ids"]) == len(kq["per_row"]) == 2
+
+
+def test_agent_per_row_bat_duoc_ca_hong():
+    rows = [{"_id": "A1", "ask_back": True}]
+    kq = score_agent(rows, ['{"thought": "x", "tool": "report", "arguments": {}}'])
+    assert kq["per_row"] == [False], "gọi tool khi thiếu dữ kiện = trượt"
+
+
+# ---------------------------------------------------------------------------
+# Nhánh n8n — trước 15/08/2026 nó ghi nhầm dữ liệu của extraction vào file JSON
+# ---------------------------------------------------------------------------
+
+def _workflow_hop_le() -> str:
+    return json.dumps({
+        "action": "create_workflow",
+        "name": "Cảnh báo tồn kho",
+        "payload": {
+            "nodes": [
+                {"name": "Mỗi 4 tiếng", "type": "n8n-nodes-base.scheduleTrigger",
+                 "typeVersion": 1.2, "position": [0, 0], "parameters": {}},
+                {"name": "Gọi API", "type": "n8n-nodes-base.httpRequest",
+                 "typeVersion": 4.2, "position": [220, 0],
+                 "parameters": {"url": "https://x/y", "method": "GET"}},
+            ],
+            "connections": {
+                "Mỗi 4 tiếng": {
+                    "main": [[{"node": "Gọi API", "type": "main", "index": 0}]]
+                }
+            },
+        },
+    }, ensure_ascii=False)
+
+
+def test_n8n_tra_ve_ket_qua_tung_cau_cua_CHINH_NO():
+    """
+    Bản cũ đếm `n_valid` tại chỗ trong `main()` rồi ghi
+    `ket_qua_chay["n8n"] = result` — mà khối n8n KHÔNG hề gán `result`. Biến đó
+    còn sót từ khối extraction ngay trên, nên mục "n8n" trong file JSON là bản
+    sao y của extraction: n=98, row_ids `EX0228...`, per_field origin/destination.
+
+    Báo cáo .txt vẫn in đúng vì nó in từ biến cục bộ. Không một dòng lỗi nào.
+    """
+    rows = [{"_id": "N8N0001", "task": "t", "plan": "p"},
+            {"_id": "N8N0002", "task": "t", "plan": "p"}]
+    kq = score_n8n(rows, [_workflow_hop_le(), '{"action": "create_workflow"'])
+
+    assert kq["row_ids"] == ["N8N0001", "N8N0002"], "row_ids phải của chính nhánh n8n"
+    assert kq["per_row"] == [True, False]
+    assert kq["n_valid"] == 1 and kq["n"] == 2
+    assert kq["valid_rate"] == 0.5
+
+
+def test_n8n_dem_cat_cut_RIENG_khong_gop_vao_workflow_sai():
+    """
+    Cắt cụt sửa bằng nới trần token; workflow sai cấu trúc sửa bằng dữ liệu
+    huấn luyện. Gộp hai thứ vào một tỷ lệ là chỉ đường sai cho người đi sửa.
+    """
+    rows = [{"_id": "N1"}, {"_id": "N2"}]
+    kq = score_n8n(rows, [_workflow_hop_le(), '{"action": "crea'],
+                   ["stop", "length"])
+    assert kq["n_cat_cut"] == 1
+    assert kq["n_valid"] == 1
+
+
+def test_n8n_khong_truyen_finish_thi_van_chay():
+    """Gọi cũ (hai đối số) không được nổ — nó vẫn nằm trong notebook cũ."""
+    kq = score_n8n([{"_id": "N1"}], [_workflow_hop_le()])
+    assert kq["per_row"] == [True] and kq["n_cat_cut"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Chốt chặn trước khi ghi JSON
+# ---------------------------------------------------------------------------
+
+def test_hai_nhanh_trung_ma_cau_thi_NEM_chu_khong_ghi_ra_file():
+    """
+    Đúng hình dạng lỗi 15/08: file có đủ bốn mục, mỗi mục đúng cấu trúc, và
+    mục n8n là bản sao y của extraction. Không có gì phát ra tín hiệu — nó chỉ
+    lộ khi đọc tay `row_ids`.
+
+    Ném chứ không cảnh báo: file này đi thẳng vào `compare_runs` để ra kết luận
+    có nên dùng bản fine-tune không.
+    """
+    ext = {"n": 2, "per_row": [True, False], "row_ids": ["EX0228", "EX0229"]}
+    with pytest.raises(AssertionError, match="CÙNG danh sách mã câu"):
+        kiem_ket_qua({"extraction": ext, "n8n": dict(ext)})
+
+
+def test_per_row_lech_row_ids_thi_nem():
+    with pytest.raises(AssertionError, match="hai lần chấm khác nhau"):
+        kiem_ket_qua({"n8n": {"n": 3, "per_row": [True], "row_ids": ["A", "B", "C"]}})
+
+
+def test_bo_do_dung_DUNG_tran_token_cua_production():
+    """
+    Bộ đo không được rộng tay hơn thứ đang chạy thật.
+
+    15/08/2026: benchmark cấp agentic 1024 và narration 2048, production cấp
+    700 và 1200. Không bên nào sai một mình — ghép lại thì mọi tỷ lệ cắt cụt
+    đo được đều ĐẸP HƠN thực tế, và ta có thể ship một model đã "đạt" trong khi
+    khách vẫn nhận câu đứt giữa chừng. Sai đúng chiều nguy hiểm.
+
+    Test này chốt hướng: mặc định của bộ đo PHẢI là hằng số của production.
+    Nới trần benchmark để lấy số đẹp thì phải nới cả production, và khi đó phải
+    trả lời được câu "cửa sổ ngữ cảnh có còn đủ chỗ cho đầu vào không".
+    """
+    from src.agents.agentic import MAX_DECISION_TOKENS
+    from src.agents.coder import MAX_WORKFLOW_TOKENS
+    from src.agents.manager import MAX_REPORT_TOKENS
+
+    for env, hang_so in (("BENCH_AGENT_MAX_TOKENS", MAX_DECISION_TOKENS),
+                         ("BENCH_NARR_MAX_TOKENS", MAX_REPORT_TOKENS),
+                         ("BENCH_N8N_MAX_TOKENS", MAX_WORKFLOW_TOKENS)):
+        assert tran_token(env, hang_so) == hang_so
+
+
+def test_tran_token_van_ep_tay_duoc_bang_env(monkeypatch):
+    """Đo cận trên ("không vướng trần thì model làm được gì") vẫn phải làm được."""
+    monkeypatch.setenv("BENCH_AGENT_MAX_TOKENS", "4096")
+    assert tran_token("BENCH_AGENT_MAX_TOKENS", 1024) == 4096
+
+
+def test_env_rong_khong_lam_no_ma_lui_ve_mac_dinh(monkeypatch):
+    """`export BENCH_...=` (gán rỗng) là chuyện thường trong shell script."""
+    monkeypatch.setenv("BENCH_AGENT_MAX_TOKENS", "")
+    assert tran_token("BENCH_AGENT_MAX_TOKENS", 1024) == 1024
+
+
+def test_cua_so_ngu_canh_du_cho_dau_ra_dai_nhat():
+    """
+    Nâng trần ĐẦU RA mà quên cửa sổ là đổi một lỗi ồn ào lấy một lỗi im lặng:
+    vLLM cắt phần ĐẦU VÀO, model trả lời trên nửa bảng số, và không có gì cho
+    thấy nửa kia đã mất.
+
+    Nhánh báo cáo là nhánh ngốn nhất — 2048 token ra, ngữ cảnh là danh sách
+    phát hiện dài theo số dòng sổ. Đòi cửa sổ chừa lại ít nhất bằng phần đầu ra.
+    """
+    from src.agents.manager import MAX_REPORT_TOKENS
+    from src.core.config import Config
+
+    cua_so = Config().vllm_config["max_model_len"]
+    assert cua_so - MAX_REPORT_TOKENS >= MAX_REPORT_TOKENS, (
+        f"cửa sổ {cua_so} trừ đầu ra {MAX_REPORT_TOKENS} chỉ còn "
+        f"{cua_so - MAX_REPORT_TOKENS} token cho system + ngữ cảnh + lịch sử"
+    )
+
+
+def test_ket_qua_dung_thi_di_qua_im_lang():
+    kiem_ket_qua({
+        "extraction": {"per_row": [True], "row_ids": ["EX0001"]},
+        "n8n": {"per_row": [True], "row_ids": ["N8N0001"]},
+        "bang_luat": {"per_row": [], "row_ids": []},   # rỗng: bỏ qua, không nổ
+    })
+
+
+# ---------------------------------------------------------------------------
+# Cổng chặn KHÔNG được chặn trên mẫu quá ít
+# ---------------------------------------------------------------------------
+
+def test_cong_chan_KHONG_chan_khi_mau_qua_it():
+    """
+    Nhánh n8n có đúng 5 ca. 5/5 cho khoảng Wilson ~48%–100% — không phân biệt
+    nổi với 3/5. Chặn hay thả trên một con số như vậy đều là tung đồng xu, chỉ
+    khác là nó trông như một quyết định có căn cứ.
+    """
+    from offline_training.benchmark_v3 import N_TOI_THIEU_CHAN, chan
+
+    gate, yeu = [], []
+    chan(gate, "n8n hợp lệ", 1, 5, 0.90, yeu=yeu)      # 20% — trượt xa ngưỡng
+    assert gate == [], "n=5 mà vẫn chặn thì cổng phản ánh may rủi, không phản ánh model"
+    assert yeu and "n=5" in yeu[0]
+    assert N_TOI_THIEU_CHAN >= 20
+
+
+def test_cong_chan_VAN_chan_khi_du_mau():
+    from offline_training.benchmark_v3 import chan
+
+    gate, yeu = [], []
+    chan(gate, "extraction", 40, 100, 0.90, yeu=yeu)   # 40% trên n=100
+    assert len(gate) == 1, "đủ mẫu mà dưới ngưỡng thì phải chặn"
+    assert yeu == []
+
+
+def test_du_mau_va_dat_nguong_thi_khong_chan():
+    from offline_training.benchmark_v3 import chan
+
+    gate, yeu = [], []
+    chan(gate, "extraction", 95, 100, 0.90, yeu=yeu)
+    assert gate == [] and yeu == []
+
+
+def test_mau_it_van_IN_con_so_ra_de_doc(capsys):
+    """Không chặn KHÁC với không đo. Con số vẫn phải hiện, kèm lý do không chặn."""
+    from offline_training.benchmark_v3 import chan
+
+    chan([], "n8n hợp lệ", 5, 5, 0.90, yeu=[])
+    ra = capsys.readouterr().out
+    assert "n8n hợp lệ" in ra
+    assert "KHÔNG dùng làm cổng chặn" in ra
+
+
+def test_he_thong_cham_qua_chot_dau_vao_nhu_production():
+    """
+    28/10/2026: benchmark agentic chấm tham số model THÔ, trong khi production
+    cho chúng đi qua `chot_dau_vao` trước khi tool chạy. Bảng hệ thống phải
+    phân loại đúng: chép thiếu bị chặn, đủ thì chạy, hoá đơn không nói VAT thì
+    hỏi lại theo thiết kế.
+    """
+    from offline_training.benchmark_v3 import score_he_thong
+
+    hoa_don = ('Kiểm tra hoá đơn: {"Cước": 5000000, "Phụ phí": 500000}, '
+               "tổng ghi 6.500.000đ")
+    rows = [
+        {"_id": "q_du", "ask_back": False,
+         "question": "Nhà xe chào 12.500.000 đồng, biên lợi nhuận 8%"},
+        {"_id": "q_thieu", "ask_back": False,
+         "question": "Nhà xe chào 12.500.000 đồng, biên 8%, giá dầu lúc chốt 26.500 đồng/lít"},
+        {"_id": "vat_chua_noi", "ask_back": False, "question": hoa_don},
+        {"_id": "vat_du", "ask_back": False, "question": hoa_don + ", giá chưa gồm VAT"},
+        {"_id": "bia", "ask_back": True, "question": "Biên 8%, tính giá bán giúp tôi"},
+    ]
+    quote = lambda **a: json.dumps({"thought": "x", "tool": "quote", "arguments": a})  # noqa: E731
+    vat = json.dumps({"thought": "x", "tool": "vat", "arguments": {
+        "items": [{"name": "Cước", "price": 5000000, "qty": 1}], "stated_total": 6500000}})
+    outputs = [
+        quote(carrier_cost=12500000, pricing_rule={"base_margin_pct": 8}),
+        quote(carrier_cost=12500000, pricing_rule={"base_margin_pct": 8}),
+        vat,
+        vat,
+        quote(carrier_cost=10000000, pricing_rule={"base_margin_pct": 8}),
+    ]
+    kq = score_he_thong(rows, outputs)
+    assert kq["chay_dung"] == 2            # q_du, vat_du (B bóc đủ hai dòng)
+    assert kq["chan_dau_vao"] == 1         # q_thieu: model bỏ 26.500, chốt hỏi lại
+    assert kq["hoi_thue"] == 1             # vat_chua_noi — không tính vào tỷ lệ
+    assert kq["hoi_lai_dung"] == 1         # bia: 10.000.000 không có trong câu
+    assert kq["lot"] == 0
+    assert kq["an_toan"] == 1.0
+    assert kq["tra_loi_ngay"] == pytest.approx(2 / 3)
+    # compare_runs ghép cặp theo _id; dòng hỏi VAT theo thiết kế không chấm
+    assert kq["row_ids"] == ["q_du", "q_thieu", "vat_du", "bia"]
+    assert kq["per_row"] == [True, False, True, True]

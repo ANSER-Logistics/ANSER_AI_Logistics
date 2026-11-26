@@ -24,7 +24,7 @@ viết ở dưới. Không đọc gì khác trong `src/data/`.
 CHẠY (Colab; nạp model thật nên không chạy trong CI)
     python offline_training/do_tre_rag.py --device cpu  --lan 100 --json tre_rag_cpu.json
     python offline_training/do_tre_rag.py --device cuda --lan 100 --json tre_rag_gpu.json
-Phần thuần (phân vị, đếm vượt ngưỡng, tóm tắt) có test trong `tests/test_do_tre_rag.py`.
+Phần thuần (phân vị, đếm vượt ngưỡng, tóm tắt) có test trong `tests/offline_training/test_do_tre_rag.py`.
 """
 
 from __future__ import annotations

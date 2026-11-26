@@ -11,6 +11,7 @@ CHẠY TRONG COLAB (không chạy bằng !python vì cần GPU trong cùng proce
 """
 import json
 from pathlib import Path
+from typing import Any
 
 import torch
 
@@ -42,7 +43,7 @@ model_path = snapshot_download('qwen/Qwen2.5-7B-Instruct', cache_dir='/content/m
 print(f"✓ {model_path}\n")
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-model = AutoModelForCausalLM.from_pretrained(
+model: Any = AutoModelForCausalLM.from_pretrained(
     model_path,
     quantization_config=BitsAndBytesConfig(
         load_in_4bit=True,

@@ -79,13 +79,13 @@ def _metrics_khong_ghi_file_that(monkeypatch, tmp_path):
 # CI và thường không có Redis thật, nên số skip ở đó khác là bình thường. Muốn
 # thử ở máy mình: dựng môi trường đúng như bước cài của ci.yml rồi đặt biến đó.
 SKIP_DA_KHAI: dict[str, tuple[int, str]] = {
-    "tests/test_agentic_plan.py": (
+    "tests/unit/agents/test_agentic_plan.py": (
         2, "thiếu `xgrammar` (gói nặng, kéo torch) — xem requirements-dev.txt"),
-    "tests/test_grammar_gioi_han_chuoi.py": (
+    "tests/unit/core/test_grammar_gioi_han_chuoi.py": (
         2, "thiếu `xgrammar` (gói nặng, kéo torch): hai test biên dịch thật chỉ chạy ở Colab/vLLM — xem requirements-dev.txt"),
-    "tests/test_body_contract.py": (
+    "tests/integration/api/test_body_contract.py": (
         1, "CI không có repo Body bên cạnh; test này cần ANSER_BODY_DIR"),
-    "tests/test_deploy_config.py": (
+    "tests/contracts/test_deploy_config.py": (
         2, "parametrize trên CHUA_NOI và ENV_MAU_NGOAI_COMPOSE, cả hai CỐ Ý rỗng; "
            "đã có test canh chiều ngược lại trong chính file đó"),
 }
