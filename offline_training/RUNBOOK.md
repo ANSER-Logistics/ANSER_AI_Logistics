@@ -398,8 +398,8 @@ Chủ dự án chốt ở #124: model thị giác pilot là bản **tự lượn
 
 **Vá một lần, trên Colab** (chỉ chép tệp cấu hình, không đụng `model.safetensors`):
 
-1. Chép từ repo gốc `Qwen/Qwen2.5-VL-7B-Instruct`, **ghim một commit** (ghi mã commit vào `NGUON.txt` trong thư mục): `preprocessor_config.json`, `chat_template.json`, `tokenizer.json`, `tokenizer_config.json`, `vocab.json`, `merges.txt`. Không chép `config.json` hay `generation_config.json`: `config.json` của thư mục mang `quantization_config` của bản lượng tử hoá.
-2. Chuyển các tệp do `transformers` 5 ghi mà bản 4.57 không dùng (`processor_config.json`, `chat_template.jinja`, và `tokenizer.json`, `tokenizer_config.json` cũ) vào thư mục con `_ghi_boi_transformers5/`. Không xoá, để còn so khi cần. Giữ `chat_template.jinja` ở gốc thì 4.57 có thể đọc nó thay cho `chat_template.json`: cùng lý do ô 1.4 của các notebook text đổi tên tệp này thành `.bak`.
+1. **Trước tiên**, chuyển các tệp do `transformers` 5 ghi mà bản 4.57 không dùng (`processor_config.json`, `chat_template.jinja`, `tokenizer.json`, `tokenizer_config.json`) vào thư mục con `_ghi_boi_transformers5/`. Không xoá, để còn so khi cần. Phải chuyển trước bước 2, vì bước 2 chép `tokenizer.json` và `tokenizer_config.json` cùng tên: chép trước thì bản do `transformers` 5 ghi bị đè mất. Giữ `chat_template.jinja` ở gốc thì 4.57 có thể đọc nó thay cho `chat_template.json`: cùng lý do ô 1.4 của các notebook text đổi tên tệp này thành `.bak`.
+2. Chép từ repo gốc `Qwen/Qwen2.5-VL-7B-Instruct`, **ghim một commit** (ghi mã commit vào `NGUON.txt` trong thư mục): `preprocessor_config.json`, `chat_template.json`, `tokenizer.json`, `tokenizer_config.json`, `vocab.json`, `merges.txt`. Không chép `config.json` hay `generation_config.json`: `config.json` của thư mục mang `quantization_config` của bản lượng tử hoá.
 3. Lập `MANIFEST.sha256` ở gốc thư mục, định dạng của `sha256sum` (mọi tệp ở gốc, trừ chính nó):
    ```bash
    cd <thư mục trọng số> && sha256sum $(ls -p | grep -v / | grep -v '^MANIFEST.sha256$') > MANIFEST.sha256
@@ -416,6 +416,8 @@ VISION_MODEL_ID=/models/q25vl7b-w4a16-tu-luong-tu
 VLLM_VISION_BASE_URL=http://vllm-vision:8002
 ```
 rồi `docker compose --profile vision up -d`. Không đặt `--quantization`: vLLM đọc `quantization_config` (`compressed-tensors`, `pack-quantized`) trong `config.json` và tự chọn nhân Marlin.
+
+**Cần #277 gộp trước.** Compose hiện tại của nhánh chính vẫn để `--gpu-memory-utilization=${VISION_GPU_FRACTION:-0.25}` (quá nhỏ cho bản 7B, xem §8.5) và cú pháp cũ `--limit-mm-per-prompt=image=2`. #277 (#273) đổi mặc định thành 0.44, ngữ cảnh 8.192 và dạng JSON `'{"image":2}'`. Nếu phải chạy trước khi #277 gộp: đặt `VISION_GPU_FRACTION=0.44` trong `.env` và sửa tay cờ `--limit-mm-per-prompt` trong compose.
 
 **Hai nơi lưu (chủ dự án chọn; agent không tự đẩy trọng số lên đâu):**
 
