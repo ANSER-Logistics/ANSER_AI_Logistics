@@ -25,8 +25,10 @@ class _EngineGhi:
     def __init__(self):
         self.lan_goi: list[dict] = []
 
-    async def generate_chat(self, system, user, max_tokens, temperature, json_schema=None, history=None):
-        self.lan_goi.append({"system": system, "user": user, "temperature": temperature, "history": history})
+    async def generate_chat(self, system, user, max_tokens, temperature, json_schema=None, history=None, tac_vu="chung"):
+        self.lan_goi.append({
+            "system": system, "user": user, "temperature": temperature, "history": history, "tac_vu": tac_vu,
+        })
         return "ok"
 
 
@@ -55,6 +57,7 @@ def test_context_cua_engine_vao_nguyen_van_system_prompt(agent, ham, ten_prompt,
     assert khoi in goi["system"], "số của engine phải tới được model, không để model tự đoán (R1)"
     assert goi["user"] == "vì sao lãi gộp ra số này?"
     assert goi["history"] == lich_su
+    assert goi["tac_vu"] == "chung"
 
 
 @pytest.mark.parametrize("ham, ten_prompt, chu_rong", [n for n in NHANH if n[2]])
