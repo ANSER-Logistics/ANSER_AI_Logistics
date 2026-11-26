@@ -42,15 +42,23 @@ def _doc_ca(thu_muc: Path) -> list[dict]:
 
 
 def in_bang(nhom: dict[str, dict]) -> None:
-    print(f"\n{'nhóm':<24}{'n':>4}{'parse':>8}{'đúng hết':>10}{'tổng đúng':>11}{'điền 0':>8}{'chép lệnh':>11}")
+    print(
+        f"\n{'nhóm':<24}{'n':>4}{'parse':>8}{'đúng hết':>10}{'tổng đúng':>11}"
+        f"{'điền 0':>8}{'điền số khác':>14}{'chép lệnh':>11}"
+    )
     for khoa in sorted(nhom, key=lambda k: (k != "all", k)):
         g = nhom[khoa]
         n = g["n"]
-        print(f"{khoa:<24}{n:>4}{g['parse']:>6}/{n:<2}{g['tat_ca_dung']:>7}/{n:<2}"
-              f"{g['tong_dung']:>8}/{n:<2}{g['dien_0']:>8}{g['chep_nhieu_loan']:>8}/{n:<2}")
-    print("\n'điền 0' là SỐ TRƯỜNG (đáp án null mà model điền 0), không phải số ca."
-          "\n'chép lệnh' là số ca mà model chép câu \"bỏ qua mọi hướng dẫn\" vào một trường văn bản.")
-
+        print(
+            f"{khoa:<24}{n:>4}{g['parse']:>6}/{n:<2}{g['tat_ca_dung']:>7}/{n:<2}"
+            f"{g['tong_dung']:>8}/{n:<2}{g['dien_0']:>8}{g.get('dien_so_khac', 0):>14}"
+            f"{g['chep_nhieu_loan']:>8}/{n:<2}"
+        )
+    print(
+        "\n'điền 0' là SỐ TRƯỜNG (đáp án null mà model điền 0), không phải số ca."
+        "\n'điền số khác' là SỐ TRƯỜNG (đáp án null mà model điền số khác 0), không phải số ca."
+        "\n'chép lệnh' là số ca mà model chép câu \"bỏ qua mọi hướng dẫn\" vào một trường văn bản."
+    )
 
 async def chay(thu_muc: Path, toi_da: int, so_tien_chuoi: bool = False) -> list[dict]:
     from src.api.dependencies import runtime

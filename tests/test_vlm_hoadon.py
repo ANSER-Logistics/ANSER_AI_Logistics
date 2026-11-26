@@ -302,3 +302,32 @@ def test_runner_bao_thieu_file_bang_thong_bao_ro(tmp_path):
     with pytest.raises(SystemExit) as e:
         do._doc_ca(tmp_path)
     assert "make_vlm_invoice_eval.py" in str(e.value)
+
+def test_dien_so_khac_khi_dap_an_la_none_va_tong_hop():
+    """#112: đáp án null mà model chép một số khác 0 (như VH0013, VH0027) phải được đếm vào dien_so_khac."""
+    ca = _lay("freight", "vat_hidden")
+    out = copy.deepcopy(ca["gt"])
+    out.update(vat_rate=None, subtotal=21852600, vat_amount=0)
+    kq = v.cham(ca, out)
+    assert kq["dien_so_khac"] == 1 and kq["dien_0"] == 1 and kq["tat_ca_dung"] is False
+
+    dung = copy.deepcopy(ca["gt"])
+    kq2 = v.cham(ca, dung)
+    assert kq2["dien_so_khac"] == 0 and kq2["dien_0"] == 0 and kq2["tat_ca_dung"] is True
+
+    nhom = v.tong_hop([kq, kq2])
+    assert nhom["all"]["dien_so_khac"] == 1
+    assert nhom["freight/vat_hidden"]["dien_so_khac"] == 1
+
+
+def test_in_bang_hien_cot_dien_so_khac(capsys):
+    from offline_training import do_vlm_hoa_don as do
+
+    ca = _lay("freight", "vat_hidden")
+    out = copy.deepcopy(ca["gt"])
+    out["subtotal"] = 16473000
+    nhom = v.tong_hop([v.cham(ca, out)])
+    do.in_bang(nhom)
+    chu = capsys.readouterr().out
+    assert "điền số khác" in chu
+    assert "freight/vat_hidden" in chu
