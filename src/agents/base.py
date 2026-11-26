@@ -38,4 +38,5 @@ class BaseAgent(ABC):
             temperature,
             json_schema=kwargs.get('json_schema'),
             history=kwargs.get('history'),
+            tac_vu=kwargs.get('tac_vu', 'chung'),
         )
