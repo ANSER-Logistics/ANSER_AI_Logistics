@@ -167,6 +167,20 @@ def _so_trong_tham_so(args: Any) -> set[int]:
             if isinstance(gia, (int, float)) and isinstance(sl, (int, float)) \
                     and not isinstance(gia, bool) and not isinstance(sl, bool):
                 gom.add(round(gia * sl))     # người dùng hay viết thành tiền của dòng
+            # Tạm tính của cả danh sách dòng hàng: hoá đơn hay ghi sẵn `subtotal` (tổng các dòng, chưa thuế). Nó KHÔNG có ô riêng ở tool `vat` nên model
+            # không chép, nhưng nó không bị bỏ sót: nó bằng tổng các dòng đã có trong tham số. Dòng nào bị bỏ thì tổng lệch và số đó vẫn bị báo (#261/T4).
+            dong = x.get("items")
+            if isinstance(dong, list) and len(dong) >= 2:
+                tong, du = 0.0, True
+                for d in dong:
+                    g = d.get("price") if isinstance(d, dict) else None
+                    q = d.get("qty") if isinstance(d, dict) else None
+                    if isinstance(g, (int, float)) and isinstance(q, (int, float)) and not isinstance(g, bool) and not isinstance(q, bool):
+                        tong += g * q
+                    else:
+                        du = False
+                if du:
+                    gom.add(round(tong))
             for v in x.values():
                 di(v)
         elif isinstance(x, (list, tuple)):
