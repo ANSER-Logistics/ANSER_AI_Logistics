@@ -100,3 +100,38 @@ def test_chi_doc_van_ban_phap_luat_cong_khai():
 def test_main_tu_choi_lan_khong_hop_le():
     with pytest.raises(SystemExit):
         d.main(["--lan", "0"])
+
+
+# ---------------------------------------------------------------------------
+# Chế độ lưới (#214)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("chuoi,mong", [
+    ("10:0", (10, 0, None)), ("6:384", (6, 384, None)), ("10:0:cuda", (10, 0, "cuda")), ("4:256:cpu", (4, 256, "cpu")),
+])
+def test_doc_cau_hinh_hop_le(chuoi, mong):
+    assert d.doc_cau_hinh(chuoi) == mong
+
+
+@pytest.mark.parametrize("chuoi", ["10", "10:0:cuda:x", "a:0", "0:0", "10:-1", "10:32", "10:0:tpu"])
+def test_doc_cau_hinh_tu_choi(chuoi):
+    with pytest.raises(ValueError):
+        d.doc_cau_hinh(chuoi)
+
+
+def test_so_voi_goc_giu_top_va_quyet_dinh():
+    goc = [[("a", 1), ("a", 2)], [("b", 0)], []]
+    moi = [[("a", 2), ("a", 1)], [("c", 4)], [("d", 1)]]   # câu 1 giữ (khác thứ tự), câu 2 đổi đoạn, câu 3 đổi quyết định
+    kq = d.so_voi_goc(goc, moi)
+    assert kq == {"n": 3, "giu_top_pct": 33.3, "giu_quyet_dinh_pct": 66.7}
+    assert d.so_voi_goc(goc, goc)["giu_top_pct"] == 100.0
+
+
+def test_so_voi_goc_khac_so_cau_bao_loi():
+    with pytest.raises(ValueError):
+        d.so_voi_goc([[]], [[], []])
+
+
+def test_main_tu_choi_cau_hinh_hong():
+    with pytest.raises(SystemExit):
+        d.main(["--cau-hinh", "10:32"])
