@@ -408,16 +408,23 @@ Chủ dự án chốt ở #124: model thị giác pilot là bản **tự lượn
 
    **Đã làm 26/11/2026** (Colab L4, vLLM 0.11.2, mã `e0b9e62`). Tệp chép từ `Qwen/Qwen2.5-VL-7B-Instruct@cc594898137f460bfe9f0759e9844b3ce807cfb5`. Model lên sau 160 giây dù nạp thẳng từ Drive. Kết quả: 22/28 đúng hết, 28/28 tổng đúng, 26/28 không lỗi tiền, p50/p95 5,9/7,0 giây, các số tổng trùng #189. So từng hoá đơn với #189: b = 0, c = 0, tức không hoá đơn nào đổi trạng thái đúng hết/trượt; chưa đối chiếu từng trường. VRAM đỉnh 19 174 MiB, khi chạy một mình với `--gpu-memory-utilization 0.85`; con số này không phải cổng 3 (chạy chung với text). Số đo nằm trên Drive `do_271_20261126_e0b9e62/`, MANIFEST ở #271.
 
-**Đặt lên máy chạy (compose).** Compose gắn `MODELS_DIR` (mặc định `./models`) vào `/models` của container `vllm-vision`, chỉ đọc. Chép cả thư mục vào `./models/q25vl7b-w4a16-tu-luong-tu/`, kiểm, rồi đặt `.env`:
+**Đặt lên máy chạy (compose).**
+
+**Điều kiện trước khi chạy: cần #277 gộp trước, không có cách chạy tắt.** Compose hiện tại của nhánh tính năng được viết cho text chạy một mình cùng vision 2B: text `0.62` với ngữ cảnh 32.768, vision `0.25` với ngữ cảnh 4.096, và cờ ảnh cú pháp cũ `--limit-mm-per-prompt=image=2`. Chỉ nâng phần vision thì tổng vượt 1 GPU (0,62 + 0,44 = 1,06) và ngữ cảnh vision vẫn dưới mức 8.192 mà cổng §8.4 cần. #277 (#273) đổi cả hai dịch vụ cùng lúc: text `0.43` với ngữ cảnh 14.336, vision `0.44` với ngữ cảnh 8.192, cờ ảnh dạng JSON `'{"image":2}'`. Bộ số đó cũng chưa đo với bản GPTQ (xem "Chưa đo" bên dưới).
+
+Compose gắn `MODELS_DIR` (mặc định `./models`) vào `/models` của container `vllm-vision`, chỉ đọc. Chép cả thư mục vào `./models/q25vl7b-w4a16-tu-luong-tu/`, kiểm hash, rồi cập nhật `deploy/.env`:
 ```bash
 cd models/q25vl7b-w4a16-tu-luong-tu && sha256sum -c MANIFEST.sha256    # mọi dòng phải "OK"
-# .env của máy chạy
+# deploy/.env của máy chạy
 VISION_MODEL_ID=/models/q25vl7b-w4a16-tu-luong-tu
 VLLM_VISION_BASE_URL=http://vllm-vision:8002
 ```
-rồi `docker compose --profile vision up -d`. Không đặt `--quantization`: vLLM đọc `quantization_config` (`compressed-tensors`, `pack-quantized`) trong `config.json` và tự chọn nhân Marlin.
-
-**Cần #277 gộp trước, không có cách chạy tắt.** Compose hiện tại của nhánh tính năng được viết cho text chạy một mình cùng vision 2B: text `0.62` với ngữ cảnh 32.768, vision `0.25` với ngữ cảnh 4.096, và cờ ảnh cú pháp cũ `--limit-mm-per-prompt=image=2`. Chỉ nâng phần vision thì tổng vượt 1 GPU (0,62 + 0,44 = 1,06) và ngữ cảnh vision vẫn dưới mức 8.192 mà cổng §8.4 cần. #277 (#273) đổi cả hai dịch vụ cùng lúc: text `0.43` với ngữ cảnh 14.336, vision `0.44` với ngữ cảnh 8.192, cờ ảnh dạng JSON `'{"image":2}'`. Bộ số đó cũng chưa đo với bản GPTQ (xem "Chưa đo" bên dưới).
+- **Nếu máy đã có sẵn `deploy/.env` từ bản mẫu cũ:** bản mẫu cũ đặt cứng `TEXT_GPU_FRACTION=0.62`, `TEXT_MAX_MODEL_LEN=32768`, `VISION_GPU_FRACTION=0.25`, `VISION_MAX_MODEL_LEN=4096`. Dù đã kéo #277, Compose vẫn ưu tiên giá trị đã lưu trong `.env`, nên phải cập nhật 4 biến này sang `0.43`/`14336`/`0.44`/`8192` (hoặc để rỗng/xoá override để dùng mặc định của compose).
+- **Kiểm cấu hình dựng ra trước khi bật** (chạy tại máy, không cần GPU và không cần đăng nội dung `.env`):
+  ```bash
+  docker compose --profile vision config
+  ```
+  Xác nhận `vllm-text` nhận `--gpu-memory-utilization=0.43` và `--max-model-len=14336`, `vllm-vision` nhận `--gpu-memory-utilization=0.44`, `--max-model-len=8192` và `--limit-mm-per-prompt={"image":2}`, rồi mới chạy `docker compose --profile vision up -d`. Không đặt `--quantization`: vLLM đọc `quantization_config` (`compressed-tensors`, `pack-quantized`) trong `config.json` và tự chọn nhân Marlin.
 
 **Hai nơi lưu (chủ dự án chọn; agent không tự đẩy trọng số lên đâu):**
 
