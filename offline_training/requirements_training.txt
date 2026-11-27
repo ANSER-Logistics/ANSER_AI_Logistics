@@ -6,7 +6,7 @@
 #
 # Cài:  pip install -r offline_training/requirements_training.txt
 
-transformers==4.51.3     # Qwen3 cần >= 4.51
+transformers==5.10.1     # Qwen3 cần >= 4.51
 peft==0.15.2
 datasets==3.5.0
 accelerate==1.6.0
