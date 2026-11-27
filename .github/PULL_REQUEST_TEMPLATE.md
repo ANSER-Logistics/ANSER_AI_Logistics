@@ -25,14 +25,15 @@ ruff check src tests offline_training launch_demo.py execute_backup_and_push.py
 mypy src offline_training
 ```
 
-## Định nghĩa xong (AGENTS.md §7)
+## Định nghĩa xong (AGENTS.md §7, đủ cả 7)
 
 - [ ] Chạy được ở `ENV=LOCAL`, không cần GPU
 - [ ] Không vi phạm R1–R5
 - [ ] Có test cho phần logic tất định; kết quả `pytest` ở trên
-- [ ] Tài liệu bị ảnh hưởng đã cập nhật trong cùng PR
+- [ ] Tài liệu bị ảnh hưởng đã cập nhật ở `anser-brain-docs`: PR đồng hành #<!-- số PR, hoặc ghi "không đổi hành vi" -->
 - [ ] Chỉ số cải thiện và cách đo: <!-- ghi ở đây -->
 - [ ] Chi phí vận hành thay đổi: <!-- ví dụ 0 đồng/tháng -->
+- [ ] `[PASSED BY MENTOR]` <!-- người duyệt ghi khi đã soát R1 và R2 -->
 
 ## Metadata (§5.4)
 
