@@ -2,9 +2,12 @@
 #
 # HAI ĐIỀU KIỆN, thiếu một là file này không làm gì cả:
 #
-# 1. File phải nằm trên NHÁNH MẶC ĐỊNH. Nó nằm trên nhánh tính năng từ
-#    04/11/2026 nhưng chưa lên `main`, nên gọi API `contents/.github/CODEOWNERS`
-#    trả 404 và không PR nào được tự gắn người duyệt. Đó là lý do có PR này.
+# 1. File phải nằm trên NHÁNH ĐÍCH (base) của PR. GitHub đọc CODEOWNERS từ nhánh đích của
+#    TỪNG PR: PR vào nhánh tích hợp dùng bản trên nhánh tích hợp, PR vào `main` dùng bản
+#    trên `main`. Hai bản độc lập, sửa một bản không đổi bản kia.
+#    (Bản trước của ghi chú này nói chỉ nhánh mặc định mới chạy. Sửa 27/11/2026 theo tài
+#    liệu GitHub "About code owners" và review của Minh trên #281; còn #5 đã đưa tệp lên
+#    `main` để PR phát hành vào `main` có người duyệt.)
 #
 # 2. Nhóm được nhắc tới PHẢI có quyền Write trở lên trên repo. Thiếu quyền thì
 #    GitHub bỏ qua dòng đó VÀ KHÔNG BÁO LỖI — file trông như đang chạy mà không
@@ -86,8 +89,9 @@
 # Các dòng này nằm SAU các dòng ở trên nên thắng (dòng khớp CUỐI CÙNG thắng).
 # Không đụng các tệp R1 và hợp đồng Body ở trên: chúng vẫn thuộc nhóm brain.
 #
-# LƯU Ý: CODEOWNERS chỉ chạy khi tệp nằm trên nhánh mặc định (`main`), xem #5.
-# Thay đổi này chưa có tác dụng cho tới khi tệp lên `main`.
+# HIỆU LỰC: PR nhắm vào nhánh tích hợp bắt đầu yêu cầu các người phụ trách này ngay khi
+# tệp gộp vào nhánh tích hợp. PR vào `main` dùng bản trên `main`, nên bản đó phải được cập
+# nhật riêng khi phát hành.
 #
 # Phân công là [ĐỀ XUẤT] được chủ dự án duyệt. Đổi bằng PR sửa tệp này.
 
