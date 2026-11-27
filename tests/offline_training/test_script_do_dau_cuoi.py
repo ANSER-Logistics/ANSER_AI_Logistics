@@ -1,5 +1,5 @@
 """
-tests/test_script_do_dau_cuoi.py — hai script đo đầu cuối hỏi đúng cách (#259).
+tests/offline_training/test_script_do_dau_cuoi.py — hai script đo đầu cuối hỏi đúng cách (#259).
 
 Lượt chạy thật #257 (Colab L4, 24/11/2026) báo trượt sai lý do:
   1. `benchmark_integration.py` gửi `user_id: 1` mà không gửi `X-User-Id` khi hỏi kết quả task, nên
