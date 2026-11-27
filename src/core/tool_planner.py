@@ -193,7 +193,7 @@ def la_cau_soat_hoa_don(cau: str) -> bool:
 # BR-05 đo được 6/6 câu tính giá bán bị trả về BÁO CÁO LÃI LỖ.
 #
 # Luật viết theo CỤM NGHIỆP VỤ ("nhà xe … chào … X đồng", "biên lợi nhuận"),
-# không theo chữ của từng câu trong bộ đề — xem tests/test_tool_planner.py, phần
+# không theo chữ của từng câu trong bộ đề — xem tests/unit/core/test_tool_planner.py, phần
 # câu viết mới không lấy từ bộ đề.
 # ---------------------------------------------------------------------------
 
@@ -487,7 +487,7 @@ def plan_tools(question: str, available: list[str] | None = None) -> list[str]:
         # được về cấu trúc (có ngoặc nhọn): bỏ khối ngoặc đi mà câu VẪN đòi soi
         # kho thì giữ inventory_audit. Không có ngoặc thì không tách nổi trong/
         # ngoài — ưu tiên chống T4, phủ quyết (lựa chọn có chủ đích, có test
-        # ghi nhận trong tests/test_tool_planner.py).
+        # ghi nhận trong tests/unit/core/test_tool_planner.py).
         van_doi_soi_kho = "{" in q and _MAU_SOI_KHO.search(_KHOI_NGOAC.sub(" ", q))
         if not van_doi_soi_kho:
             khop.discard("inventory_audit")

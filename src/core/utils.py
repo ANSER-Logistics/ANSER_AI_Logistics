@@ -23,10 +23,10 @@ def hom_nay_vn(bay_gio: Optional[datetime] = None) -> date:
     `date.today()` lấy múi giờ của máy: container thường chạy UTC, nên từ 00:00 đến 07:00
     sáng ở Việt Nam nó còn là hôm qua. Luồng n8n đã chốt UTC+7 (brain#217); mọi chỗ trong
     Brain cần "hôm nay" PHẢI gọi hàm này, không `date.today()`, không `CURRENT_DATE` của
-    DB (R4, một định nghĩa; `tests/test_gio_viet_nam.py` canh).
+    DB (R4, một định nghĩa; `tests/unit/core/test_gio_viet_nam.py` canh).
 
     Nằm ở `utils.py` (tầng thấp) vì `prompts.py` cũng cần nó, mà `pricing.py` (tầng trên)
-    thì không import ngược xuống được (`tests/test_layering.py`). Dấu thời gian là một
+    thì không import ngược xuống được (`tests/contracts/test_layering.py`). Dấu thời gian là một
     THỜI ĐIỂM (`computed_at`, `ts` của metrics) không dùng hàm này: chúng ở UTC và không
     có nghĩa "hôm nay".
     """
