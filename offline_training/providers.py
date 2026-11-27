@@ -44,6 +44,7 @@ thật của khách. Ràng buộc nằm ở cấu trúc: `benchmark_v3` chỉ đ
 from __future__ import annotations
 
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Protocol
 
@@ -442,6 +443,11 @@ class OpenAITuongThich:
         self.model = model
         # Khoá đọc từ env, KHÔNG nhận qua tham số dòng lệnh (R2b).
         self._api_key = os.getenv("VLLM_API_KEY", "")
+        # Một dòng cho MỖI lời gọi, cộng dồn suốt phiên: token prompt và token sinh do CHÍNH server đếm (`usage`), trần
+        # `max_tokens` đã xin, và số giây phía client. `benchmark_v3` cắt theo nhánh để biết mỗi tác vụ cần ngữ cảnh bao
+        # nhiêu (#176: hai server trên một GPU thì mỗi server nhỏ hơn 32.768, phải đo cái nào cần chứ không đoán).
+        # `list.append` an toàn giữa các luồng của ThreadPoolExecutor trong CPython.
+        self.nhat_ky: list[dict[str, Any]] = []
 
     def dien_dat_duoc(self, json_schema: dict) -> bool:
         # `guided_json` của vLLM nhận nguyên lược đồ. Server KHÔNG phải vLLM thì
@@ -461,6 +467,7 @@ class OpenAITuongThich:
         # Trả lý do dừng riêng "timeout" — khác "length" (cắt cụt) và khác đầu ra
         # sai — để tầng chấm không đổ tội cho model và `_bao_cat_cut` đếm riêng.
         gio = float(os.getenv("BENCH_TIMEOUT_S", "300"))
+        bat_dau = time.perf_counter()
         try:
             resp = httpx.post(
                 f"{self.base_url}/chat/completions",
@@ -469,11 +476,20 @@ class OpenAITuongThich:
                 timeout=httpx.Timeout(gio, connect=10.0),
             )
         except httpx.TimeoutException:
+            self.nhat_ky.append({"prompt": None, "sinh": None, "max_tokens": max_tokens,
+                                 "giay": round(time.perf_counter() - bat_dau, 3), "ket_thuc": "timeout"})
             return "", "timeout"
         if resp.status_code >= 400:
             raise RuntimeError(f"endpoint trả {resp.status_code}: {resp.text[:400]}")
-        lua_chon = resp.json()["choices"][0]
-        return (lua_chon["message"]["content"] or "").strip(), lua_chon.get("finish_reason") or "stop"
+        du_lieu = resp.json()
+        lua_chon = du_lieu["choices"][0]
+        ket_thuc = lua_chon.get("finish_reason") or "stop"
+        # Server không trả `usage` (không phải vLLM, hay bản cũ) thì ghi None: thiếu số, KHÔNG phải số 0.
+        usage = du_lieu.get("usage") or {}
+        self.nhat_ky.append({"prompt": usage.get("prompt_tokens"), "sinh": usage.get("completion_tokens"),
+                             "max_tokens": max_tokens, "giay": round(time.perf_counter() - bat_dau, 3),
+                             "ket_thuc": ket_thuc})
+        return (lua_chon["message"]["content"] or "").strip(), ket_thuc
 
     def sinh(self, chats: list[Chat], json_schema: dict | None,
              max_tokens: int, temperature: float) -> tuple[list[str], list[str]]:
