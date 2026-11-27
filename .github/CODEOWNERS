@@ -75,3 +75,47 @@
 /pyproject.toml                     @ANSER-Logistics/brain
 /requirements.txt                   @ANSER-Logistics/brain
 /deploy/                            @ANSER-Logistics/brain
+
+# NGƯỜI PHỤ TRÁCH THEO MẢNG (thêm 27/11/2026, chủ dự án duyệt phân công).
+#
+# Mục đích: mỗi PR chạm một mảng có tên một người cụ thể được yêu cầu duyệt,
+# thay vì chỉ "cả nhóm brain" (ai cũng có thể xem nên không ai thấy mình phải xem).
+# Giữ `@ANSER-Logistics/brain` cùng dòng để (1) chủ PR là người phụ trách mảng vẫn
+# có người khác duyệt được, (2) không mất phạm vi duyệt hiện có.
+#
+# Các dòng này nằm SAU các dòng ở trên nên thắng (dòng khớp CUỐI CÙNG thắng).
+# Không đụng các tệp R1 và hợp đồng Body ở trên: chúng vẫn thuộc nhóm brain.
+#
+# LƯU Ý: CODEOWNERS chỉ chạy khi tệp nằm trên nhánh mặc định (`main`), xem #5.
+# Thay đổi này chưa có tác dụng cho tới khi tệp lên `main`.
+#
+# Phân công là [ĐỀ XUẤT] được chủ dự án duyệt. Đổi bằng PR sửa tệp này.
+
+# Bảo mật tầng API: Sơn (@Dgsonn)
+/src/api/gioi_han_than.py           @Dgsonn @ANSER-Logistics/brain
+/src/api/gioi_han_toc_do.py         @Dgsonn @ANSER-Logistics/brain
+/src/api/hmac_auth.py               @Dgsonn @ANSER-Logistics/brain
+/src/core/sanitize.py               @Dgsonn @ANSER-Logistics/brain
+
+# Hạ tầng kiểm thử (không gồm test của từng tính năng, tệp nào cũng có): Minh (@wikiepeidia)
+/tests/conftest.py                  @wikiepeidia @ANSER-Logistics/brain
+/tests/support/                     @wikiepeidia @ANSER-Logistics/brain
+/tests/contracts/                   @wikiepeidia @ANSER-Logistics/brain
+
+# RAG và đo lường: Thành (@tranthanh-riu)
+/src/core/knowledge.py              @tranthanh-riu @ANSER-Logistics/brain
+/src/core/chunking.py               @tranthanh-riu @ANSER-Logistics/brain
+/src/core/retrieval_policy.py       @tranthanh-riu @ANSER-Logistics/brain
+/offline_training/do_tre_rag.py     @tranthanh-riu @ANSER-Logistics/brain
+/offline_training/benchmark_v3.py   @tranthanh-riu @ANSER-Logistics/brain
+/offline_training/benchmark_integration.py  @tranthanh-riu @ANSER-Logistics/brain
+/offline_training/cham_lai_n8n.py   @tranthanh-riu @ANSER-Logistics/brain
+
+# VLM đọc hoá đơn: Phương (@erichocolatte)
+/src/core/so_tien_ocr.py            @erichocolatte @ANSER-Logistics/brain
+/offline_training/vlm_hoadon.py     @erichocolatte @ANSER-Logistics/brain
+/offline_training/vlm_invoice_prompt.py  @erichocolatte @ANSER-Logistics/brain
+/offline_training/do_vlm_hoa_don.py @erichocolatte @ANSER-Logistics/brain
+/offline_training/make_vlm_invoice_eval.py  @erichocolatte @ANSER-Logistics/brain
+/offline_training/phan_loai_loi_vlm.py      @erichocolatte @ANSER-Logistics/brain
+/offline_training/so_sanh_vlm.py    @erichocolatte @ANSER-Logistics/brain
