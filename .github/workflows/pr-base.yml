@@ -1,0 +1,37 @@
+name: PR base
+
+# Chặn sự cố #235 (22/11/2026): PR nhắm nhầm vào `main` hiện ra 333 tệp, +67.229 dòng,
+# và gộp nó nghĩa là đưa cả nhánh tính năng lên production (AGENTS.md §6.0).
+#
+# Luật: PR vào `main` chỉ hợp lệ khi nhánh nguồn LÀ nhánh tích hợp (PR phát hành do
+# chủ dự án mở). Mọi PR khác nhắm vào `main` đều đỏ; sửa bằng nút Edit cạnh tiêu đề,
+# đổi base sang nhánh tích hợp, không cần đẩy lại gì.
+#
+# `edited` có mặt để check chạy lại khi ai đó đổi base. Workflow không checkout mã,
+# không dùng secret; tên nhánh đi qua `env`, không nội suy thẳng vào lệnh shell.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  base-dung:
+    name: base-dung
+    runs-on: ubuntu-latest
+    env:
+      HEAD_REF: ${{ github.head_ref }}
+      INTEGRATION_BRANCH: feat/workflow-format-and-deterministic-core
+    steps:
+      - name: PR vào main phải đến từ nhánh tích hợp
+        run: |
+          if [ "$HEAD_REF" = "$INTEGRATION_BRANCH" ]; then
+            echo "PR phát hành từ nhánh tích hợp vào main: hợp lệ."
+            exit 0
+          fi
+          echo "::error::PR này nhắm vào main nhưng nhánh nguồn không phải $INTEGRATION_BRANCH."
+          echo "::error::Đổi base sang $INTEGRATION_BRANCH (nút Edit cạnh tiêu đề PR). Xem AGENTS.md §6.0."
+          exit 1
