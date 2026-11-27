@@ -325,7 +325,7 @@ async def auth_guard(x_api_token: Optional[str] = Header(None)) -> None:
     phải nhớ gì cả.
 
     Lời gọi `require_api_token` trong các handler giữ nguyên — chúng vô hại và
-    thành lớp thứ hai. Cổng thật nằm ở đây; `tests/test_auth_bao_phu.py` canh
+    thành lớp thứ hai. Cổng thật nằm ở đây; `tests/integration/api/test_auth_bao_phu.py` canh
     rằng KHÔNG endpoint nào thoát ra ngoài cổng này.
     """
     require_api_token(x_api_token)

@@ -172,7 +172,7 @@ async def health():
     # con số quyết định nên nâng hay hạ max_concurrent.
     load: dict = {}
     engine = runtime.engine
-    for name in ("text_guard", "vision_guard"):
+    for name in ("text_guard", "vision_guard", "n8n_guard"):
         guard = getattr(engine, name, None)
         if guard is not None:
             load[name.replace("_guard", "")] = guard.snapshot()
@@ -215,6 +215,12 @@ async def health():
     if vision_server is not None:
         backend["vllm_vision_server"] = await vision_server.health()
         server_down = server_down or not backend["vllm_vision_server"].get("ok", False)
+
+    # Server text riêng cho n8n (#176). Chết thì `degraded` (mất tính năng sinh workflow) nhưng KHÔNG hạ mạch ngắt toàn cục của `/chat`.
+    n8n_server = getattr(engine, "n8n_server", None)
+    if n8n_server is not None:
+        backend["vllm_n8n_server"] = await n8n_server.health()
+        server_down = server_down or not backend["vllm_n8n_server"].get("ok", False)
 
     # p95 của 200 lượt gần nhất (#9, NFR-03). CHỈ ms/token "chưa đạt" mới hạ
     # `degraded`: nó đo sức khoẻ server (hàng đợi, batching, GPU tranh chấp).

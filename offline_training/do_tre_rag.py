@@ -24,7 +24,7 @@ viết ở dưới. Không đọc gì khác trong `src/data/`.
 CHẠY (Colab; nạp model thật nên không chạy trong CI)
     python offline_training/do_tre_rag.py --device cpu  --lan 100 --json tre_rag_cpu.json
     python offline_training/do_tre_rag.py --device cuda --lan 100 --json tre_rag_gpu.json
-Phần thuần (phân vị, đếm vượt ngưỡng, tóm tắt) có test trong `tests/test_do_tre_rag.py`.
+Phần thuần (phân vị, đếm vượt ngưỡng, tóm tắt) có test trong `tests/offline_training/test_do_tre_rag.py`.
 
 CHẾ ĐỘ LƯỚI (#214): nạp kho MỘT lần rồi đo nhiều cấu hình xếp hạng lại, mỗi cấu hình `n:max_length[:thiết bị]`
 (n = số ứng viên dense truyền vào `search(n_candidates=...)`; BM25 vẫn góp tối đa 5 như production; max_length 0 = mặc
