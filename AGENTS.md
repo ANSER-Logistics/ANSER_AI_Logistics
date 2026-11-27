@@ -521,6 +521,17 @@ Sửa bằng chính các lệnh ở §5.4, rồi đọc lại bằng lệnh *Ki�
 
 **Ghi nguồn.** Quyết định dựa trên tài liệu tra được (chọn thư viện, đổi cấu hình, cách gọi API lạ) thì dán link nguồn vào mô tả PR, để người duyệt kiểm được mà không phải tra lại. Kết luận của agent mà không có nguồn thì người duyệt coi là *chưa kiểm*.
 
+### 5.7. Nhịp review và gộp (đề xuất 27/11/2026, chờ chủ dự án chốt các con số)
+
+Đo 27/11/2026: 15 PR mở, 4 PR đã được duyệt và CI xanh vẫn chờ gộp tới 6 ngày, vì chỉ một người gộp. Một yêu cầu sửa nhỏ chờ 3 ngày. Một thay đổi 142 tệp (#266) buộc mọi PR đang mở phải kéo lại nhánh. Sáu quy tắc dưới đây nhắm đúng các điểm nghẽn đó.
+
+1. **Hạn phản hồi 24 giờ làm việc**, cho cả người duyệt và tác giả khi có yêu cầu sửa. Quá hạn thì ghi lên PR, và một thành viên khác của nhóm `brain` nhận việc (mẫu: bình luận trên #253).
+2. **Gộp vào nhánh tích hợp không cần chờ một người.** PR có ít nhất một duyệt, CI xanh, không còn yêu cầu sửa chưa giải quyết thì **bất kỳ thành viên có quyền `write` nào, trừ tác giả**, được gộp (squash, kèm `--match-head-commit`). Mở rộng quy tắc ở §5.4 ("agent hoặc chủ dự án gộp"). `main` vẫn chỉ chủ dự án (§6.0).
+3. **Thay đổi cơ học lớn** (dời hay đổi tên hàng loạt tệp, hơn 50 tệp): báo trên issue trước ít nhất 24 giờ, gộp ngay khi đã duyệt, rồi mọi PR đang mở kéo nhánh tích hợp **một lần**. Trong khoảng đó không gộp PR khác chạm các tệp bị dời.
+4. **Duyệt cũ còn giá trị khi tác giả chỉ kéo nhánh tích hợp vào** (merge commit, dời tệp test theo bố cục) và diff phần việc của chính PR không đổi; tác giả ghi rõ điều đó trong bình luận. Đổi nội dung thì xin duyệt lại. Không bật tự huỷ duyệt khi có push mới, vì nó huỷ cả duyệt ở trường hợp vô hại này.
+5. **Tên nhánh `loại/số-issue-mô-tả-ngắn`** (`feat`, `fix`, `docs`, `chore`, `test`), không có tên người. **Không đổi tên nhánh đã mở PR**: GitHub tự đóng PR đó (#264 thành #266).
+6. **Sau khi gộp:** nhánh tự xoá (bật 27/11/2026). `Closes #N` **không** tự đóng issue vì nhánh tích hợp không phải nhánh mặc định, nên người gộp đóng tay issue, kèm liên kết PR; còn phần việc thì dùng `Refs #N`.
+
 ---
 
 ## 6. Version control & sao lưu
