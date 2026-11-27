@@ -25,6 +25,7 @@ import json
 import os
 import random
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 # ANSER_GENERATED_DIR cho phép trỏ thẳng vào Drive — xem dgen_common.GENERATED_DIR
@@ -98,11 +99,11 @@ def _neutralize_torchao() -> None:
     except Exception:
         return
 
-    import_utils.is_torchao_available = lambda: False
+    import_utils.is_torchao_available = lambda: False  # type: ignore[assignment]  # vá có chủ đích
     try:
         from peft.tuners.lora import torchao as lora_torchao
 
-        lora_torchao.is_torchao_available = lambda: False
+        lora_torchao.is_torchao_available = lambda: False  # type: ignore[assignment]
     except ImportError:
         pass
     print(f"⚠ Bỏ qua nhánh torchao của PEFT ({reason}) — pipeline này không dùng torchao.")
@@ -129,7 +130,7 @@ def stage_merge() -> None:
 
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     print(f"Tải {MODEL_ID} ({dtype}) để gộp LoRA...")
-    model = AutoModelForCausalLM.from_pretrained(
+    model: Any = AutoModelForCausalLM.from_pretrained(
         MODEL_ID, torch_dtype=dtype, device_map="auto", low_cpu_mem_usage=True
     )
     model = PeftModel.from_pretrained(model, LORA_DIR)

@@ -22,7 +22,7 @@ MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
 # `knowledge.py` thật sự nạp model; đổi mặc định ở một nơi thì `Config` (dùng cho báo cáo đo) báo sai model.
 # Là HÀM chứ không phải hằng số lúc import, để đổi env rồi nạp lại có hiệu lực và test gán env được.
 # Cả hai model phải dùng thương mại được: bge-m3 (MIT), ViRanker (Apache-2.0, chuyên tiếng Việt, nền BGE-M3).
-# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại (`tests/test_giay_phep_model.py` chặn).
+# KHÔNG dùng jina-reranker-v2: CC-BY-NC-4.0, cấm dùng thương mại (`tests/contracts/test_giay_phep_model.py` chặn).
 KB_EMBEDDER_MAC_DINH = "BAAI/bge-m3"
 KB_RERANKER_MAC_DINH = "namdp-ptit/ViRanker"
 
@@ -33,6 +33,34 @@ def kb_embedder_id() -> str:
 
 def kb_reranker_id() -> str:
     return os.getenv("KB_RERANKER_ID", KB_RERANKER_MAC_DINH)
+
+
+KB_RERANKER_MAX_LENGTH_TOI_THIEU = 64
+KB_RERANKER_MAX_LENGTH_TOI_DA = 8192      # trần của bge-reranker/ViRanker; cao hơn là cấu hình sai
+
+
+def kb_reranker_max_length() -> int:
+    """
+    `KB_RERANKER_MAX_LENGTH`: số token tối đa mỗi cặp (câu hỏi, đoạn) đưa vào reranker. 0 hoặc để trống = mặc định của model (8.192): hành vi như cũ.
+
+    Đo 24/11/2026 (#214, Thành, Colab L4, CPU): đặt 384 hạ p95 của `search()` từ 12,7 xuống 7,3 giây và 20/20 câu hỏi trả về ĐÚNG tập đoạn như cũ (chỉ 3,4% cặp
+    dài hơn 512 token, nhưng các cặp dài kéo p95 lên). 20 câu trên 6 văn bản luật; recall/MRR chưa đo (#34), nên mặc định vẫn là 0. Giá trị hỏng thì lỗi to,
+    như `FUEL_PRICE_*`: cấu hình tối ưu sai không được chạy lặng lẽ.
+    """
+    tho = os.getenv("KB_RERANKER_MAX_LENGTH", "").strip()
+    if not tho:
+        return 0
+    try:
+        v = int(tho)
+    except ValueError:
+        raise ValueError(f"KB_RERANKER_MAX_LENGTH={tho!r} không phải số nguyên") from None
+    if v == 0:
+        return 0
+    if not (KB_RERANKER_MAX_LENGTH_TOI_THIEU <= v <= KB_RERANKER_MAX_LENGTH_TOI_DA):
+        raise ValueError(
+            f"KB_RERANKER_MAX_LENGTH={v} phải là 0 (mặc định của model) hoặc từ {KB_RERANKER_MAX_LENGTH_TOI_THIEU} đến {KB_RERANKER_MAX_LENGTH_TOI_DA}")
+    return v
+
 LICH_SU_TOI_DA_TIN = 20          # Body gửi nhiều hơn thì 422, không cắt lặng lẽ
 # Nhãn gắn vào mọi câu trả lời của `/chat` (kết quả của task và webhook về Body). Do mã gắn, không phải model sinh; Body hiển thị nguyên văn.
 # Lý do: chủ dự án chốt 20/11/2026 không quảng bá "AI làm kế toán thay"; Luật AI 134/2025 Điều 11 yêu cầu người dùng biết đang dùng AI
@@ -149,7 +177,7 @@ class Config:
         # TẠM THỜI: chưa có số đo tiếng Việt của model này trên bộ hoá đơn hư cấu
         # (BR-33 / #98 / #114). Đo xong thì giữ hoặc đổi sang ứng viên Apache-2.0
         # hoặc MIT khác bằng env — không cần sửa mã.
-        # `tests/test_giay_phep_model.py` chặn việc đưa một model phi thương mại
+        # `tests/contracts/test_giay_phep_model.py` chặn việc đưa một model phi thương mại
         # trở lại làm mặc định (config, .env.example, compose).
         self.vision_model_id = os.getenv("VISION_MODEL_ID", "Qwen/Qwen3-VL-2B-Instruct")
 

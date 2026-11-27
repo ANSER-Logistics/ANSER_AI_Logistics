@@ -267,7 +267,7 @@ TESTS = [
         # bảng tổng hợp tồn kho" (_CHUA_CO_NGUON, chat.py). Hoá đơn dưới đây
         # dùng ĐÚNG các tên dòng gây sự cố ("Phí kiểm đếm, lưu kho bãi",
         # "Cước vận chuyển") — đồng bộ với CAU_HOA_DON_T4 của
-        # tests/test_tool_planner.py — nên đây mới là ca chống tái diễn thật:
+        # tests/unit/core/test_tool_planner.py — nên đây mới là ca chống tái diễn thật:
         # bản tool_planner CHƯA vá sẽ rẽ nhầm inventory_audit ngay. (Hoá đơn
         # Coca/Cosy của bản cũ không có chữ kho/tồn nào trong tên hàng, chưa
         # từng kích hoạt được lỗi định tuyến mà comment cũ tuyên bố nó chống.)

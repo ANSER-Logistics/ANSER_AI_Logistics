@@ -50,7 +50,7 @@ lỗi). Nghĩa là thiếu biến này thì chủ DN không nhận cảnh báo n
 | REST API `POST /api/v1/workflows` rồi `/activate` (cách trang Tự động hoá của Body tạo workflow) | n8n tự sinh, chạy được | giữ nguyên giá trị, chạy được |
 | Giao diện, "Import from File" | **chưa thử** | **chưa thử** |
 
-`tests/test_workflow_webhook_id.py` kiểm mọi node webhook ở đây có `webhookId` dạng UUID, không trùng nhau. Chép một node webhook sang workflow khác thì đổi `webhookId`.
+`tests/integration/workflows/test_workflow_webhook_id.py` kiểm mọi node webhook ở đây có `webhookId` dạng UUID, không trùng nhau. Chép một node webhook sang workflow khác thì đổi `webhookId`.
 
 ## Khi báo giá bị từ chối vì giá dầu cũ
 

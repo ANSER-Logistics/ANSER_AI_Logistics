@@ -1,0 +1,753 @@
+"""
+tests/integration/runtime/test_serving.py — điều tiết tải + client vLLM chế độ server.
+
+Chạy KHÔNG cần GPU và không cần vLLM: guard là logic asyncio thuần, client được
+kiểm bằng transport giả của httpx.
+
+Trọng tâm: hệ thống phải hỏng theo cách DỰ ĐOÁN ĐƯỢC khi quá tải — từ chối dứt
+khoát kèm Retry-After, chứ không phải chậm dần đều cho tới lúc mọi client hết giờ.
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+import httpx
+import pytest
+
+from src.core.serving import (
+    BackendError,
+    BackendTimeout,
+    BackendUnavailable,
+    ChatRequest,
+    CompletionRequest,
+    ConcurrencyGuard,
+    DemSinh,
+    KetQuaSinh,
+    Overloaded,
+    VLLMServerClient,
+    guard_from_env,
+)
+
+pytestmark = pytest.mark.asyncio
+
+
+# ---------------------------------------------------------------------------
+# ConcurrencyGuard
+# ---------------------------------------------------------------------------
+
+async def test_cho_qua_khi_con_cho():
+    guard = ConcurrencyGuard(max_concurrent=2, max_queue=4)
+    async with guard.slot():
+        assert guard.stats.in_flight == 1
+    assert guard.stats.in_flight == 0
+    assert guard.stats.admitted == 1
+
+
+async def test_khong_bao_gio_vuot_max_concurrent():
+    guard = ConcurrencyGuard(max_concurrent=3, max_queue=50, wait_timeout_s=5)
+    seen: list[int] = []
+
+    async def work():
+        async with guard.slot():
+            seen.append(guard.stats.in_flight)
+            await asyncio.sleep(0.01)
+
+    await asyncio.gather(*[work() for _ in range(20)])
+    assert max(seen) <= 3
+    assert guard.stats.in_flight == 0
+    assert guard.stats.admitted == 20
+
+
+async def test_hang_doi_day_thi_tu_choi_NGAY():
+    """
+    Từ chối nhanh là lựa chọn có ý thức: client chờ 60s thì thường đã bỏ đi,
+    phục vụ nó lúc đó là lấy mất GPU của người còn đang ngồi đợi.
+    """
+    guard = ConcurrencyGuard(max_concurrent=1, max_queue=1, wait_timeout_s=5)
+    released = asyncio.Event()
+
+    async def hold():
+        async with guard.slot():
+            await released.wait()
+
+    async def wait_in_queue():
+        async with guard.slot():
+            pass
+
+    t1 = asyncio.create_task(hold())
+    await asyncio.sleep(0.02)                 # t1 chiếm chỗ chạy
+    t2 = asyncio.create_task(wait_in_queue())
+    await asyncio.sleep(0.02)                 # t2 vào hàng đợi (đầy)
+
+    with pytest.raises(Overloaded) as exc:
+        async with guard.slot():
+            pass
+    assert "đã đầy" in str(exc.value)
+    assert exc.value.retry_after_s >= 1
+    assert guard.stats.rejected_full == 1
+
+    released.set()
+    await asyncio.gather(t1, t2)
+
+
+async def test_cho_qua_lau_thi_bo_cuoc_kem_retry_after():
+    guard = ConcurrencyGuard(max_concurrent=1, max_queue=10, wait_timeout_s=0.05)
+    released = asyncio.Event()
+
+    async def hold():
+        async with guard.slot():
+            await released.wait()
+
+    t = asyncio.create_task(hold())
+    await asyncio.sleep(0.02)
+
+    with pytest.raises(Overloaded) as exc:
+        async with guard.slot():
+            pass
+    assert "Chờ quá" in str(exc.value)
+    assert guard.stats.rejected_timeout == 1
+
+    released.set()
+    await t
+
+
+async def test_ngoai_le_trong_than_van_tra_lai_cho():
+    """Handler ném lỗi mà không trả chỗ thì hệ thống chết dần sau vài lỗi."""
+    guard = ConcurrencyGuard(max_concurrent=1, max_queue=1)
+    for _ in range(5):
+        with pytest.raises(ValueError):
+            async with guard.slot():
+                raise ValueError("lỗi nghiệp vụ")
+    assert guard.stats.in_flight == 0
+    async with guard.slot():
+        pass                                   # vẫn nhận được request mới
+
+
+async def test_bo_cuoc_giua_chung_khong_ro_ri_cho():
+    """Client ngắt kết nối giữa chừng -> task bị cancel -> chỗ phải được trả lại."""
+    guard = ConcurrencyGuard(max_concurrent=1, max_queue=10, wait_timeout_s=5)
+    released = asyncio.Event()
+
+    async def hold():
+        async with guard.slot():
+            await released.wait()
+
+    async def waiter():
+        async with guard.slot():
+            await asyncio.sleep(1)
+
+    t1 = asyncio.create_task(hold())
+    await asyncio.sleep(0.02)
+    t2 = asyncio.create_task(waiter())
+    await asyncio.sleep(0.02)
+    t2.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await t2
+
+    released.set()
+    await t1
+    assert guard.stats.in_flight == 0
+    async with guard.slot():                   # chỗ đã về, không rò rỉ
+        pass
+
+
+async def test_thong_ke_du_de_chinh_nguong():
+    guard = ConcurrencyGuard(max_concurrent=2, max_queue=8, wait_timeout_s=5)
+
+    async def work():
+        async with guard.slot():
+            await asyncio.sleep(0.01)
+
+    await asyncio.gather(*[work() for _ in range(10)])
+    snap = guard.snapshot()
+    assert snap["admitted"] == 10
+    assert snap["peak_in_flight"] == 2
+    assert snap["peak_queued"] >= 1
+    assert snap["rejected_total"] == 0
+    assert snap["avg_wait_seconds"] >= 0
+
+
+async def test_tham_so_vo_ly_bi_chan_ngay():
+    with pytest.raises(ValueError):
+        ConcurrencyGuard(max_concurrent=0)
+    with pytest.raises(ValueError):
+        ConcurrencyGuard(max_concurrent=1, max_queue=-1)
+
+
+async def test_doc_nguong_tu_bien_moi_truong(monkeypatch):
+    monkeypatch.setenv("ANSER_TEXT_MAX_CONCURRENT", "7")
+    monkeypatch.setenv("ANSER_TEXT_MAX_QUEUE", "3")
+    monkeypatch.setenv("ANSER_TEXT_WAIT_TIMEOUT_S", "1.5")
+    g = guard_from_env("text")
+    assert (g.max_concurrent, g.max_queue, g.wait_timeout_s) == (7, 3, 1.5)
+
+
+# ---------------------------------------------------------------------------
+# VLLMServerClient
+# ---------------------------------------------------------------------------
+
+def _client(handler, **kw) -> VLLMServerClient:
+    c = VLLMServerClient(base_url="http://vllm:8001", model="anser-v3", **kw)
+    c._client = httpx.AsyncClient(
+        base_url="http://vllm:8001", transport=httpx.MockTransport(handler)
+    )
+    return c
+
+
+async def test_sinh_text_qua_http():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/completions"
+        return httpx.Response(200, json={"choices": [{"text": "  xin chào  "}]})
+
+    c = _client(handler)
+    out = await c.complete(CompletionRequest(prompt="hi"))
+    assert out.text == "xin chào"
+    assert out.completion_tokens is None, "server không trả `usage` -> KHÔNG BIẾT, không phải 0"
+    await c.aclose()
+
+
+async def test_payload_giu_dung_ten_tham_so_cua_vllm():
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c = _client(handler)
+    await c.complete(CompletionRequest(
+        prompt="p", max_tokens=64, temperature=0.3, repetition_penalty=1.1,
+        stop=["</s>"],
+    ))
+    assert seen["model"] == "anser-v3"
+    assert seen["max_tokens"] == 64
+    assert seen["temperature"] == 0.3
+    assert seen["repetition_penalty"] == 1.1        # field ngoài chuẩn OpenAI
+    assert seen["stop"] == ["</s>"]
+    await c.aclose()
+
+
+async def test_complete_bat_grammar_thi_ha_repetition_penalty_ve_1():
+    """
+    SRS §3.3 bẫy 3. Bản trước test này gửi `guided_json` kèm 1,1 rồi đòi nhận
+    lại 1,1 — tức là khoá đúng cái bẫy: phạt lặp cấm các token JSON bắt buộc.
+    """
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c = _client(handler)
+    await c.complete(CompletionRequest(
+        prompt="p", repetition_penalty=1.1, guided_json={"type": "object"},
+    ))
+    assert seen["guided_json"] == {"type": "object"}
+    assert seen["repetition_penalty"] == 1.0
+    await c.aclose()
+
+
+async def test_khong_gui_guided_json_khi_khong_can():
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c = _client(handler)
+    await c.complete(CompletionRequest(prompt="p"))
+    assert "guided_json" not in seen and "stop" not in seen
+    await c.aclose()
+
+
+async def test_chua_cau_hinh_thi_noi_ro_chu_khong_nem_loi_kho_hieu():
+    c = VLLMServerClient(base_url="", model="")
+    assert c.configured is False
+    with pytest.raises(BackendUnavailable) as exc:
+        await c.complete(CompletionRequest(prompt="p"))
+    assert "VLLM_BASE_URL" in str(exc.value)
+
+
+async def test_server_tra_loi_thi_thanh_BackendError():
+    def handler(request):
+        return httpx.Response(422, text="max_model_len exceeded")
+
+    c = _client(handler)
+    with pytest.raises(BackendError) as exc:
+        await c.complete(CompletionRequest(prompt="p"))
+    assert "422" in str(exc.value)
+    await c.aclose()
+
+
+async def test_khong_noi_duoc_thi_thanh_BackendUnavailable():
+    def handler(request):
+        raise httpx.ConnectError("connection refused")
+
+    c = _client(handler)
+    with pytest.raises(BackendUnavailable):
+        await c.complete(CompletionRequest(prompt="p"))
+    await c.aclose()
+
+
+async def test_qua_gio_thi_thanh_BackendTimeout():
+    def handler(request):
+        raise httpx.ReadTimeout("too slow")
+
+    c = _client(handler)
+    with pytest.raises(BackendTimeout):
+        await c.complete(CompletionRequest(prompt="p"))
+    await c.aclose()
+
+
+async def test_json_hong_tu_server_khong_lam_sap_brain():
+    def handler(request):
+        return httpx.Response(200, text="<html>502 Bad Gateway</html>")
+
+    c = _client(handler)
+    with pytest.raises(BackendError) as exc:
+        await c.complete(CompletionRequest(prompt="p"))
+    assert "không đọc được" in str(exc.value)
+    await c.aclose()
+
+
+async def test_health_khong_bao_gio_nem_ngoai_le():
+    """/health của Brain phải trả lời được kể cả khi vLLM đã chết."""
+    def handler(request):
+        raise httpx.ConnectError("refused")
+
+    c = _client(handler)
+    h = await c.health()
+    assert h["ok"] is False and "reason" in h
+    await c.aclose()
+
+    c2 = _client(lambda r: httpx.Response(200))
+    assert (await c2.health())["ok"] is True
+    await c2.aclose()
+
+    assert (await VLLMServerClient(base_url="").health())["ok"] is False
+
+
+async def test_api_key_chi_doc_tu_env(monkeypatch):
+    """R2b: khoá không được truyền xuống từ tầng gọi."""
+    monkeypatch.setenv("VLLM_API_KEY", "k-secret")
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["auth"] = request.headers.get("Authorization")
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c = _client(handler)
+    await c.complete(CompletionRequest(prompt="p"))
+    assert seen["auth"] == "Bearer k-secret"
+    await c.aclose()
+
+
+# ---------------------------------------------------------------------------
+# Guard + client ghép lại: đúng đường đi thật
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("_", [0])
+async def test_qua_tai_tra_503_kem_retry_after_chu_khong_phai_500(_):
+    """
+    Quá tải KHÔNG phải lỗi máy chủ. Trả 500 khiến client retry ngay lập tức và
+    làm tình hình tệ thêm; 503 + Retry-After nói rõ chờ bao lâu là đủ.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api.main import handle_overloaded
+
+    app = FastAPI()
+    app.add_exception_handler(Overloaded, handle_overloaded)
+
+    @app.get("/boom")
+    async def boom():
+        raise Overloaded("hàng đợi đầy", retry_after_s=7)
+
+    resp = TestClient(app, raise_server_exceptions=False).get("/boom")
+    assert resp.status_code == 503
+    assert resp.headers["Retry-After"] == "7"
+    body = resp.json()
+    assert body["error"] == "overloaded" and body["retry_after_s"] == 7
+
+
+async def test_health_phoi_thong_ke_hang_doi():
+    """Chỉnh ngưỡng mà không đo được hàng đợi thì chỉ là đoán."""
+    from fastapi.testclient import TestClient
+
+    from src.api.main import app
+
+    body = TestClient(app).get("/health").json()
+    assert "load" in body
+    if body["load"]:                       # engine đã dựng (kể cả chế độ mock)
+        text = body["load"]["text"]
+        for key in ("max_concurrent", "max_queue", "in_flight",
+                    "peak_queued", "rejected_total"):
+            assert key in text
+
+
+async def test_qua_tai_thi_tu_choi_som_thay_vi_dim_backend():
+    """
+    Điểm cốt lõi của cả module: khi tải vượt sức, phần lớn request vẫn được phục
+    vụ nhanh và phần thừa bị từ chối DỨT KHOÁT — thay vì tất cả cùng chậm dần.
+    """
+    guard = ConcurrencyGuard(max_concurrent=2, max_queue=2, wait_timeout_s=0.3)
+    hits = 0
+
+    def handler(request):
+        nonlocal hits
+        hits += 1
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c = _client(handler)
+
+    async def call():
+        async with guard.slot():
+            await asyncio.sleep(0.05)
+            return await c.complete(CompletionRequest(prompt="p"))
+
+    results = await asyncio.gather(*[call() for _ in range(20)], return_exceptions=True)
+    served = [r for r in results if isinstance(r, KetQuaSinh)]
+    refused = [r for r in results if isinstance(r, Overloaded)]
+
+    assert len(served) + len(refused) == 20
+    assert refused, "quá tải mà không từ chối ai — hàng đợi đang không có trần"
+    assert hits == len(served), "backend chỉ được gọi cho request đã qua cửa"
+    assert guard.stats.in_flight == 0
+    await c.aclose()
+
+
+# ---------------------------------------------------------------------------
+# BR-02 — đường chat: /v1/chat/completions, server áp chat template
+#
+# Ba cái bẫy ở SRS §3.3 đều thuộc loại HỎNG IM LẶNG: chương trình không đổ,
+# chỉ có chất lượng sinh tụt. Nên mỗi cái có phép thử riêng, và phép thử đòi
+# SERVER GIẢ NHẬN ĐÚNG PAYLOAD — không kiểm thuộc tính của đối tượng Python.
+# ---------------------------------------------------------------------------
+
+def _server_ghi_payload(seen: dict, content: str | None = "ok"):
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+        seen["path"] = request.url.path
+        seen.update(json.loads(request.content))
+        return httpx.Response(
+            200, json={"choices": [{"message": {"role": "assistant", "content": content}}]}
+        )
+    return handler
+
+
+_MSGS = [
+    {"role": "system", "content": "Bạn là trợ lý kế toán."},
+    {"role": "user", "content": "Tồn kho SP001?"},
+]
+
+
+async def test_chat_goi_chat_completions_va_doc_message_content():
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen, content="  tồn 12 thùng  "))
+    out = await c.chat(ChatRequest(messages=_MSGS))
+    assert seen["path"] == "/v1/chat/completions"
+    assert seen["messages"] == _MSGS          # server áp template, không phải client
+    assert "prompt" not in seen
+    assert out.text == "tồn 12 thùng"         # cùng hình dạng đường trong tiến trình
+    await c.aclose()
+
+
+# ---------------------------------------------------------------------------
+# #16 — số token đi từ `usage` của vLLM, không đoán, không điền 0
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("usage,mong", [
+    ({"completion_tokens": 217}, 217),
+    ({"completion_tokens": 0}, 0),            # sinh 0 token là sự thật, giữ nguyên
+    ({}, None),                               # thiếu trường -> không biết
+    ({"completion_tokens": "217"}, None),     # sai kiểu -> không biết, không ép
+    ({"completion_tokens": True}, None),      # bool là int trong Python — chặn
+    ({"completion_tokens": -3}, None),
+    (None, None),                             # không có `usage`
+], ids=["co-so", "khong-token", "thieu-truong", "chuoi", "bool", "am", "khong-usage"])
+async def test_chat_doc_so_token_tu_usage(usage, mong):
+    def handler(request: httpx.Request) -> httpx.Response:
+        than: dict = {"choices": [{"message": {"content": "ok"}}]}
+        if usage is not None:
+            than["usage"] = usage
+        return httpx.Response(200, json=than)
+
+    c = _client(handler)
+    out = await c.chat(ChatRequest(messages=_MSGS))
+    assert out.completion_tokens == mong
+    assert out.model_ms is not None and out.model_ms >= 0
+    await c.aclose()
+
+
+async def test_dem_sinh_cong_va_khong_biet_lan_ra_ca_tong():
+    d = DemSinh()
+    assert d.completion_tokens is None and d.model_ms is None, "chưa gọi model -> không biết"
+    assert d.cong(KetQuaSinh("a", 10, 100.0)) == "a"
+    d.cong(KetQuaSinh("b", 5, 50.4))
+    assert (d.completion_tokens, d.model_ms, d.so_lan) == (15, 150, 2)
+
+    # Một lần không biết (mock / server không trả usage) là tổng không biết:
+    # cộng phần biết được rồi chia ra ms/token là sai số có hệ thống.
+    d.cong("chuỗi trơn từ test giả")
+    assert d.completion_tokens is None and d.model_ms is None and d.so_lan == 3
+
+
+async def test_dem_sinh_gop_hai_bo_dem():
+    ngoai, vong = DemSinh(), DemSinh()
+    ngoai.cong(KetQuaSinh("x", 3, 30.0))
+    vong.cong(KetQuaSinh("y", 4, 40.0))
+    vong.cong(KetQuaSinh("z", 5, 50.0))
+    ngoai.gop(vong)
+    assert (ngoai.completion_tokens, ngoai.model_ms, ngoai.so_lan) == (12, 120, 3)
+    ngoai.gop(DemSinh())                      # bộ đếm rỗng không đổi gì
+    assert ngoai.so_lan == 3
+
+
+async def test_chat_tat_thinking_qua_chat_template_kwargs():
+    """
+    Bẫy 2. Thiếu `chat_template_kwargs` thì Qwen3 xổ `<think>` trước mọi câu.
+    Ca này PHẢI ĐỎ nếu ai đó bỏ khoá đó khỏi payload (SRS BR-02 nghiệm thu).
+    """
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(messages=_MSGS))
+    assert "chat_template_kwargs" in seen, "thiếu chat_template_kwargs -> Qwen3 sẽ think"
+    assert seen["chat_template_kwargs"]["enable_thinking"] is False
+    await c.aclose()
+
+
+async def test_chat_bat_grammar_gui_guided_json_va_repetition_penalty_1():
+    """Bẫy 3 + yêu cầu 6: server giả nhận đủ guided_json và rp == 1.0."""
+    schema = {"type": "object", "properties": {"tool": {"type": "string"}}}
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen, content='{"tool": "vat"}'))
+    await c.chat(ChatRequest(messages=_MSGS, guided_json=schema))
+    assert seen["guided_json"] == schema
+    assert seen["repetition_penalty"] == 1.0
+    assert seen["chat_template_kwargs"]["enable_thinking"] is False
+    await c.aclose()
+
+
+async def test_chat_khong_grammar_giu_phat_lap_mac_dinh_va_khong_gui_guided_json():
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(messages=_MSGS))
+    assert "guided_json" not in seen
+    assert seen["repetition_penalty"] == 1.25   # trùng đường trong tiến trình
+    await c.aclose()
+
+
+async def test_chat_rp_tuong_minh_cung_grammar_van_bi_ha_ve_1():
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(
+        messages=_MSGS, repetition_penalty=1.25, guided_json={"type": "object"},
+    ))
+    assert seen["repetition_penalty"] == 1.0
+    await c.aclose()
+
+
+@pytest.mark.parametrize("rp,phai_canh_bao", [(None, False), (1.0, False), (1.25, True)],
+                         ids=["de-trong", "dat-1.0", "dat-1.25"])
+async def test_canh_bao_ha_phat_lap_chi_khi_nguoi_goi_chu_dong_dat(caplog, rp, phai_canh_bao):
+    """
+    Phiên BR-05 27/10/2026 in "repetition_penalty=1.25 bị hạ về 1.0" hơn trăm
+    lần — cho một con số không ai đặt. Cảnh báo phải nói về lựa chọn của người
+    gọi, không về mặc định của chính lớp này. Payload thì ba ca đều 1.0.
+    """
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="anser.serving"):
+        p = ChatRequest(
+            messages=_MSGS, repetition_penalty=rp, guided_json={"type": "object"},
+        ).to_payload("m")
+    assert p["repetition_penalty"] == 1.0
+    assert ("bị hạ về" in caplog.text) is phai_canh_bao, caplog.text
+
+
+async def test_extra_khong_de_duoc_hai_bat_bien():
+    """`extra` là lối thoát cho tham số vLLM lạ, không phải cửa sau để bật lại bẫy."""
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(
+        messages=_MSGS,
+        guided_json={"type": "object"},
+        extra={
+            "repetition_penalty": 1.3,
+            "chat_template_kwargs": {"enable_thinking": True, "khac": 1},
+            "top_p": 0.9,
+        },
+    ))
+    assert seen["repetition_penalty"] == 1.0
+    assert seen["chat_template_kwargs"] == {"enable_thinking": False, "khac": 1}
+    assert seen["top_p"] == 0.9                 # tham số lạ hợp lệ vẫn đi qua
+    await c.aclose()
+
+
+@pytest.mark.parametrize("handler,loai", [
+    (lambda r: httpx.Response(422, text="max_model_len exceeded"), BackendError),
+    (lambda r: httpx.Response(200, text="<html>502 Bad Gateway</html>"), BackendError),
+    (lambda r: httpx.Response(200, json={"choices": []}), BackendError),
+    (lambda r: httpx.Response(200, json=["khong-phai-object"]), BackendError),
+], ids=["4xx", "html", "choices-rong", "json-mang"])
+async def test_chat_giu_nguyen_anh_xa_loi_tra_ve(handler, loai):
+    """Yêu cầu 4: cùng ngoại lệ với `complete()` — một chỗ `_post` cho cả hai."""
+    c = _client(handler)
+    with pytest.raises(loai):
+        await c.chat(ChatRequest(messages=_MSGS))
+    await c.aclose()
+
+
+@pytest.mark.parametrize("loi,loai", [
+    (httpx.ConnectError("refused"), BackendUnavailable),
+    (httpx.ReadTimeout("too slow"), BackendTimeout),
+], ids=["khong-noi-duoc", "qua-gio"])
+async def test_chat_giu_nguyen_anh_xa_loi_mang(loi, loai):
+    def handler(request):
+        raise loi
+
+    c = _client(handler)
+    with pytest.raises(loai):
+        await c.chat(ChatRequest(messages=_MSGS))
+    await c.aclose()
+
+
+async def test_chat_chua_cau_hinh_thi_noi_ro():
+    with pytest.raises(BackendUnavailable) as exc:
+        await VLLMServerClient(base_url="", model="").chat(ChatRequest(messages=_MSGS))
+    assert "VLLM_BASE_URL" in str(exc.value)
+
+
+async def test_chat_content_null_thanh_chuoi_rong_khong_sap():
+    c = _client(_server_ghi_payload({}, content=None))
+    assert (await c.chat(ChatRequest(messages=_MSGS))).text == ""
+    await c.aclose()
+
+
+async def test_messages_sai_hinh_dang_bi_chan_truoc_khi_goi_mang():
+    with pytest.raises(ValueError):
+        ChatRequest(messages=[])
+    with pytest.raises(ValueError):
+        ChatRequest(messages=[{"role": "tool", "content": "x"}])
+    with pytest.raises(ValueError):
+        ChatRequest(messages=[{"role": "user", "content": None}])
+
+
+@pytest.mark.parametrize("url", [
+    "http://vllm:8001", "http://vllm:8001/", "http://vllm:8001/v1", "http://vllm:8001/v1/",
+])
+async def test_base_url_co_hay_khong_co_v1_deu_goi_dung_duong(url):
+    """
+    AGENTS.md R5 ghi mẫu `.../v1`, compose ghi không có `/v1`. Không chuẩn hoá
+    thì làm theo AGENTS trên Colab (BR-04) sẽ gọi `/v1/v1/...` -> 404.
+    """
+    c = VLLMServerClient(base_url=url, model="m")
+    assert c.base_url == "http://vllm:8001"
+
+    duong: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        duong.append(request.url.path)
+        if request.url.path == "/health":
+            return httpx.Response(200)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    c._client = httpx.AsyncClient(base_url=c.base_url, transport=httpx.MockTransport(handler))
+    await c.chat(ChatRequest(messages=_MSGS))
+    assert (await c.health())["ok"] is True
+    assert duong == ["/v1/chat/completions", "/health"]
+    await c.aclose()
+
+
+async def test_ghim_vllm_duoi_0_12_vi_0_12_go_guided_decoding():
+    """
+    Yêu cầu 5: server và Brain dùng CÙNG một khoảng ghim.
+
+    Hai lý do, hai đường:
+    - Đường trong tiến trình: 0.12 gỡ `GuidedDecodingParams` (engine.py).
+    - Đường server: trường `guided_json` ở thân request còn được thi hành ở
+      các bản 0.2x đầu, nhưng tới khoảng 0.26–0.28 thì bị BỎ QUA IM LẶNG —
+      trả 200 kèm text không ràng buộc, chỉ log ở mức DEBUG
+      (vllm-project/vllm#53975). Tên mới là `structured_outputs`.
+
+    Ai nâng trần ghim mà không đổi client thì grammar biến mất không một dấu
+    vết. Test này đỏ để buộc người đó đọc. `smoke_test_guided()` ở BR-05 là
+    chốt thứ hai, đo trên server thật.
+    """
+    import re
+    from pathlib import Path
+
+    # vllm nằm ở requirements-gpu.txt từ 10/11/2026 (issue #17): phần CPU mà
+    # deploy/Dockerfile cài không còn chứa nó.
+    req = (Path(__file__).resolve().parents[3] / "requirements-gpu.txt").read_text(encoding="utf-8")
+    ghim = re.search(r"^vllm\s*([^\n#]*)", req, re.MULTILINE)
+    assert ghim, "requirements-gpu.txt không còn ghim vllm"
+    assert "<0.12" in ghim.group(1).replace(" ", ""), (
+        f"vllm đang ghim '{ghim.group(1).strip()}'. Nâng trần thì đổi engine.py "
+        "(GuidedDecodingParams) và ChatRequest/CompletionRequest (guided_json -> "
+        "structured_outputs) trước, rồi chạy smoke_test_guided() trên server thật."
+    )
+
+
+
+# --- Các ca QA tái hiện ngày 26/10 -------------------------------------------
+
+@pytest.mark.parametrize("khoa", ["guided_json", "guided_regex", "response_format"])
+async def test_grammar_lot_qua_extra_van_ha_phat_lap(khoa):
+    """`extra={"guided_json": ...}` từng gửi grammar kèm phạt lặp 1,25."""
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(messages=_MSGS, extra={khoa: {"type": "object"}}))
+    assert seen["repetition_penalty"] == 1.0
+
+    seen2: dict = {}
+
+    def h(request):
+        import json
+        seen2.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"text": "ok"}]})
+
+    c2 = _client(h)
+    await c2.complete(CompletionRequest(prompt="p", extra={khoa: {"type": "object"}}))
+    assert seen2["repetition_penalty"] == 1.0
+    await c.aclose()
+    await c2.aclose()
+
+
+async def test_extra_khong_thay_duoc_hoi_thoai_va_model():
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(messages=_MSGS, extra={"messages": [], "model": "khac"}))
+    assert seen["messages"] == _MSGS and seen["model"] == "anser-v3"
+    await c.aclose()
+
+
+async def test_chat_template_kwargs_sai_kieu_trong_extra_khong_lam_sap():
+    seen: dict = {}
+    c = _client(_server_ghi_payload(seen))
+    await c.chat(ChatRequest(messages=_MSGS, extra={"chat_template_kwargs": [1]}))
+    assert seen["chat_template_kwargs"] == {"enable_thinking": False}
+    await c.aclose()
+
+
+async def test_content_khong_phai_chuoi_thanh_BackendError():
+    c = _client(lambda r: httpx.Response(
+        200, json={"choices": [{"message": {"content": [{"type": "text"}]}}]}
+    ))
+    with pytest.raises(BackendError):
+        await c.chat(ChatRequest(messages=_MSGS))
+    await c.aclose()
+
+
+@pytest.mark.parametrize("url,ky_vong", [
+    ("http://h:8001/v1/v1", "http://h:8001"),
+    ("http://h:8001/V1", "http://h:8001"),
+    ("http://h:8001/v10", "http://h:8001/v10"),
+    ("http://h:8001/api/v1", "http://h:8001/api"),
+])
+async def test_base_url_ca_bien(url, ky_vong):
+    assert VLLMServerClient(base_url=url).base_url == ky_vong
