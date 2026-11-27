@@ -376,3 +376,35 @@ def test_carrier_selection_bom_loi_chao_tu_cau():
 def test_carrier_selection_chua_co_loi_chao_thi_van_hoi_lai():
     _args, thieu = _cung_cap("carrier_selection", {}, "nhà xe nào rẻ nhất cho chuyến này")
     assert thieu and "chưa có danh sách nhà xe" in thieu.lower()
+
+
+# ---------------------------------------------------------------------------
+# #261/T4: `subtotal` ghi sẵn trên hoá đơn là tổng các dòng, không phải khoản bị bỏ sót
+# ---------------------------------------------------------------------------
+
+CAU_HOA_DON_SUBTOTAL = (
+    'hãy kiểm tra hoá đơn: {"items": [{"name": "A", "price": 500000, "qty": 2}, {"name": "B", "price": 800000, "qty": 3}], '
+    '"subtotal": 3400000, "vat_rate": 8, "total_amount": 3960000}'
+)
+
+
+def test_subtotal_bang_tong_cac_dong_thi_khong_bi_bao_bo_sot():
+    args = {"items": [{"price": 500_000, "qty": 2}, {"price": 800_000, "qty": 3}], "stated_total": 3_960_000}
+    assert so_tien_bi_bo_sot(CAU_HOA_DON_SUBTOTAL, args) == []
+
+
+def test_bo_mot_dong_thi_ca_dong_do_lan_tong_van_bi_bao():
+    args = {"items": [{"price": 500_000, "qty": 2}], "stated_total": 3_960_000}
+    assert so_tien_bi_bo_sot(CAU_HOA_DON_SUBTOTAL, args) == [800_000, 3_400_000]
+
+
+def test_chep_sai_gia_mot_dong_van_bi_bao_khong_duoc_bu_bang_subtotal():
+    args = {"items": [{"price": 500_000, "qty": 2}, {"price": 700_000, "qty": 3}], "stated_total": 3_960_000}
+    assert 3_400_000 in so_tien_bi_bo_sot(CAU_HOA_DON_SUBTOTAL, args)
+
+
+def test_mot_dong_hoac_dong_thieu_so_luong_khong_sinh_tong():
+    """Tổng chỉ tính khi có từ hai dòng và dòng nào cũng đủ giá và số lượng: không đoán."""
+    cau = "mua A 500.000 và B 700.000, tổng 1.200.000"
+    assert 1_200_000 in so_tien_bi_bo_sot(cau, {"items": [{"price": 500_000}, {"price": 700_000}]})
+    assert 500_000 in so_tien_bi_bo_sot("giá 500.000 và 3.000.000", {"items": [{"price": 3_000_000, "qty": 1}]})
