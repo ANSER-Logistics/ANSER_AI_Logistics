@@ -8,7 +8,7 @@
 
 transformers==4.51.3     # Qwen3 cần >= 4.51
 peft==0.15.2
-datasets==3.5.0
+datasets==5.0.1
 accelerate==1.6.0
 # >=0.46.1: liger-kernel keo theo ban transformers moi hon, va ban do TU CHOI
 # chay 4-bit voi bitsandbytes cu ("requires bitsandbytes>=0.46.1"). Ghim 0.45.5
