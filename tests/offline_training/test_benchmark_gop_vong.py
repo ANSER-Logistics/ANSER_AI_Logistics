@@ -1,5 +1,5 @@
 """
-tests/test_benchmark_gop_vong.py — gom token nhiều vòng và kết luận ngữ cảnh mỗi server (notebook #176, review #254).
+tests/offline_training/test_benchmark_gop_vong.py — gom token nhiều vòng và kết luận ngữ cảnh mỗi server (notebook #176, review #254).
 
 Lỗi đã gặp: notebook tính `max([...] or [0])`, nên server mà mọi lời gọi quá giờ hay thiếu `usage` ra "cần 0 token" và
 bảng in "đủ". Ở đây khoá: không đo được là None và không kết luận; thiếu một phần là cận dưới, chỉ kết luận được THIẾU.

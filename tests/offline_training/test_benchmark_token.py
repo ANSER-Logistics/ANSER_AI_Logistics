@@ -1,5 +1,5 @@
 """
-tests/test_benchmark_token.py — đếm token từng lời gọi để biết mỗi tác vụ cần `--max-model-len` bao nhiêu (#176).
+tests/offline_training/test_benchmark_token.py — đếm token từng lời gọi để biết mỗi tác vụ cần `--max-model-len` bao nhiêu (#176).
 
 VÌ SAO CÓ
 ---------
