@@ -404,9 +404,9 @@ Chủ dự án chốt ở #124: model thị giác pilot là bản **tự lượn
    ```bash
    cd <thư mục trọng số> && sha256sum $(ls -p | grep -v / | grep -v '^MANIFEST.sha256$') > MANIFEST.sha256
    ```
-4. Kiểm thư mục tự đứng được: `vllm serve` **thẳng từ thư mục trên Drive** (không từ bản sao), cùng cờ với #189, rồi đo 28 ca như §8.2. Kết quả phải trùng #189 theo từng ca (`so_sanh_vlm.py`). Lệch ca nào thì tokenizer hay processor mới chép khác bản đã dùng ở #189, phải đọc lại trước khi dùng.
+4. Kiểm thư mục tự đứng được: `vllm serve` **thẳng từ thư mục trên Drive** (không từ bản sao), cùng cờ với #189, rồi đo 28 ca như §8.2. Từng hoá đơn phải giữ nguyên trạng thái đúng hết/trượt so với #189 (`so_sanh_vlm.py`: b = c = 0). Lệch ca nào thì tokenizer hay processor mới chép khác bản đã dùng ở #189, phải đọc lại trước khi dùng. Phép so này không chứng minh từng trường OCR giống hệt; muốn kết luận vậy thì đối chiếu thêm kết quả từng trường của hai lần chạy.
 
-   **Đã làm 26/11/2026** (Colab L4, vLLM 0.11.2, mã `e0b9e62`). Tệp chép từ `Qwen/Qwen2.5-VL-7B-Instruct@cc594898137f460bfe9f0759e9844b3ce807cfb5`. Model lên sau 160 giây dù nạp thẳng từ Drive. Kết quả: 22/28 đúng hết, 28/28 tổng đúng, 26/28 không lỗi tiền, p50/p95 5,9/7,0 giây, tức trùng #189. So từng ca với #189: b = 0, c = 0. VRAM đỉnh 19 174 MiB, khi chạy một mình với `--gpu-memory-utilization 0.85`; con số này không phải cổng 3. Số đo nằm trên Drive `do_271_20261126_e0b9e62/`, MANIFEST ở #271.
+   **Đã làm 26/11/2026** (Colab L4, vLLM 0.11.2, mã `e0b9e62`). Tệp chép từ `Qwen/Qwen2.5-VL-7B-Instruct@cc594898137f460bfe9f0759e9844b3ce807cfb5`. Model lên sau 160 giây dù nạp thẳng từ Drive. Kết quả: 22/28 đúng hết, 28/28 tổng đúng, 26/28 không lỗi tiền, p50/p95 5,9/7,0 giây, các số tổng trùng #189. So từng hoá đơn với #189: b = 0, c = 0, tức không hoá đơn nào đổi trạng thái đúng hết/trượt; chưa đối chiếu từng trường. VRAM đỉnh 19 174 MiB, khi chạy một mình với `--gpu-memory-utilization 0.85`; con số này không phải cổng 3 (chạy chung với text). Số đo nằm trên Drive `do_271_20261126_e0b9e62/`, MANIFEST ở #271.
 
 **Đặt lên máy chạy (compose).** Compose gắn `MODELS_DIR` (mặc định `./models`) vào `/models` của container `vllm-vision`, chỉ đọc. Chép cả thư mục vào `./models/q25vl7b-w4a16-tu-luong-tu/`, kiểm, rồi đặt `.env`:
 ```bash
@@ -417,7 +417,7 @@ VLLM_VISION_BASE_URL=http://vllm-vision:8002
 ```
 rồi `docker compose --profile vision up -d`. Không đặt `--quantization`: vLLM đọc `quantization_config` (`compressed-tensors`, `pack-quantized`) trong `config.json` và tự chọn nhân Marlin.
 
-**Cần #277 gộp trước.** Compose hiện tại của nhánh chính vẫn để `--gpu-memory-utilization=${VISION_GPU_FRACTION:-0.25}` (quá nhỏ cho bản 7B, xem §8.5) và cú pháp cũ `--limit-mm-per-prompt=image=2`. #277 (#273) đổi mặc định thành 0.44, ngữ cảnh 8.192 và dạng JSON `'{"image":2}'`. Nếu phải chạy trước khi #277 gộp: đặt `VISION_GPU_FRACTION=0.44` trong `.env` và sửa tay cờ `--limit-mm-per-prompt` trong compose.
+**Cần #277 gộp trước, không có cách chạy tắt.** Compose hiện tại của nhánh tính năng được viết cho text chạy một mình cùng vision 2B: text `0.62` với ngữ cảnh 32.768, vision `0.25` với ngữ cảnh 4.096, và cờ ảnh cú pháp cũ `--limit-mm-per-prompt=image=2`. Chỉ nâng phần vision thì tổng vượt 1 GPU (0,62 + 0,44 = 1,06) và ngữ cảnh vision vẫn dưới mức 8.192 mà cổng §8.4 cần. #277 (#273) đổi cả hai dịch vụ cùng lúc: text `0.43` với ngữ cảnh 14.336, vision `0.44` với ngữ cảnh 8.192, cờ ảnh dạng JSON `'{"image":2}'`. Bộ số đó cũng chưa đo với bản GPTQ (xem "Chưa đo" bên dưới).
 
 **Hai nơi lưu (chủ dự án chọn; agent không tự đẩy trọng số lên đâu):**
 
