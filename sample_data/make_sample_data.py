@@ -27,6 +27,8 @@ CHẠY
     python sample_data/make_sample_data.py
 -> sample_data/ton_kho_mau.xlsx           bản xuất đến 30/06/2026 (bảy mã gieo lỗi sổ sách)
 -> sample_data/ton_kho_mau_ban_sau.xlsx   bản xuất MUỘN hơn của CÙNG kỳ, đến 15/07/2026, có ba chỗ bị sửa hồi tố (phép so hai bản, `core/period_diff.py`)
+-> sample_data/khach_hang_mau.xlsx         danh sách khách hàng kiểu MISA kèm công nợ, gieo lỗi (soi công nợ, `core/receivables.py`)
+-> sample_data/nha_cung_cap_mau.xlsx       danh sách nhà cung cấp kiểu MISA, một số dư phải trả âm
 """
 
 from __future__ import annotations
@@ -185,6 +187,64 @@ LOI_HOI_TO: dict[str, str] = {ma: loai for ma, (loai, _) in _SUA_HOI_TO.items() 
 
 
 # ---------------------------------------------------------------------------
+# Danh sách đối tác (kiểu MISA) — đề bài cho soi công nợ (`core/receivables.py`)
+# ---------------------------------------------------------------------------
+# Tên và mã số thuế HƯ CẤU (đầu số 099, đúng số kiểm tra trừ một mã cố ý sai). Mỗi lỗi nhắm một phép kiểm; hai dòng cuối bảng khách (cá nhân, khách số dư 0) là đối chứng sạch.
+# Màn "Dòng tiền" của Body soi TỪNG file riêng, nên không gieo lỗi "vừa mua vừa bán" (chỉ phép soi gộp hai danh sách mới thấy).
+
+
+@dataclass
+class DoiTac:
+    code: str
+    name: str
+    balance: float
+    tax_id: str = ""
+
+
+_KHACH = [
+    DoiTac("KH001", "Công ty TNHH Vận tải Mẫu Đại Phát", 210_000_000, "0990002918"),     # một khách chiếm 40% phải thu; ba khách lớn nhất chiếm 76%
+    DoiTac("KH002", "Công ty CP Xây dựng Mẫu Hưng Long", 105_000_000, "0990004288"),
+    DoiTac("KH003", "Garage Mẫu Tiến Phát", 80_000_000, "0990004425"),
+    DoiTac("KH004", "Cửa hàng Dầu nhớt Mẫu Minh Quân", 40_000_000, "0990007987"),
+    DoiTac("KH005", "Công ty TNHH Cơ khí Mẫu Sao Việt", -8_500_000, "0990009494"),       # phải thu ÂM
+    DoiTac("KH006", "Công ty TNHH Nông nghiệp Mẫu Phú Điền", 25_000_000, "0990002919"),  # mã số thuế sai số kiểm tra
+    DoiTac("KH007", "Công ty CP Thương mại Mẫu An Bình", 18_000_000),                      # tổ chức mà thiếu mã số thuế
+    DoiTac("KH008", "Doanh nghiệp Mẫu Thành Công", 15_000_000, "0990009631"),             # một mã số thuế hai mã khách
+    DoiTac("KH009", "Doanh nghiệp Mẫu Thành Công - CN 2", 7_000_000, "0990009631"),
+    DoiTac("KH010", "Anh Lê Văn Mẫu", 20_000_000),                                          # cá nhân, không MST: sạch
+    DoiTac("KH011", "Công ty TNHH Mẫu Bình Minh", 0, "0990010179"),                        # số dư 0: sạch
+]
+_NCC = [
+    DoiTac("NCC001", "Công ty TNHH Dầu nhớt Mẫu Phương Nam", 95_000_000, "0990010316"),
+    DoiTac("NCC002", "Tổng kho Mẫu Miền Bắc", 43_000_000, "0990013878"),
+    DoiTac("NCC003", "Công ty CP Hoá chất Mẫu Trường An", 12_000_000, "0990015385"),
+    DoiTac("NCC004", "Công ty CP Bao bì Mẫu Đông Á", -5_000_000, "0990015522"),            # phải trả ÂM
+]
+
+DOI_TAC = {"khách hàng": _KHACH, "nhà cung cấp": _NCC}
+# Đáp án: vai trò -> [(loại phát hiện, mã)], đối chiếu ở tests/contracts/test_sample_data.py. Phép "ba khách lớn nhất" không gắn mã nào.
+LOI_DOI_TAC: dict[str, list[tuple[str, str]]] = {
+    "khách hàng": [("customer_concentration", ""), ("customer_concentration", "KH001"), ("duplicate_partner", "KH008"),
+                   ("invalid_tax_id", "KH006"), ("missing_tax_id", "KH007"), ("negative_receivable", "KH005")],
+    "nhà cung cấp": [("negative_payable", "NCC004")],
+}
+
+
+def bang_doi_tac(vai_tro: str) -> list[list[object]]:
+    """Bảng đúng khuôn MISA: tiêu đề, dòng trống, STT | Mã | Tên | Địa chỉ | Công nợ | Mã số thuế | Điện thoại, rồi dòng 'Tổng' bỏ trống."""
+    chu = "khách hàng" if vai_tro == "khách hàng" else "nhà cung cấp"
+    rows: list[list[object]] = [
+        [f"DANH SÁCH {chu.upper()}"],
+        [],
+        ["STT", f"Mã {chu}", f"Tên {chu}", "Địa chỉ", "Công nợ", "Mã số thuế", "Điện thoại"],
+    ]
+    for i, d in enumerate(DOI_TAC[vai_tro], 1):
+        rows.append([i, d.code, d.name, "Hà Nội (hư cấu)", d.balance, d.tax_id, f"09000000{i:02d}"])
+    rows.append(["", "", "Tổng", "", "", "", ""])
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Ghi file
 # ---------------------------------------------------------------------------
 
@@ -235,7 +295,7 @@ def bang(ky_den: str = KY_DEN, dong: list[Dong] | None = None) -> list[list[obje
     return rows
 
 
-def ghi_xlsx(path: Path, ky_den: str = KY_DEN, dong: list[Dong] | None = None) -> Path:
+def _ghi(path: Path, rows: list[list[object]], ten_sheet: str) -> Path:
     try:
         from openpyxl import Workbook
     except ImportError:
@@ -243,12 +303,20 @@ def ghi_xlsx(path: Path, ky_den: str = KY_DEN, dong: list[Dong] | None = None) -
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Tong hop NXT"
-    for row in bang(ky_den, dong):
+    ws.title = ten_sheet
+    for row in rows:
         ws.append(row)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
+
+
+def ghi_xlsx(path: Path, ky_den: str = KY_DEN, dong: list[Dong] | None = None) -> Path:
+    return _ghi(path, bang(ky_den, dong), "Tong hop NXT")
+
+
+def ghi_doi_tac(path: Path, vai_tro: str) -> Path:
+    return _ghi(path, bang_doi_tac(vai_tro), "Danh sach")
 
 
 def main() -> None:
@@ -260,6 +328,9 @@ def main() -> None:
     print(f"  {len(LOI_GIEO)} mã có lỗi gieo sẵn:")
     for code, loi in LOI_GIEO.items():
         print(f"    {code:14s} {', '.join(loi)}")
+    for ten, vai_tro in (("khach_hang_mau.xlsx", "khách hàng"), ("nha_cung_cap_mau.xlsx", "nhà cung cấp")):
+        f = ghi_doi_tac(Path(__file__).parent / ten, vai_tro)
+        print(f"Đã ghi: {f}  ({len(DOI_TAC[vai_tro])} {vai_tro}, {len(LOI_DOI_TAC[vai_tro])} điểm cần xem gieo sẵn)")
     print("\nTải file này lên mục Tồn kho bên Body để chạy thử bộ soi lỗi sổ sách.")
 
 

@@ -34,8 +34,11 @@ Gốc demo mặc định `~\anser-demo` (đổi bằng `-Goc` hay biến `ANSER_
 - Sáng ngày demo bật bằng `bat_demo.ps1 -BuildLai`: trang chủ của Body là số **tại thời điểm build**.
 - Soi tồn kho: *Quản lý kho* → tab **"Kiểm sổ từ Excel"** → chọn `<gốc demo>\file_mau\ton_kho_mau.xlsx` → **Kiểm sổ**: 8 phát hiện trên 7 mã.
 - So hai bản: *Cảnh báo sổ sách* → ô cũ chọn `ton_kho_mau.xlsx`, ô mới chọn `ton_kho_mau_ban_sau.xlsx` → **So hai bản**: 3 chỗ số liệu đã đổi, 21.600.000đ.
+- Dòng tiền: *Dòng tiền* → ô trái chọn `khach_hang_mau.xlsx` → **Soi ngay**, rồi chọn `nha_cung_cap_mau.xlsx` → **Soi ngay**; ô phải chọn `ton_kho_mau.xlsx` → **Nạp tồn kho**. Khách đang nợ 520.000.000đ, nợ nhà cung cấp 150.000.000đ, hàng trong kho và số ngày giá vốn; 7 điểm cần xem (khách tập trung, số dư âm, mã số thuế sai hay thiếu, trùng mã số thuế).
 - Lãi gộp: *Báo cáo* → chọn **Tháng** → **Tính lãi gộp**. Lãi gộp chỉ tính trên phần doanh thu **có giá vốn**, nên `doanh thu − giá vốn` có thể khác `lãi gộp`; giải thích đúng câu đó, đừng để khách tự trừ.
 - **Đừng mở khung chat** (nút tròn góc phải): không có mô hình, khung chat hiện câu giả.
+- **Đừng nạp tài liệu hay ảnh hoá đơn** ở trang *Tài liệu* (kho tri thức tắt trong demo: nạp chỉ báo lỗi; không có mô hình đọc ảnh), và đừng bấm **Chạy** ở trang *Tự động hoá* (không có n8n).
+- Chưa demo soát thuế suất (*Cảnh báo sổ sách* → "Thuế suất từng mã hàng"): quy tắc cho nhóm dầu nhớt chưa được kế toán duyệt.
 
 ## Giới hạn
 

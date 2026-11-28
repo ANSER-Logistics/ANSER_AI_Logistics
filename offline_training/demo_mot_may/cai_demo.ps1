@@ -46,5 +46,5 @@ if (-not (Test-Path "$Goc\cert\cert.pem")) {
 Write-Host '[5/5] Tệp Excel mẫu (hư cấu)'
 Push-Location $brain
 try { Invoke-Lenh { python sample_data\make_sample_data.py } 'sinh tệp mẫu' } finally { Pop-Location }
-Copy-Item "$brain\sample_data\ton_kho_mau.xlsx", "$brain\sample_data\ton_kho_mau_ban_sau.xlsx" "$Goc\file_mau\" -Force
+Copy-Item "$brain\sample_data\*_mau*.xlsx" "$Goc\file_mau\" -Force
 Write-Host "Xong. Bật demo: powershell -ExecutionPolicy Bypass -File $PSScriptRoot\bat_demo.ps1"

@@ -1,7 +1,7 @@
 """
 Gieo dữ liệu bán hàng HƯ CẤU (ngành dầu nhớt) cho buổi demo, qua chính API của Body, rồi lùi ngày hoá đơn về các tháng trước để báo cáo có nhiều kỳ.
 
-Body không seed hoá đơn bán nào, nên trang Báo cáo sẽ chỉ hiện "Chưa có dòng bán nào" nếu không gieo. Hai mặt hàng CỐ Ý không có giá vốn: báo cáo phải nói
+Body không seed hoá đơn bán nào, nên trang Báo cáo sẽ chỉ hiện "Chưa có dòng bán nào" nếu không gieo. Một mặt hàng CỐ Ý không có giá vốn: báo cáo phải nói
 "chưa đủ giá vốn" thay vì tính lãi như thể đủ. Đáp án (doanh thu, lãi gộp, phủ giá vốn theo tháng) tính ĐỘC LẬP ở đây từ chính dữ liệu đã gieo và ghi ra log\\demo_ky_vong.json
 để `kiem_qua_body.py` đối chiếu. Chạy lại không nhân đôi (nhận ra hoá đơn có ghi chú DỮ LIỆU DEMO).
 
@@ -88,6 +88,19 @@ def main(argv: list[str] | None = None) -> int:
             if ma not in (200, 204):
                 raise SystemExit(f"gỡ hàng mẫu {ten!r} hỏng: http={ma} {r}")
 
+    ma, r = b.goi("GET", "/api/customers")
+    if ma != 200:
+        raise SystemExit(f"không đọc được khách hàng: http={ma} {r}")
+    da_co = {k["name"]: k["id"] for k in r["customers"]}
+    khach_ids = []
+    for ten in KHACH:
+        if ten not in da_co:
+            ma, r = b.goi("POST", "/api/customers", {"name": ten, "address": "Hà Nội (hư cấu)", "note": GHI_CHU})
+            if ma != 201:
+                raise SystemExit(f"tạo khách {ten!r} hỏng: http={ma} {r}")
+            da_co[ten] = r["customer"]["id"]
+        khach_ids.append(da_co[ten])
+
     hom_nay = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=7)).date()
     lui_ngay: list[tuple[str, dt.date]] = []
     nhap_ngay: list[tuple[str, dt.date]] = []
@@ -100,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     cac_hoa_don = [(ngay_cua(lui, thu_tu, hom_nay), khach, dong) for lui in sorted(LICH, reverse=True) for thu_tu, (khach, dong) in enumerate(LICH[lui])]
     cac_hoa_don += [(hom_nay - dt.timedelta(days=cach), khach, dong) for cach, khach, dong in GAN_DAY]
     for ngay, khach, dong in cac_hoa_don:
-        ma, r = b.goi("POST", "/api/sales/invoices", {"customerName": KHACH[khach], "note": GHI_CHU, "items": [{"productId": ids[i], "quantity": q} for i, q in dong]})
+        ma, r = b.goi("POST", "/api/sales/invoices", {"customerId": khach_ids[khach], "note": GHI_CHU, "items": [{"productId": ids[i], "quantity": q} for i, q in dong]})
         if ma != 201:
             raise SystemExit(f"tạo hoá đơn hỏng: http={ma} {r}")
         lui_ngay.append((r["invoice"]["id"], ngay))
@@ -126,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
             cur.execute("update sales_invoices set created_at = %s where id = %s", (moc, hd))
             cur.execute("update inventory_transactions set created_at = %s where source_type = 'sale' and source_id = %s", (moc, hd))
     (GOC / "log" / "demo_ky_vong.json").write_text(json.dumps(ky_vong, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"Đã gieo {len(HANG)} mặt hàng, {len(lui_ngay)} hoá đơn trên {len(ky_vong)} tháng; đáp án ở log\\demo_ky_vong.json")
+    print(f"Đã gieo {len(HANG)} mặt hàng, {len(khach_ids)} khách, {len(lui_ngay)} hoá đơn trên {len(ky_vong)} tháng; đáp án ở log\\demo_ky_vong.json")
     return 0
 
 

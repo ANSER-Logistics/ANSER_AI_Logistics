@@ -21,12 +21,15 @@ from io import BytesIO
 import pytest
 
 from sample_data.make_sample_data import (
+    DOI_TAC,
     DONG,
     DONG_BAN_SAU,
     KY_DEN_SAU,
+    LOI_DOI_TAC,
     LOI_GIEO,
     LOI_HOI_TO,
     bang,
+    ghi_doi_tac,
     ghi_xlsx,
 )
 from src.core.inventory import audit_inventory
@@ -238,3 +241,32 @@ def test_ghi_va_doc_lai_duoc_xlsx_ban_sau(tmp_path):
     assert truoc.ok and sau.ok
     kq = doi_chieu_hai_lan_xuat(truoc, sau)
     assert {f["code"]: f["kind"] for f in kq["findings"]} == LOI_HOI_TO
+
+
+# ---------------------------------------------------------------------------
+# Danh sách đối tác — đề bài cho soi công nợ (`core/receivables.py`)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("vai_tro", ["khách hàng", "nhà cung cấp"])
+def test_soi_tung_file_doi_tac_ra_dung_dap_an_khong_hon_khong_kem(tmp_path, vai_tro):
+    """Soi MỘT file, đúng cách màn "Dòng tiền" của Body gọi: đúng bộ (loại, mã) đã gieo, đối chứng sạch không bị gắn cờ."""
+    from src.core.partner_import import NHA_CUNG_CAP, load_partners_xlsx_bytes
+    from src.core.receivables import audit_partners
+
+    doc = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "dt.xlsx", vai_tro).read_bytes())
+    assert doc.ok, doc.checks
+    assert doc.role == vai_tro and len(doc.partners) == len(DOI_TAC[vai_tro])
+    la_ncc = vai_tro == NHA_CUNG_CAP
+    kq = audit_partners([] if la_ncc else doc.partners, doc.partners if la_ncc else [])
+    thuc_te = sorted((f["kind"], f.get("code") or "") for f in kq["findings"])
+    assert thuc_te == sorted(LOI_DOI_TAC[vai_tro])
+
+
+def test_tong_phai_thu_va_phai_tra_cua_file_mau_khop_tinh_tay(tmp_path):
+    from src.core.partner_import import load_partners_xlsx_bytes
+    from src.core.receivables import audit_partners
+
+    khach = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "k.xlsx", "khách hàng").read_bytes()).partners
+    ncc = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "n.xlsx", "nhà cung cấp").read_bytes()).partners
+    assert audit_partners(khach)["summary"]["tổng_phải_thu"] == 520_000_000
+    assert audit_partners([], ncc)["summary"]["tổng_phải_trả"] == 150_000_000

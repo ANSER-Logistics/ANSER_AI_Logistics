@@ -59,10 +59,24 @@ try {
   const t4 = await vanBan();
   console.log('so hai bản: đủ 3 mã', ['DN-SG-18', 'DN-CF4-200', 'DN-PHANH-1'].every((m) => t4.includes(m)), '| có mã nhận DN-TL-46:', t4.includes('DN-TL-46'));
 
-  for (const [ten, url] of [['5-ton-quy', '/dashboard/cashflow'], ['6-tai-lieu', '/dashboard/documents']]) {
-    await page.goto(`${URL_BODY}${url}`, { waitUntil: 'networkidle' });
-    await chup(ten);
+  await page.goto(`${URL_BODY}/dashboard/cashflow`, { waitUntil: 'networkidle' });
+  const tep = page.locator('input[type=file]');
+  for (const [ten, ma] of [['khach_hang_mau.xlsx', 'KH006'], ['nha_cung_cap_mau.xlsx', 'NCC004']]) {
+    await tep.nth(0).setInputFiles(path.join(MAU, ten));
+    await page.getByRole('button', { name: 'Soi ngay' }).click();
+    await page.getByText(ma).first().waitFor({ timeout: 30000 });
   }
+  await tep.nth(1).setInputFiles(path.join(MAU, 'ton_kho_mau.xlsx'));
+  await page.getByRole('button', { name: 'Nạp tồn kho' }).click();
+  await page.getByText(/ngày giá vốn/).first().waitFor({ timeout: 30000 });
+  await page.waitForTimeout(800);
+  await chup('5-dong-tien');
+  const t5 = await vanBan();
+  console.log('dòng tiền:', (t5.match(/Khách đang nợ mình.{0,260}/) ?? ['?'])[0]);
+
+  await page.goto(`${URL_BODY}/dashboard/customers`, { waitUntil: 'networkidle' });
+  await page.getByText('Garage Mẫu Bình').first().waitFor({ timeout: 30000 });
+  await chup('6-khach-hang');
 } catch (e) {
   console.log('HỎNG:', String(e).slice(0, 400));
   await chup('loi').catch(() => {});
