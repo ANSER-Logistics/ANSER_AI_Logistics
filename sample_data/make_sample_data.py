@@ -25,14 +25,16 @@ Hàng hoá lấy theo ngành của khách: dầu nhờn, mỡ bò, dung dịch l
 CHẠY
 ----
     python sample_data/make_sample_data.py
--> sample_data/ton_kho_mau.xlsx
+-> sample_data/ton_kho_mau.xlsx           bản xuất đến 30/06/2026 (bảy mã gieo lỗi sổ sách)
+-> sample_data/ton_kho_mau_ban_sau.xlsx   bản xuất MUỘN hơn của CÙNG kỳ, đến 15/07/2026, có ba chỗ bị sửa hồi tố (phép so hai bản, `core/period_diff.py`)
 """
 
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 KY_TU = "01/01/2026"
 KY_DEN = "30/06/2026"      # 181 ngày — vượt ngưỡng 90 ngày của phép kiểm hàng chết
@@ -150,6 +152,39 @@ LOI_GIEO: dict[str, tuple[str, ...]] = {d.code: d.loi_gieo for d in DONG if d.lo
 
 
 # ---------------------------------------------------------------------------
+# Bản xuất MUỘN hơn của CÙNG kỳ — đề bài cho phép so hai bản (`core/period_diff.py`)
+# ---------------------------------------------------------------------------
+# Cùng ngày bắt đầu 01/01/2026, bản sau dài hơn 15 ngày. Bản nào cũng tự nhất quán (không lỗi cân đối); chỉ khi đặt cạnh nhau mới thấy ba chứng từ đã bị sửa
+# SAU khi báo cáo. Đây là hình dạng của sự cố thật ở khách pilot (xuất luỹ kế giảm, lỗi âm kho dạt sang mã khác), dựng lại bằng số hư cấu.
+
+KY_DEN_SAU = "15/07/2026"
+
+# Phát sinh mới HỢP LỆ: số luỹ kế chỉ tăng. Không được sinh phát hiện nào (đối chứng của phép so).
+_PHAT_SINH_MOI: dict[str, dict[str, Any]] = {
+    "LC-COOL-200": {"out_qty": 25, "out_value": 10_000_000},     # bán thêm 5 phuy, cùng đơn giá bình quân 400.000
+    "KM-4T-08": {"out_qty": 150},                                # tặng thêm 30 chai khuyến mại, vẫn không ghi giá trị
+}
+
+# Ba chỗ sửa hồi tố. Khoá = mã hàng; giá trị = (loại phát hiện mong đợi, các trường bị sửa).
+_SUA_HOI_TO: dict[str, tuple[str, dict[str, Any]]] = {
+    # Một phiếu xuất 40 can bị đổi mã: DN-SG-18 mất 40 (xuất luỹ kế GIẢM dù kỳ dài hơn), DN-TL-46 tăng đúng 40.
+    "DN-SG-18": ("history_decreased", {"out_qty": 100, "out_value": 36_500_000}),
+    "DN-TL-46": ("", {"out_qty": 210, "out_value": 63_525_000}),   # mã nhận: tăng hợp lệ, không bị gắn cờ riêng, nhưng được nêu là "mã nhận" ở DN-SG-18
+    # Giá vốn tồn đầu kỳ bị tính lại: báo cáo kỳ trước đã nộp thì nay lệch.
+    "DN-CF4-200": ("opening_changed", {"opening_value": 88_000_000}),
+    # Cùng 600 chai nhập mà giá trị khác đi: đơn giá trên một phiếu nhập đã qua bị sửa.
+    "DN-PHANH-1": ("purchase_value_changed", {"in_value": 46_200_000}),
+}
+
+DONG_BAN_SAU = [
+    replace(d, **_PHAT_SINH_MOI.get(d.code, {}), **_SUA_HOI_TO.get(d.code, ("", {}))[1]) for d in DONG
+]
+
+# Đáp án của phép so: mã hàng -> loại phát hiện. `tests/contracts/test_sample_data.py` đối chiếu với kết quả thật.
+LOI_HOI_TO: dict[str, str] = {ma: loai for ma, (loai, _) in _SUA_HOI_TO.items() if loai}
+
+
+# ---------------------------------------------------------------------------
 # Ghi file
 # ---------------------------------------------------------------------------
 
@@ -161,14 +196,14 @@ def _so(value: float, kieu_chuoi: bool) -> object:
     return f"-{nguyen}" if value < 0 else nguyen
 
 
-def bang() -> list[list[object]]:
-    """Ma trận ô, đúng bố cục MISA kiểu A."""
+def bang(ky_den: str = KY_DEN, dong: list[Dong] | None = None) -> list[list[object]]:
+    """Ma trận ô, đúng bố cục MISA kiểu A. Mặc định là bản xuất đến 30/06; `dong` và `ky_den` cho bản xuất muộn hơn."""
     rows: list[list[object]] = [
         ["CÔNG TY TNHH THƯƠNG MẠI VÀ VẬN TẢI MẪU"],
         ["MST: 0991234566"],
         [],
         ["BẢNG TỔNG HỢP NHẬP - XUẤT - TỒN"],
-        [f"Từ ngày {KY_TU} đến ngày {KY_DEN}"],
+        [f"Từ ngày {KY_TU} đến ngày {ky_den}"],
         [],
     ]
     # Ô gộp: tên nhóm chỉ xuất hiện ở cột ĐẦU của nhóm, các cột sau để trống —
@@ -181,7 +216,7 @@ def bang() -> list[list[object]]:
     # `[*..., *...]` thay cho `list + list`: phép cộng suy ra `list[str]`, mypy không nhận vào `list[list[object]]` (lộ ra khi `kiem_tich_hop_body.py` import file này).
     rows.append([*["", "", "", ""], *["Số lượng", "Giá trị", "Đơn giá BQ"] * 4])
 
-    for d in DONG:
+    for d in (DONG if dong is None else dong):
         ck_q, ck_v = d.ck_qty(), d.ck_value()
         rows.append([
             KHO, d.code, d.name, d.unit,
@@ -200,7 +235,7 @@ def bang() -> list[list[object]]:
     return rows
 
 
-def ghi_xlsx(path: Path) -> Path:
+def ghi_xlsx(path: Path, ky_den: str = KY_DEN, dong: list[Dong] | None = None) -> Path:
     try:
         from openpyxl import Workbook
     except ImportError:
@@ -209,7 +244,7 @@ def ghi_xlsx(path: Path) -> Path:
     wb = Workbook()
     ws = wb.active
     ws.title = "Tong hop NXT"
-    for row in bang():
+    for row in bang(ky_den, dong):
         ws.append(row)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
@@ -218,7 +253,9 @@ def ghi_xlsx(path: Path) -> Path:
 
 def main() -> None:
     path = ghi_xlsx(Path(__file__).parent / "ton_kho_mau.xlsx")
+    sau = ghi_xlsx(Path(__file__).parent / "ton_kho_mau_ban_sau.xlsx", KY_DEN_SAU, DONG_BAN_SAU)
     print(f"Đã ghi: {path}")
+    print(f"Đã ghi: {sau}  (cùng kỳ, đến {KY_DEN_SAU}, {len(LOI_HOI_TO)} chỗ sửa hồi tố: {', '.join(LOI_HOI_TO)})")
     print(f"  {len(DONG)} mã hàng, kỳ {KY_TU} – {KY_DEN}")
     print(f"  {len(LOI_GIEO)} mã có lỗi gieo sẵn:")
     for code, loi in LOI_GIEO.items():

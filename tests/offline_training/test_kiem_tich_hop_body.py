@@ -126,6 +126,30 @@ def test_bao_cao_thieu_gia_von_hai_nhanh_khac_nhau():
     assert _trang_thai(k.kiem_bao_cao_thieu_gia_von(tin_cay_cao, CHI_CO_CHI_PHI)) == k.TRUOT
 
 
+def _so_tot():
+    return {"summary": {"có_sửa_hồi_tố": True}, "warnings": [],
+            "findings": [{"code": m, "kind": loai} for m, loai in k.LOI_HOI_TO.items()]}
+
+
+def test_so_hai_ban_dung_ba_cho_sua_hoi_to_khong_hon_khong_kem():
+    assert _trang_thai(k.kiem_so_hai_ban(_so_tot())) == k.DAT
+    thieu = _so_tot()
+    thieu["findings"] = thieu["findings"][:-1]
+    assert _trang_thai(k.kiem_so_hai_ban(thieu)) == k.TRUOT                              # bỏ sót một chỗ
+    oan = _so_tot()
+    oan["findings"].append({"code": "LC-COOL-200", "kind": "history_decreased"})
+    assert _trang_thai(k.kiem_so_hai_ban(oan)) == k.TRUOT                                # báo oan một mã sạch
+    sai_loai = _so_tot()
+    sai_loai["findings"][0]["kind"] = "purchase_value_changed"
+    assert _trang_thai(k.kiem_so_hai_ban(sai_loai)) == k.TRUOT                           # đúng mã nhưng sai loại
+    tu_choi = {**_so_tot(), "warnings": ["Khác ngày bắt đầu kỳ"]}
+    assert _trang_thai(k.kiem_so_hai_ban(tu_choi)) == k.TRUOT                            # Body coi warnings không rỗng là Brain TỪ CHỐI so
+    khong_hoi_to = _so_tot()
+    khong_hoi_to["summary"]["có_sửa_hồi_tố"] = False
+    assert _trang_thai(k.kiem_so_hai_ban(khong_hoi_to)) == k.TRUOT
+    assert _trang_thai(k.kiem_so_hai_ban("Internal Server Error")) == k.TRUOT
+
+
 def test_ton_kho_bay_ma_co_loi_khong_hon_khong_kem():
     assert _trang_thai(k.kiem_ton_kho(TON_KHO_TOT)) == k.DAT
     thieu = copy.deepcopy(TON_KHO_TOT)
@@ -202,6 +226,7 @@ KET_TS_TOT = {
     "health": {"ok": True, "degraded": False, "auth_enabled": True, "engine_ready": True, "vision_ready": True},
     "report": {"ok": True, "so_ky": 2, "lai_gop_10": 3_600_000, "phu_gia_von": 81.5, "tin_cay": "trung bình"},
     "ton_kho": {"ok": True, "so_dong": k.SO_DONG_TON_KHO, "so_phat_hien": 8, "ma": sorted(k.MA_TON_KHO_CO_LOI), "ly_do_bo_qua": None},
+    "so_hai_ban": {"ok": True, "khong_so_duoc": 0, "hoi_to": True, "phat_hien": dict(k.LOI_HOI_TO)},
     "token_sai": {"ok": True, "kind_nhan_duoc": "unauthorized", "status": 401},
     "chat": {"ok": True, "giay": 3.0, "tra_loi": "Chào bạn, mình giúp được việc kho.", "do_dai": 34},
 }
@@ -223,6 +248,10 @@ def test_brain_ts_tot_va_tung_cho_hong():
         {("report", "lai_gop_10"): 8_600_000},
         {("report", "phu_gia_von"): 100.0},
         {("ton_kho", "ma"): ["DN-TL-200"]},
+        {("so_hai_ban", "phat_hien"): {"DN-SG-18": "history_decreased"}},                 # bỏ sót hai chỗ sửa hồi tố
+        {("so_hai_ban", "phat_hien"): {**k.LOI_HOI_TO, "LC-COOL-200": "history_decreased"}},   # báo oan phát sinh hợp lệ
+        {("so_hai_ban", "khong_so_duoc"): 1},                                             # Brain từ chối so hai bản hợp lệ
+        {("so_hai_ban", "hoi_to"): False},
         {("token_sai", "kind_nhan_duoc"): "server_error"},         # Body không nhận ra 401: sẽ hiện lỗi chung thay vì "token sai"
         {("token_sai", "kind_nhan_duoc"): "KHONG_LOI"},            # token sai mà vẫn vào được
         {("chat", "ok"): False},

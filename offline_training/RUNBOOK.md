@@ -508,9 +508,9 @@ BRAIN_URL=https://xxx BRAIN_API_TOKEN=... BRAIN_KB_WORKSPACE=... \
 python offline_training/kiem_tich_hop_body.py --tu-bat --voi-brain-ts       # thêm: chạy CHÍNH brain.ts của Body (Node >= 22.18)
 ```
 
-Mười bước (chín bắt buộc, riêng `kho_tri_thuc` chỉ cảnh báo): `/health` sạch, ba trường Body đọc có mặt, xác thực (không token và sai token bị chặn, đúng token vào), VAT 2.200.000, báo giá 1.139.000, báo cáo lãi lỗ khớp tính tay, hai nhánh thiếu giá vốn trả đúng nhãn, nạp `ton_kho_mau.xlsx` ra 8 phát hiện trên 7 mã, kho tri thức, và chat. Dữ liệu hoàn toàn hư cấu (R2).
+Mười một bước (mười bắt buộc, riêng `kho_tri_thuc` chỉ cảnh báo): `/health` sạch, ba trường Body đọc có mặt, xác thực (không token và sai token bị chặn, đúng token vào), VAT 2.200.000, báo giá 1.139.000, báo cáo lãi lỗ khớp tính tay, hai nhánh thiếu giá vốn trả đúng nhãn, nạp `ton_kho_mau.xlsx` (đúng bảy mã có lỗi, không cờ oan), so với `ton_kho_mau_ban_sau.xlsx` ra đúng ba chỗ sửa hồi tố, kho tri thức, và chat. Hai tệp mẫu do công cụ tự sinh vào thư mục tạm. Dữ liệu hoàn toàn hư cấu (R2).
 
-Cờ `--voi-brain-ts` thêm bước thứ mười một: tải `brain.ts` từ repo Body (hoặc `--brain-ts-file` cho nhánh chưa gộp) và chạy NGUYÊN VĂN bằng Node, chỉ cho phép đọc hai nơi cần thiết (`--permission`; không ghi, không tạo tiến trình con). Bước Python chứng minh Brain trả đúng; bước này chứng minh BODY ĐỌC ĐƯỢC câu trả lời đó (tên trường, kiểu lỗi `unauthorized`, vòng hỏi task).
+Cờ `--voi-brain-ts` thêm bước thứ mười hai: tải `brain.ts` từ repo Body (hoặc `--brain-ts-file` cho nhánh chưa gộp) và chạy NGUYÊN VĂN bằng Node, chỉ cho phép đọc hai nơi cần thiết (`--permission`; không ghi, không tạo tiến trình con). Bước Python chứng minh Brain trả đúng; bước này chứng minh BODY ĐỌC ĐƯỢC câu trả lời đó (tên trường, kiểu lỗi `unauthorized`, vòng hỏi task).
 
 Mã thoát: `0` mọi bước bắt buộc đạt; `1` có bước trượt; `2` không nối được Brain. **Chat `mock` (Brain LOCAL) không phải đạt**: với `--can-model` là trượt. Chat chậm hơn 60 giây là cảnh báo, vì Body mặc định chờ 60 giây: hâm nóng Brain bằng `bat_lai_brain.py` hoặc đặt `BRAIN_CHAT_TIMEOUT_MS`.
 

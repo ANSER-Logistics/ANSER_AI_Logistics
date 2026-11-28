@@ -51,7 +51,14 @@ from offline_training.kiem_server_that import (  # noqa: E402  (một định ng
     VAT_VAO,
     cong_trong,
 )
-from sample_data.make_sample_data import DONG, LOI_GIEO, ghi_xlsx  # noqa: E402
+from sample_data.make_sample_data import (  # noqa: E402
+    DONG,
+    DONG_BAN_SAU,
+    KY_DEN_SAU,
+    LOI_GIEO,
+    LOI_HOI_TO,
+    ghi_xlsx,
+)
 
 DAT, TRUOT, MOCK, CANH_BAO, BO_QUA = "dat", "truot", "mock", "canh_bao", "bo_qua"
 
@@ -204,6 +211,27 @@ def kiem_ton_kho(r: Any) -> Chi:
     return (TRUOT, "; ".join(sai)) if sai else (DAT, f"{SO_DONG_TON_KHO} dòng, {len(audit.get('findings', []))} phát hiện trên đúng {len(MA_TON_KHO_CO_LOI)} mã gieo sẵn, không gắn cờ mã nào khác")
 
 
+def kiem_so_hai_ban(r: Any) -> Chi:
+    """Phép so hai bản xuất CÙNG kỳ (`/tools/period-diff`): đúng ba chỗ sửa hồi tố đã gieo, không báo oan phát sinh hợp lệ."""
+    if not isinstance(r, dict) or not isinstance(r.get("summary"), dict):
+        return TRUOT, "không trả khối summary"
+    if r.get("warnings"):
+        # Body coi `warnings` không rỗng là Brain TỪ CHỐI so; ở đây hai bản hợp lệ nên từ chối là lỗi.
+        return TRUOT, f"Brain từ chối so hai bản hợp lệ: {r['warnings'][0]}"[:200]
+    thuc_te = {str(f.get("code")): str(f.get("kind")) for f in r.get("findings", []) if isinstance(f, dict)}
+    sai: list[str] = []
+    if thuc_te != LOI_HOI_TO:
+        thieu = {m: k for m, k in LOI_HOI_TO.items() if thuc_te.get(m) != k}
+        oan = {m: k for m, k in thuc_te.items() if m not in LOI_HOI_TO}
+        if thieu:
+            sai.append(f"bỏ sót {thieu}")
+        if oan:
+            sai.append(f"báo oan {oan}")
+    if r["summary"].get("có_sửa_hồi_tố") is not True:
+        sai.append("summary.có_sửa_hồi_tố không phải true")
+    return (TRUOT, "; ".join(sai)) if sai else (DAT, f"đúng {len(LOI_HOI_TO)} chỗ sửa hồi tố ({', '.join(sorted(LOI_HOI_TO))}), phát sinh hợp lệ không bị báo oan")
+
+
 def kiem_kho_tri_thuc(ma: int, r: Any, kb_ready: Any) -> Chi:
     if ma == 200 and isinstance(r, dict) and isinstance(r.get("documents"), list):
         return (DAT if kb_ready else CANH_BAO), (f"liệt kê được {len(r['documents'])} tài liệu" if kb_ready else
@@ -252,6 +280,7 @@ def kiem_brain_ts(ket: Any, can_model: bool, co_token: bool) -> Chi:
         return v if isinstance(v, dict) else {}
 
     h, bc, tk, ts, ch = buoc("health"), buoc("report"), buoc("ton_kho"), buoc("token_sai"), buoc("chat")
+    sh = buoc("so_hai_ban")
     if not h.get("ok") or h.get("degraded") or (co_token and h.get("auth_enabled") is not True):
         mau.append((TRUOT, f"checkBrainHealth: ok={h.get('ok')} degraded={h.get('degraded')} auth_enabled={h.get('auth_enabled')} {h.get('loi', '')}".strip()))
     if not bc.get("ok") or bc.get("so_ky") != 2 or bc.get("lai_gop_10") != 3_600_000 or bc.get("phu_gia_von") != 81.5:
@@ -259,6 +288,9 @@ def kiem_brain_ts(ket: Any, can_model: bool, co_token: bool) -> Chi:
     if not tk.get("ok") or tk.get("so_dong") != SO_DONG_TON_KHO or set(tk.get("ma") or []) != MA_TON_KHO_CO_LOI:
         mau.append((TRUOT, f"importInventoryFile: ok={tk.get('ok')} so_dong={tk.get('so_dong')} so_phat_hien={tk.get('so_phat_hien')} "
                            f"bo_qua={tk.get('ly_do_bo_qua')!r} {tk.get('loi', '')}".strip()))
+    if not sh.get("ok") or sh.get("khong_so_duoc") or sh.get("hoi_to") is not True or sh.get("phat_hien") != LOI_HOI_TO:
+        mau.append((TRUOT, f"importInventoryFile x2 + comparePeriods: ok={sh.get('ok')} tu_choi_so={sh.get('khong_so_duoc')} hoi_to={sh.get('hoi_to')} "
+                           f"phat_hien={sh.get('phat_hien')} {sh.get('loi', '')}".strip()))
     if co_token and (not ts.get("ok") or ts.get("kind_nhan_duoc") != "unauthorized"):
         mau.append((TRUOT, f"token sai: Body nhận kiểu lỗi {ts.get('kind_nhan_duoc')!r} (phải 'unauthorized' để hiện 'BRAIN_API_TOKEN sai hoặc thiếu')"))
     if not ch.get("ok"):
@@ -272,7 +304,7 @@ def kiem_brain_ts(ket: Any, can_model: bool, co_token: bool) -> Chi:
     return DAT, "health, báo cáo, nạp tồn kho, lỗi token sai và chat đều đọc được qua mã thật của Body"
 
 
-def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float, file_ton_kho: Path) -> Any:
+def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float, file_ton_kho: Path, file_ban_sau: Path) -> Any:
     """Tải (hoặc đọc) brain.ts, đặt cạnh runner trong thư mục tạm riêng, chạy bằng Node với quyền chỉ ĐỌC hai nơi cần thiết."""
     import shutil
 
@@ -298,7 +330,8 @@ def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float, file_t
         if token:
             moi_truong["BRAIN_API_TOKEN"] = token
         # Mã tải về là dữ liệu từ ngoài: Node 22.13+ có `--permission` — chỉ cho ĐỌC thư mục tạm và tệp mẫu; không ghi, không tạo tiến trình con.
-        lenh = [node, "--no-warnings", "--permission", f"--allow-fs-read={thu_muc}", f"--allow-fs-read={file_ton_kho}", str(runner), str(file_ton_kho)]
+        lenh = [node, "--no-warnings", "--permission", f"--allow-fs-read={thu_muc}", f"--allow-fs-read={file_ton_kho}", f"--allow-fs-read={file_ban_sau}",
+                str(runner), str(file_ton_kho), str(file_ban_sau)]
         r = subprocess.run(lenh, cwd=thu_muc, env=moi_truong, capture_output=True, text=True, encoding="utf-8", timeout=han_chat_s + 120)
     dong = [x for x in r.stdout.strip().splitlines() if x.startswith("{")]
     if r.returncode != 0 or not dong:
@@ -364,11 +397,13 @@ def chat_cho_xong(b: Brain, han_s: float) -> tuple[Any, float]:
 def chay_kiem(b: Brain, workspace: str, *, can_model: bool, bo_chat: bool, han_chat_s: float,
               voi_brain_ts: bool = False, brain_ts_file: str = "") -> list[dict[str, Any]]:
     with tempfile.TemporaryDirectory(prefix="anser_mau_") as tam:
-        return _chay_kiem(b, workspace, ghi_xlsx(Path(tam) / "ton_kho_mau.xlsx"), can_model=can_model, bo_chat=bo_chat,
+        truoc = ghi_xlsx(Path(tam) / "ton_kho_mau.xlsx")
+        sau = ghi_xlsx(Path(tam) / "ton_kho_mau_ban_sau.xlsx", KY_DEN_SAU, DONG_BAN_SAU)
+        return _chay_kiem(b, workspace, truoc, sau, can_model=can_model, bo_chat=bo_chat,
                           han_chat_s=han_chat_s, voi_brain_ts=voi_brain_ts, brain_ts_file=brain_ts_file)
 
 
-def _chay_kiem(b: Brain, workspace: str, file_ton_kho: Path, *, can_model: bool, bo_chat: bool, han_chat_s: float,
+def _chay_kiem(b: Brain, workspace: str, file_ton_kho: Path, file_ban_sau: Path, *, can_model: bool, bo_chat: bool, han_chat_s: float,
                voi_brain_ts: bool, brain_ts_file: str) -> list[dict[str, Any]]:
     ra: list[dict[str, Any]] = []
 
@@ -407,6 +442,20 @@ def _chay_kiem(b: Brain, workspace: str, file_ton_kho: Path, *, can_model: bool,
 
     buoc("ton_kho_nap_file", True, ton_kho)
 
+    def so_hai_ban() -> Chi:
+        # Y như route `/api/ai/period-diff` của Body: nạp từng bản qua /tools/inventory-import, rồi gửi `lines`, kho và kỳ của MỖI bản sang /tools/period-diff.
+        ben: list[dict[str, Any]] = []
+        for f in (file_ton_kho, file_ban_sau):
+            ma, r = b.goi("POST", "/tools/inventory-import", multipart=(f.name, f.read_bytes()), han=60.0)
+            if ma != 200 or not isinstance(r, dict) or not isinstance(r.get("import"), dict):
+                return TRUOT, f"nạp {f.name}: http={ma} {r!r}"[:160]
+            im = r["import"]
+            ben.append({"lines": im["lines"], "warehouse": im.get("warehouse", ""), "period_start": im.get("period_start"), "period_end": im.get("period_end")})
+        ma, r = b.goi("POST", "/tools/period-diff", {"truoc": ben[0], "sau": ben[1]}, han=60.0)
+        return kiem_so_hai_ban(r) if ma == 200 else (TRUOT, f"http={ma} {r!r}"[:160])
+
+    buoc("so_hai_ban_xuat", True, so_hai_ban)
+
     def kho_tri_thuc() -> Chi:
         ma, r = b.goi("GET", "/knowledge/documents?" + urllib.parse.urlencode({"workspace_id": workspace}))
         return kiem_kho_tri_thuc(ma, r, health.get("kb_ready"))
@@ -423,7 +472,7 @@ def _chay_kiem(b: Brain, workspace: str, file_ton_kho: Path, *, can_model: bool,
     if voi_brain_ts:
         # Bắt buộc khi người chạy đã xin: yêu cầu mà không chạy được thì phải TRƯỢT to, không được lặng lẽ bỏ qua (`noi_duoc_brain` ở trên đã cắt sớm nếu Brain chết).
         buoc("brain_ts_cua_body", True, lambda: kiem_brain_ts(
-            chay_brain_ts(b.url, b.token, brain_ts_file, han_chat_s, file_ton_kho), can_model, bool(b.token)))
+            chay_brain_ts(b.url, b.token, brain_ts_file, han_chat_s, file_ton_kho, file_ban_sau), can_model, bool(b.token)))
     return ra
 
 

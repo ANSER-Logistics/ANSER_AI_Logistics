@@ -20,9 +20,18 @@ from io import BytesIO
 
 import pytest
 
-from sample_data.make_sample_data import DONG, LOI_GIEO, bang, ghi_xlsx
+from sample_data.make_sample_data import (
+    DONG,
+    DONG_BAN_SAU,
+    KY_DEN_SAU,
+    LOI_GIEO,
+    LOI_HOI_TO,
+    bang,
+    ghi_xlsx,
+)
 from src.core.inventory import audit_inventory
 from src.core.inventory_import import parse_inventory_table
+from src.core.period_diff import doi_chieu_hai_lan_xuat
 
 pytest.importorskip("openpyxl")
 
@@ -179,3 +188,53 @@ def test_phuong_phap_tinh_gia_von_van_duoc_thu_thap(ket_qua):
     assert kq["explain"]["costing_methods_detected"], (
         "mất dữ liệu phương pháp tính giá vốn khi tắt phép kiểm giá-trị-0"
     )
+
+
+# ---------------------------------------------------------------------------
+# Hai bản xuất CÙNG một kỳ — đề bài cho phép so (`core/period_diff.py`)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def so_hai_ban():
+    truoc = parse_inventory_table(bang())
+    sau = parse_inventory_table(bang(KY_DEN_SAU, DONG_BAN_SAU))
+    return doi_chieu_hai_lan_xuat(truoc, sau)
+
+
+def test_hai_ban_chi_bao_dung_ba_cho_sua_hoi_to(so_hai_ban):
+    """Đáp án `LOI_HOI_TO`: thiếu một chỗ là phép so hỏng, thừa một chỗ là báo oan."""
+    thuc_te = {f["code"]: f["kind"] for f in so_hai_ban["findings"]}
+    assert thuc_te == LOI_HOI_TO
+    assert so_hai_ban["summary"]["có_sửa_hồi_tố"] is True
+
+
+def test_phieu_bi_doi_ma_duoc_nhan_ra_ma_nhan(so_hai_ban):
+    """DN-SG-18 mất 40 can xuất; DN-TL-46 tăng đúng 40: bản so phải nêu mã nhận, vì đó là chỗ lỗi âm kho mọc lại."""
+    f = next(x for x in so_hai_ban["findings"] if x["code"] == "DN-SG-18")
+    assert f["evidence"]["mã_tăng_đúng_bằng_lượng_này"] == ["DN-TL-46"]
+
+
+def test_phat_sinh_moi_hop_le_khong_bi_bao_oan(so_hai_ban):
+    """Hai mã bán thêm trong 15 ngày mới (số luỹ kế chỉ tăng) là đối chứng: không được có phát hiện nào."""
+    ma = {f["code"] for f in so_hai_ban["findings"]}
+    assert not ma & {"LC-COOL-200", "KM-4T-08"}
+    assert "DN-TL-46" not in ma, "mã nhận tăng hợp lệ, không bị gắn cờ riêng"
+
+
+def test_so_nguoc_thu_tu_bi_tu_choi_khong_im_lang():
+    """Đưa bản MUỘN làm bản trước: Brain nói rõ là nhầm thứ tự, không cho ra kết quả vô nghĩa."""
+    truoc = parse_inventory_table(bang())
+    sau = parse_inventory_table(bang(KY_DEN_SAU, DONG_BAN_SAU))
+    kq = doi_chieu_hai_lan_xuat(sau, truoc)
+    assert kq["summary"]["so_sánh_được"] is False and kq["findings"] == [] and kq["warnings"]
+
+
+def test_ghi_va_doc_lai_duoc_xlsx_ban_sau(tmp_path):
+    """Tệp .xlsx thật của bản sau, qua cùng bộ nạp, cho đúng kết quả như so trên ma trận ô."""
+    from src.core.inventory_import import load_xlsx_bytes
+
+    truoc = load_xlsx_bytes(ghi_xlsx(tmp_path / "truoc.xlsx").read_bytes())
+    sau = load_xlsx_bytes(ghi_xlsx(tmp_path / "sau.xlsx", KY_DEN_SAU, DONG_BAN_SAU).read_bytes())
+    assert truoc.ok and sau.ok
+    kq = doi_chieu_hai_lan_xuat(truoc, sau)
+    assert {f["code"]: f["kind"] for f in kq["findings"]} == LOI_HOI_TO

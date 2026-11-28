@@ -7,7 +7,7 @@
 // RẰNG BODY ĐỌC ĐƯỢC câu trả lời đó (tên trường, kiểu lỗi, vòng hỏi task). Hai lần lệch đã biết đều là kiểu "Brain đúng, Body đọc sai".
 // Dữ liệu dưới đây hoàn toàn hư cấu (R2).
 import * as fs from "node:fs";
-import { askBrain, buildReport, checkBrainHealth, importInventoryFile, BrainError } from "./brain.ts";
+import { askBrain, buildReport, checkBrainHealth, comparePeriods, importInventoryFile, BrainError } from "./brain.ts";
 
 const ket: Record<string, unknown> = {};
 const dinhDanh = { userId: "6f1c2a52-5a0e-4f55-9d0a-1d6f0f0f0f01", warehouseId: "0b1c2a52-5a0e-4f55-9d0a-1d6f0f0f0f02" };
@@ -48,6 +48,17 @@ await buoc("ton_kho", async () => {
   const r = await importInventoryFile(new File([noiDung], "ton_kho_mau.xlsx"));
   const ma = (r.audit?.findings ?? []).map((f: { code: string }) => f.code);
   return { so_dong: r.import.rows_parsed, so_phat_hien: ma.length, ma: [...new Set(ma)].sort(), ly_do_bo_qua: r.audit_skipped_reason };
+});
+
+// Y như route `/api/ai/period-diff` của Body: nạp hai bản xuất cùng kỳ, rồi so bằng `lines`, kho và kỳ của chính từng bản.
+await buoc("so_hai_ban", async () => {
+  const doc = (duong: string) => importInventoryFile(new File([fs.readFileSync(duong)], "ban_xuat.xlsx"));
+  const [a, b] = await Promise.all([doc(process.argv[2]), doc(process.argv[3])]);
+  const canh = (x: typeof a) => ({ lines: x.import.lines, warehouse: x.import.warehouse, period_start: x.import.period_start, period_end: x.import.period_end });
+  const diff = await comparePeriods(canh(a), canh(b));
+  const phatHien: Record<string, string> = {};
+  for (const f of diff.findings) phatHien[String(f.code)] = f.kind;
+  return { khong_so_duoc: diff.warnings.length, hoi_to: diff.summary["có_sửa_hồi_tố"] ?? null, phat_hien: phatHien };
 });
 
 // Token sai: Body PHẢI nhận ra kiểu lỗi "unauthorized" (hiện đúng câu "BRAIN_API_TOKEN sai hoặc thiếu"), không phải "server_error" chung chung.
