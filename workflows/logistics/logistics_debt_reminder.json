@@ -16,7 +16,10 @@
       "name": "Thứ 2 hàng tuần 8h",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [180, 300]
+      "position": [
+        180,
+        300
+      ]
     },
     {
       "parameters": {
@@ -28,24 +31,30 @@
       "name": "Đọc Receivables",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Lọc công nợ quá hạn + dựng thông báo. TẤT ĐỊNH — không gọi LLM:\n// danh sách nợ là con số, template cố định đủ rõ, không có gì để 'diễn giải'.\n// (retail_debt_reminder gọi Brain viết lời vì nhắn TRỰC TIẾP cho khách nợ;\n//  bản này chỉ báo NỘI BỘ cho chủ DN nên không cần.)\n// Giờ VIỆT NAM (UTC+7): ngày UTC lệch một ngày trong 7 tiếng đầu ngày ở VN, làm\n// khoản nợ đáo hạn hôm nay/hôm qua bị tính sai số ngày quá hạn.\nconst today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);\nconst rows = $input.all().map(i => i.json);\nconst vn = n => new Intl.NumberFormat('vi-VN').format(Number(n));\n\nconst overdue = rows.filter(r =>\n  (r.status === 'open' || r.status === 'partial') &&\n  r.due_date && String(r.due_date) < today\n).map(r => ({\n  ...r,\n  remaining: Number(r.amount) - Number(r.paid_amount || 0),\n  days_late: Math.floor((new Date(today) - new Date(r.due_date)) / 86400000)\n})).filter(r => r.remaining > 0)\n  .sort((a, b) => b.days_late - a.days_late);\n\nif (!overdue.length) {\n  return [{ json: { has_overdue: false } }];\n}\n\nconst total = overdue.reduce((s, r) => s + r.remaining, 0);\nconst lines = overdue.map(r =>\n  '• **' + r.customer_name + '** — còn nợ **' + vn(r.remaining) + ' đ**' +\n  ', quá hạn ' + r.days_late + ' ngày (hạn ' + r.due_date + ', mã ' + r.quote_id + ')'\n).join('\\n');\n\nconst body = { embeds: [{\n  title: '💰 Công nợ quá hạn — ' + overdue.length + ' khách, tổng ' + vn(total) + ' đ',\n  color: 15158332,\n  description: lines.slice(0, 3800),\n  footer: { text: 'ANSER Logistics • nhắc mỗi thứ 2' },\n  timestamp: new Date().toISOString()\n}]};\n\nreturn [{ json: { has_overdue: true, discord_body: JSON.stringify(body) } }];"
+        "jsCode": "// Lọc công nợ quá hạn + dựng thông báo. TẤT ĐỊNH — không gọi LLM:\n// danh sách nợ là con số, template cố định đủ rõ, không có gì để 'diễn giải'.\n// (retail_debt_reminder gọi Brain viết lời vì nhắn TRỰC TIẾP cho khách nợ;\n//  bản này chỉ báo NỘI BỘ cho chủ DN nên không cần.)\n// Giờ VIỆT NAM (UTC+7): ngày UTC lệch một ngày trong 7 tiếng đầu ngày ở VN, làm\n// khoản nợ đáo hạn hôm nay/hôm qua bị tính sai số ngày quá hạn.\nconst today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);\nconst rows = $input.all().map(i => i.json);\nconst vn = n => new Intl.NumberFormat('vi-VN').format(Number(n));\n\n// NGÀY chỉ nhận ISO (YYYY-MM-DD, có thể kèm giờ), cùng luật với node \"Ghép dữ liệu\" của workflow báo giá. Bản trước so CHUỖI THÔ và đổi bằng new Date():\n// ô kiểu DD/MM/YYYY (locale Việt Nam của Google Sheets) làm \"31/12/2000\" (quá hạn 26 năm) KHÔNG được báo, còn \"15/07/2999\" báo \"quá hạn NaN ngày\" (#265).\n// Cố ý KHÔNG đoán DD/MM hay MM/DD: không đọc được thì trả null và đưa vào mục \"không đọc được\".\nconst ngayIso = v => {\n  const k = /^(\\d{4})-(\\d{2})-(\\d{2})(?:[T ].*)?$/.exec(String(v == null ? '' : v).trim());\n  if (!k) return null;\n  const y = +k[1], m = +k[2], d = +k[3];\n  const t = new Date(Date.UTC(y, m - 1, d));\n  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null;\n  return t.toISOString().slice(0, 10);\n};\n// SỐ TIỀN: số thật, chữ số thuần, hoặc dạng Việt Nam chấm phân cách nghìn (\"4.550.000\", có thể kèm đ/VND). Dạng khác (\"4,55\", \"1e6\", \"bốn triệu\") là null:\n// Number(\"4.550.000\") là NaN và làm khoản nợ BIẾN MẤT khỏi báo cáo, im lặng.\nconst soTien = v => {\n  if (typeof v === 'number') return Number.isFinite(v) && v >= 0 ? v : null;\n  const s = String(v == null ? '' : v).trim().replace(/\\s*(đ|vnđ|vnd)$/i, '');\n  if (/^\\d{1,15}$/.test(s)) return Number(s);\n  if (/^\\d{1,3}(\\.\\d{3}){1,4}$/.test(s)) return Number(s.replace(/\\./g, ''));\n  return null;\n};\nconst trong = v => v == null || String(v).trim() === '';\nconst maNgan = v => String(v == null ? '' : v).replace(/[^\\w.\\-]/g, '').slice(0, 24) || '(không mã)';\n// Tên khách của dòng không đọc được: chủ DN cần biết KHÁCH nào để đi sửa ô (danh sách nợ quá hạn cũng hiện tên). Bỏ ký tự điều khiển và dấu Markdown, cắt 60 ký tự.\nconst tenNgan = v => String(v == null ? '' : v).replace(/[\\u0000-\\u001f\\u007f*_`~|>\\[\\]]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 60) || '(không tên)';\n\n// Mã để người vận hành TÌM ĐÚNG DÒNG trong sheet Receivables: cột `id` là khoá của dòng, `quote_id` là báo giá nguồn (nhiều khoản có thể chung một báo giá). Có cả hai thì hiện cả hai.\nconst maDong = r => !trong(r.id)\n  ? 'mã ' + maNgan(r.id) + (trong(r.quote_id) ? '' : ', báo giá ' + maNgan(r.quote_id))\n  : 'mã ' + maNgan(r.quote_id);\n\nconst overdue = [];\nconst khongDoc = [];\nfor (const r of rows) {\n  if (!(r.status === 'open' || r.status === 'partial')) continue;\n  if (trong(r.due_date)) continue;          // không có hạn: chưa thể quá hạn (giữ hành vi cũ)\n  const han = ngayIso(r.due_date);\n  const no = soTien(r.amount);\n  const tra = trong(r.paid_amount) ? 0 : soTien(r.paid_amount);\n  if (han === null || no === null || tra === null) {\n    khongDoc.push(tenNgan(r.customer_name) + ' (' + maDong(r) + ')');   // KHÔNG đưa nội dung ô ngày/tiền lạ vào thông báo\n    continue;\n  }\n  const con = no - tra;\n  if (han < today && con > 0) {\n    overdue.push({\n      ...r, remaining: con, due_iso: han,\n      days_late: Math.round((Date.parse(today) - Date.parse(han)) / 86400000)\n    });\n  }\n}\noverdue.sort((a, b) => b.days_late - a.days_late);\n\nif (!overdue.length && !khongDoc.length) {\n  return [{ json: { has_overdue: false, has_report: false } }];\n}\n\nconst total = overdue.reduce((s, r) => s + r.remaining, 0);\nconst lines = overdue.map(r =>\n  '• **' + r.customer_name + '** — còn nợ **' + vn(r.remaining) + ' đ**' +\n  ', quá hạn ' + r.days_late + ' ngày (hạn ' + r.due_iso + ', mã ' + r.quote_id + ')'\n);\n// Discord cho `description` tối đa 4096 ký tự. Mục LỖI được giữ chỗ TRƯỚC, rồi danh sách quá hạn mới bị cắt THEO DÒNG cho vừa phần còn lại. Bản trước cắt cả khối bằng slice(0, 3800)\n// nên báo cáo dài (75 dòng quá hạn + 1 dòng sai ngày) mất đúng mục \"dòng không đọc được\": tiêu đề báo một lỗi mà người nhận không biết sửa dòng nào (#265, wikiepeidia).\nconst GIOI_HAN = 3800, GIOI_HAN_MUC_LOI = 1500;\nlet muc_loi = '';\nif (khongDoc.length) {\n  const dau = '⚠️ **' + khongDoc.length + ' dòng không đọc được ngày hoặc số tiền** (ngày phải là YYYY-MM-DD, tiền là số hoặc 4.550.000): ';\n  const cuoi = '. Sửa trong sheet Receivables rồi chờ lần nhắc sau; các dòng này CHƯA được tính vào danh sách trên.';\n  const ds = [];\n  let dai = dau.length + cuoi.length + 40;          // 40: chỗ cho \"; … (+N dòng nữa)\"\n  for (const m of khongDoc) {\n    if (ds.length >= 20 || dai + m.length + 2 > GIOI_HAN_MUC_LOI) break;\n    ds.push(m);\n    dai += m.length + 2;\n  }\n  muc_loi = dau + ds.join('; ') + (ds.length < khongDoc.length ? '; … (+' + (khongDoc.length - ds.length) + ' dòng nữa)' : '') + cuoi;\n}\nconst cho = GIOI_HAN - muc_loi.length - (muc_loi ? 2 : 0) - 80;          // 80: chỗ cho dòng \"… và N khách nữa\"\nconst dong = [];\nlet da_dung = 0;\nfor (const l of lines) {\n  if (da_dung + l.length + 1 > cho) break;\n  dong.push(l);\n  da_dung += l.length + 1;\n}\nif (dong.length < lines.length) dong.push('… và ' + (lines.length - dong.length) + ' khách nữa (xem sheet Receivables)');\nlet mo_ta = dong.join('\\n');\nif (muc_loi) mo_ta += (mo_ta ? '\\n\\n' : '') + muc_loi;\nconst tieu_de = overdue.length\n  ? '💰 Công nợ quá hạn — ' + overdue.length + ' khách, tổng ' + vn(total) + ' đ' + (khongDoc.length ? ' (+' + khongDoc.length + ' dòng không đọc được)' : '')\n  : '⚠️ Công nợ: ' + khongDoc.length + ' dòng không đọc được, chưa kiểm tra quá hạn được';\n\nconst body = { embeds: [{\n  title: tieu_de,\n  color: 15158332,\n  description: mo_ta.slice(0, 4000),\n  footer: { text: 'ANSER Logistics • nhắc mỗi thứ 2' },\n  timestamp: new Date().toISOString()\n}]};\n\nreturn [{ json: { has_overdue: overdue.length > 0, has_report: true, discord_body: JSON.stringify(body) } }];"
       },
       "id": "ld-filter",
       "name": "Lọc quá hạn",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 300]
+      "position": [
+        660,
+        300
+      ]
     },
     {
       "parameters": {
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.has_overdue }}",
+              "value1": "={{ $json.has_report }}",
               "value2": true
             }
           ]
@@ -55,7 +64,10 @@
       "name": "Có nợ quá hạn?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
@@ -63,7 +75,12 @@
         "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         },
         "sendBody": true,
         "specifyBody": "json",
@@ -74,22 +91,55 @@
       "name": "Báo chủ DN",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1140, 180]
+      "position": [
+        1140,
+        180
+      ]
     }
   ],
   "connections": {
     "Thứ 2 hàng tuần 8h": {
-      "main": [[{ "node": "Đọc Receivables", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Đọc Receivables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Đọc Receivables": {
-      "main": [[{ "node": "Lọc quá hạn", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lọc quá hạn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lọc quá hạn": {
-      "main": [[{ "node": "Có nợ quá hạn?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Có nợ quá hạn?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Có nợ quá hạn?": {
       "main": [
-        [{ "node": "Báo chủ DN", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "Báo chủ DN",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     }

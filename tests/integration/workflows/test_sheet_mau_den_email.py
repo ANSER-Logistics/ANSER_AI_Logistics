@@ -175,7 +175,6 @@ def test_nhac_no_tren_sheet_mau_chi_bao_khoan_qua_han_con_no():
     assert "4.200.000" in mo_ta and "quá hạn 7 ngày" in mo_ta, "RC-002: 7.200.000 - 3.000.000, hạn 20/07"
 
 
-@pytest.mark.xfail(strict=True, reason="brain#265: so ngày bằng chuỗi thô, ô không đọc được bị bỏ im lặng")
 @pytest.mark.parametrize("han, so_tien", [
     ("15/07/2999", "1000000"),   # hôm nay: báo "quá hạn NaN ngày" cho khoản còn 973 năm mới tới hạn
     ("31/12/2000", "1000000"),   # hôm nay: quá hạn 26 năm mà KHÔNG được báo
