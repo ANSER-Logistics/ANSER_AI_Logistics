@@ -21,6 +21,7 @@ from io import BytesIO
 import pytest
 
 from sample_data.make_sample_data import (
+    DANH_MUC,
     DOI_TAC,
     DONG,
     DONG_BAN_SAU,
@@ -29,6 +30,7 @@ from sample_data.make_sample_data import (
     LOI_GIEO,
     LOI_HOI_TO,
     bang,
+    ghi_danh_muc,
     ghi_doi_tac,
     ghi_xlsx,
 )
@@ -260,6 +262,28 @@ def test_soi_tung_file_doi_tac_ra_dung_dap_an_khong_hon_khong_kem(tmp_path, vai_
     kq = audit_partners([] if la_ncc else doc.partners, doc.partners if la_ncc else [])
     thuc_te = sorted((f["kind"], f.get("code") or "") for f in kq["findings"])
     assert thuc_te == sorted(LOI_DOI_TAC[vai_tro])
+
+
+def test_soat_thue_suat_file_mau_ra_dung_dap_an(tmp_path):
+    """Từng mã của danh mục mẫu ra đúng kết luận đã ghi, và bản tổng hợp khớp số đếm của đáp án (đi qua đúng bộ nạp mà Body dùng)."""
+    from src.core.vat_catalog import (
+        CHUA_XAC_DINH,
+        DUOC_GIAM,
+        KHONG_GIAM,
+        audit_vat_catalog,
+        load_products_xlsx_bytes,
+        phan_loai_thue_suat,
+    )
+
+    doc = load_products_xlsx_bytes(ghi_danh_muc(tmp_path / "dm.xlsx").read_bytes())
+    assert doc.ok and [p.code for p in doc.products] == [ma for ma, _, _ in DANH_MUC]
+    nhan = {"8%": DUOC_GIAM, "10%": KHONG_GIAM, "?": CHUA_XAC_DINH}
+    for ma, ten, kl in DANH_MUC:
+        assert phan_loai_thue_suat(ten).ket_luan == nhan[kl], (ma, ten)
+    kq = audit_vat_catalog(doc.products)
+    s = kq["summary"]
+    assert (s["số_mã"], s["chưa_gắn_cờ"], s["tra_ra_8%"], s["tra_ra_10%"], s["không_tra_được"]) == (10, 10, 6, 2, 2)
+    assert sorted(f["kind"] for f in kq["findings"]) == ["vat_flag_unset_all", "vat_needs_human", "vat_rate_review", "vat_rate_review", "vat_reduction_missed"]
 
 
 def test_tong_phai_thu_va_phai_tra_cua_file_mau_khop_tinh_tay(tmp_path):

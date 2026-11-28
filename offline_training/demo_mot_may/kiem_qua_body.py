@@ -20,6 +20,7 @@ from offline_training.demo_mot_may.body_api import Body, thu_muc_demo  # noqa: E
 from offline_training.kiem_tich_hop_body import DAT  # noqa: E402
 from sample_data.make_sample_data import (  # noqa: E402
     CAU_HOI_QUY_CHE,
+    DANH_MUC,
     DAP_AN_QUY_CHE,
     DOI_TAC,
     DONG,
@@ -33,6 +34,7 @@ from sample_data.make_sample_data import (  # noqa: E402
     QUY_CHE,
     TEN_QUY_CHE,
     ghi_anh_hoa_don,
+    ghi_danh_muc,
     ghi_doi_tac,
     ghi_xlsx,
 )
@@ -115,6 +117,14 @@ def main(argv: list[str] | None = None) -> int:
             ghi(f"cong_no_{'khach' if vai_tro == 'khách hàng' else 'ncc'}",
                 ma == 200 and im.get("role") == vai_tro and im.get("rows_parsed") == len(DOI_TAC[vai_tro]) and thuc_te == sorted(LOI_DOI_TAC[vai_tro]),
                 f"http={ma} {im.get('rows_parsed')} dòng, vai trò {im.get('role')!r}, {len(thuc_te)} điểm cần xem (đáp án {len(LOI_DOI_TAC[vai_tro])})")
+
+    with tempfile.TemporaryDirectory() as tam:
+        f = ghi_danh_muc(Path(tam) / "danh_muc_hang_hoa_mau.xlsx")
+        ma, r = b.goi("POST", "/api/ai/vat-catalog", files={"file": (f.name, f.read_bytes())})
+        s = ((r.get("audit") or {}).get("summary") or {}) if isinstance(r, dict) else {}
+        thuc = (s.get("số_mã"), s.get("tra_ra_8%"), s.get("tra_ra_10%"), s.get("không_tra_được"))
+        mong = (len(DANH_MUC), *(sum(1 for _, _, kl in DANH_MUC if kl == k) for k in ("8%", "10%", "?")))
+        ghi("soat_thue_suat", ma == 200 and thuc == mong, f"http={ma} (mã, 8%, 10%, cần kế toán) = {thuc}, đáp án {mong}")
 
     ma, r = b.goi("GET", "/api/customers")
     so_khach = len(r.get("customers", [])) if isinstance(r, dict) else 0

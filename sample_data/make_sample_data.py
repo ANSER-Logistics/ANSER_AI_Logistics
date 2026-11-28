@@ -230,6 +230,39 @@ LOI_DOI_TAC: dict[str, list[tuple[str, str]]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Danh mục hàng hoá (kiểu MISA) — đề bài cho soát thuế suất (`core/vat_catalog.py`)
+# ---------------------------------------------------------------------------
+# Mọi mã đều để cờ "Chưa xác định" như file của khách pilot. Mỗi mã nhắm một kết luận; "mỡ bò" và "ắc quy" cố ý là mã bảng tra không kết luận
+# được (mỡ bò vừa là mỡ công nghiệp vừa là mỡ động vật, bảng tra không đoán). Đáp án là ĐỀ XUẤT của bảng tra, chưa kế toán nào xác nhận.
+
+DANH_MUC: list[tuple[str, str, str]] = [
+    ("DN-CF4-200", "Dầu động cơ Diesel CF-4 15W40 phuy 200L", "8%"),
+    ("DN-SG-18", "Dầu động cơ xăng SG 20W50 can 18L", "8%"),
+    ("DN-TL-46", "Dầu thuỷ lực AW46 can 18L", "8%"),
+    ("DN-PHANH-1", "Dầu phanh DOT4 chai 1L", "8%"),
+    ("LC-COOL-200", "Dung dịch làm mát phuy 200L", "8%"),
+    ("DV-VC-01", "Cước vận chuyển nội tỉnh", "8%"),
+    ("TH-TAM-3", "Thép tấm 3mm", "10%"),
+    ("DV-BH-01", "Phí bảo hiểm hàng hoá", "10%"),
+    ("MO-EP2-15", "Mỡ bò chịu nhiệt EP2 xô 15kg", "?"),
+    ("PK-AQ-12", "Ắc quy 12V 70Ah", "?"),
+]
+
+
+def bang_danh_muc() -> list[list[object]]:
+    rows: list[list[object]] = [["DANH SÁCH HÀNG HOÁ, DỊCH VỤ"], [],
+                                ["STT", "Mã", "Tên", "Giảm 2% thuế suất thuế GTGT", "Đơn vị tính chính"]]
+    for i, (ma, ten, _) in enumerate(DANH_MUC, 1):
+        rows.append([i, ma, ten, "Chưa xác định", "Chuyến" if ma.startswith("DV-VC") else "Cái"])
+    rows.append(["", "", "Tổng", "", ""])
+    return rows
+
+
+def ghi_danh_muc(path: Path) -> Path:
+    return _ghi(path, bang_danh_muc(), "Danh muc")
+
+
 def bang_doi_tac(vai_tro: str) -> list[list[object]]:
     """Bảng đúng khuôn MISA: tiêu đề, dòng trống, STT | Mã | Tên | Địa chỉ | Công nợ | Mã số thuế | Điện thoại, rồi dòng 'Tổng' bỏ trống."""
     chu = "khách hàng" if vai_tro == "khách hàng" else "nhà cung cấp"
@@ -449,6 +482,9 @@ def main() -> None:
     for ten, vai_tro in (("khach_hang_mau.xlsx", "khách hàng"), ("nha_cung_cap_mau.xlsx", "nhà cung cấp")):
         f = ghi_doi_tac(Path(__file__).parent / ten, vai_tro)
         print(f"Đã ghi: {f}  ({len(DOI_TAC[vai_tro])} {vai_tro}, {len(LOI_DOI_TAC[vai_tro])} điểm cần xem gieo sẵn)")
+    dm = ghi_danh_muc(Path(__file__).parent / "danh_muc_hang_hoa_mau.xlsx")
+    dem = {k: sum(1 for _, _, kl in DANH_MUC if kl == k) for k in ("8%", "10%", "?")}
+    print(f"Đã ghi: {dm}  ({len(DANH_MUC)} mã: {dem['8%']} đề xuất 8%, {dem['10%']} giữ 10%, {dem['?']} cần kế toán)")
     q = ghi_quy_che(Path(__file__).parent / TEN_QUY_CHE)
     print(f"Đã ghi: {q}  (nạp ở trang Tài liệu rồi hỏi: {CAU_HOI_QUY_CHE} Đáp án: {DAP_AN_QUY_CHE})")
     try:

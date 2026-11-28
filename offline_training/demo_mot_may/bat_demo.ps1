@@ -59,7 +59,7 @@ $trong = (Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB
 if ($trong -lt 2) { Write-Host ("      CẢNH BÁO: bộ nhớ ảo còn trống {0:N1} GB. Bật hỏng thì đóng bớt trình duyệt, VS Code rồi chạy lại." -f $trong) }
 $pids = @{}
 
-# Tệp Excel mẫu luôn sinh lại từ đúng bản Brain đang chạy (rẻ, vài trăm ms), để đáp án trong tài liệu khớp tệp khách thấy.
+# Tệp mẫu (Excel, ảnh hoá đơn, quy chế) luôn sinh lại từ đúng bản Brain đang chạy (rẻ), để đáp án trong tài liệu khớp tệp khách thấy.
 New-Item -ItemType Directory -Force "$Goc\file_mau" | Out-Null
 Push-Location $brain
 try { python sample_data\make_sample_data.py | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'Sinh tệp mẫu hỏng' } } finally { Pop-Location }

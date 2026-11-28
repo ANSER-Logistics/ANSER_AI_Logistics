@@ -65,7 +65,7 @@ Máy này **không nạp model nào** (hết bộ nhớ). Brain, hai mô hình v
 - **Có `-BrainColab`:** *Tài liệu* → nạp `file_mau\quy_che_cong_no_mau.txt` → mở khung chat (nút tròn góc phải) hỏi "Theo quy chế bán hàng trả chậm, đại lý cấp 1 được trả chậm tối đa bao nhiêu ngày?" (đáp án **45**); *Tài liệu* → đọc ảnh `file_mau\hoa_don_cuoc_mau.png` (tổng 5.184.000, không cần xem lại) rồi `file_mau\hoa_don_cuoc_mau_sai_tong.png` (in 5.284.000, hệ thống đòi người xem vì tính lại ra 5.184.000).
 - **Không có `-BrainColab`:** đừng mở khung chat (câu giả), đừng nạp tài liệu hay ảnh hoá đơn (kho tri thức tắt, không có mô hình đọc ảnh).
 - Đừng bấm **Chạy** ở trang *Tự động hoá* (không có n8n).
-- Chưa demo soát thuế suất (*Cảnh báo sổ sách* → "Thuế suất từng mã hàng"): quy tắc cho nhóm dầu nhớt chưa được kế toán duyệt.
+- Soát thuế suất: *Cảnh báo sổ sách* → tab **"Thuế suất từng mã hàng"** → `file_mau\danh_muc_hang_hoa_mau.xlsx` → **Soát thuế suất**: 10 mã, 6 diện 8%, ô "Cần kế toán xác nhận" 4 (2 giữ 10%: thép tấm, phí bảo hiểm; 2 bảng tra không kết luận: mỡ bò, ắc quy). **Nói rõ đây là đề xuất để kế toán xác nhận**: mức 8% cho dầu mỡ bôi trơn dựa trên NQ 204/2025/QH15 và NĐ 174/2025/NĐ-CP (hiệu lực đến 31/12/2026), mới đối chiếu qua [nguồn thứ cấp](https://thuvienphapluat.vn/ma-so-thue/phap-luat-thue/dau-boi-tron-co-duoc-giam-thue-gtgt-8-den-het-ngay-31122026-211674.html), chưa có kế toán duyệt. Đừng nạp danh mục thật có phụ tùng (lọc nhớt, bơm dầu...): bảng tra hiện xếp một số tên đó vào diện 8% với lý do "dầu mỡ bôi trơn".
 
 ## Giới hạn
 
