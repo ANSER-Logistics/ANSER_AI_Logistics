@@ -20,9 +20,23 @@ from io import BytesIO
 
 import pytest
 
-from sample_data.make_sample_data import DONG, LOI_GIEO, bang, ghi_xlsx
+from sample_data.make_sample_data import (
+    DANH_MUC,
+    DOI_TAC,
+    DONG,
+    DONG_BAN_SAU,
+    KY_DEN_SAU,
+    LOI_DOI_TAC,
+    LOI_GIEO,
+    LOI_HOI_TO,
+    bang,
+    ghi_danh_muc,
+    ghi_doi_tac,
+    ghi_xlsx,
+)
 from src.core.inventory import audit_inventory
 from src.core.inventory_import import parse_inventory_table
+from src.core.period_diff import doi_chieu_hai_lan_xuat
 
 pytest.importorskip("openpyxl")
 
@@ -179,3 +193,104 @@ def test_phuong_phap_tinh_gia_von_van_duoc_thu_thap(ket_qua):
     assert kq["explain"]["costing_methods_detected"], (
         "mất dữ liệu phương pháp tính giá vốn khi tắt phép kiểm giá-trị-0"
     )
+
+
+# ---------------------------------------------------------------------------
+# Hai bản xuất CÙNG một kỳ — đề bài cho phép so (`core/period_diff.py`)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def so_hai_ban():
+    truoc = parse_inventory_table(bang())
+    sau = parse_inventory_table(bang(KY_DEN_SAU, DONG_BAN_SAU))
+    return doi_chieu_hai_lan_xuat(truoc, sau)
+
+
+def test_hai_ban_chi_bao_dung_ba_cho_sua_hoi_to(so_hai_ban):
+    """Đáp án `LOI_HOI_TO`: thiếu một chỗ là phép so hỏng, thừa một chỗ là báo oan."""
+    thuc_te = {f["code"]: f["kind"] for f in so_hai_ban["findings"]}
+    assert thuc_te == LOI_HOI_TO
+    assert so_hai_ban["summary"]["có_sửa_hồi_tố"] is True
+
+
+def test_phieu_bi_doi_ma_duoc_nhan_ra_ma_nhan(so_hai_ban):
+    """DN-SG-18 mất 40 can xuất; DN-TL-46 tăng đúng 40: bản so phải nêu mã nhận, vì đó là chỗ lỗi âm kho mọc lại."""
+    f = next(x for x in so_hai_ban["findings"] if x["code"] == "DN-SG-18")
+    assert f["evidence"]["mã_tăng_đúng_bằng_lượng_này"] == ["DN-TL-46"]
+
+
+def test_phat_sinh_moi_hop_le_khong_bi_bao_oan(so_hai_ban):
+    """Hai mã bán thêm trong 15 ngày mới (số luỹ kế chỉ tăng) là đối chứng: không được có phát hiện nào."""
+    ma = {f["code"] for f in so_hai_ban["findings"]}
+    assert not ma & {"LC-COOL-200", "KM-4T-08"}
+    assert "DN-TL-46" not in ma, "mã nhận tăng hợp lệ, không bị gắn cờ riêng"
+
+
+def test_so_nguoc_thu_tu_bi_tu_choi_khong_im_lang():
+    """Đưa bản MUỘN làm bản trước: Brain nói rõ là nhầm thứ tự, không cho ra kết quả vô nghĩa."""
+    truoc = parse_inventory_table(bang())
+    sau = parse_inventory_table(bang(KY_DEN_SAU, DONG_BAN_SAU))
+    kq = doi_chieu_hai_lan_xuat(sau, truoc)
+    assert kq["summary"]["so_sánh_được"] is False and kq["findings"] == [] and kq["warnings"]
+
+
+def test_ghi_va_doc_lai_duoc_xlsx_ban_sau(tmp_path):
+    """Tệp .xlsx thật của bản sau, qua cùng bộ nạp, cho đúng kết quả như so trên ma trận ô."""
+    from src.core.inventory_import import load_xlsx_bytes
+
+    truoc = load_xlsx_bytes(ghi_xlsx(tmp_path / "truoc.xlsx").read_bytes())
+    sau = load_xlsx_bytes(ghi_xlsx(tmp_path / "sau.xlsx", KY_DEN_SAU, DONG_BAN_SAU).read_bytes())
+    assert truoc.ok and sau.ok
+    kq = doi_chieu_hai_lan_xuat(truoc, sau)
+    assert {f["code"]: f["kind"] for f in kq["findings"]} == LOI_HOI_TO
+
+
+# ---------------------------------------------------------------------------
+# Danh sách đối tác — đề bài cho soi công nợ (`core/receivables.py`)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("vai_tro", ["khách hàng", "nhà cung cấp"])
+def test_soi_tung_file_doi_tac_ra_dung_dap_an_khong_hon_khong_kem(tmp_path, vai_tro):
+    """Soi MỘT file, đúng cách màn "Dòng tiền" của Body gọi: đúng bộ (loại, mã) đã gieo, đối chứng sạch không bị gắn cờ."""
+    from src.core.partner_import import NHA_CUNG_CAP, load_partners_xlsx_bytes
+    from src.core.receivables import audit_partners
+
+    doc = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "dt.xlsx", vai_tro).read_bytes())
+    assert doc.ok, doc.checks
+    assert doc.role == vai_tro and len(doc.partners) == len(DOI_TAC[vai_tro])
+    la_ncc = vai_tro == NHA_CUNG_CAP
+    kq = audit_partners([] if la_ncc else doc.partners, doc.partners if la_ncc else [])
+    thuc_te = sorted((f["kind"], f.get("code") or "") for f in kq["findings"])
+    assert thuc_te == sorted(LOI_DOI_TAC[vai_tro])
+
+
+def test_soat_thue_suat_file_mau_ra_dung_dap_an(tmp_path):
+    """Từng mã của danh mục mẫu ra đúng kết luận đã ghi, và bản tổng hợp khớp số đếm của đáp án (đi qua đúng bộ nạp mà Body dùng)."""
+    from src.core.vat_catalog import (
+        CHUA_XAC_DINH,
+        DUOC_GIAM,
+        KHONG_GIAM,
+        audit_vat_catalog,
+        load_products_xlsx_bytes,
+        phan_loai_thue_suat,
+    )
+
+    doc = load_products_xlsx_bytes(ghi_danh_muc(tmp_path / "dm.xlsx").read_bytes())
+    assert doc.ok and [p.code for p in doc.products] == [ma for ma, _, _ in DANH_MUC]
+    nhan = {"8%": DUOC_GIAM, "10%": KHONG_GIAM, "?": CHUA_XAC_DINH}
+    for ma, ten, kl in DANH_MUC:
+        assert phan_loai_thue_suat(ten).ket_luan == nhan[kl], (ma, ten)
+    kq = audit_vat_catalog(doc.products)
+    s = kq["summary"]
+    assert (s["số_mã"], s["chưa_gắn_cờ"], s["tra_ra_8%"], s["tra_ra_10%"], s["không_tra_được"]) == (10, 10, 6, 2, 2)
+    assert sorted(f["kind"] for f in kq["findings"]) == ["vat_flag_unset_all", "vat_needs_human", "vat_rate_review", "vat_rate_review", "vat_reduction_missed"]
+
+
+def test_tong_phai_thu_va_phai_tra_cua_file_mau_khop_tinh_tay(tmp_path):
+    from src.core.partner_import import load_partners_xlsx_bytes
+    from src.core.receivables import audit_partners
+
+    khach = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "k.xlsx", "khách hàng").read_bytes()).partners
+    ncc = load_partners_xlsx_bytes(ghi_doi_tac(tmp_path / "n.xlsx", "nhà cung cấp").read_bytes()).partners
+    assert audit_partners(khach)["summary"]["tổng_phải_thu"] == 520_000_000
+    assert audit_partners([], ncc)["summary"]["tổng_phải_trả"] == 150_000_000

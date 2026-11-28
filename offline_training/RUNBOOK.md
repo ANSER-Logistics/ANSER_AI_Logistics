@@ -545,3 +545,25 @@ Mã thoát: `0` cả năm bước ĐẠT; `1` có bước TRƯỢT; `2` CHƯA Đ
 ### 11.5 Giới hạn của chính bảng này
 
 Năm bước đo "đường phục vụ chạy thật và không tụt", KHÔNG đo chất lượng nghiệp vụ (đúng hay sai của từng câu trả lời): việc đó của `benchmark_v3` (§2), chế độ bóng (`chay_bong.py`) và người đọc phiếu. Bước 4 chỉ có sáu ca do dev viết. Chạy trên Colab thì VRAM, mạng hầm (ngrok) và độ trễ không giống máy tự sở hữu.
+
+
+## 12. Nối Brain với Body trước buổi demo (28/11/2026)
+
+`kiem_tich_hop_body.py` là bản Python của những lời gọi mà `frontend/src/server/brain.ts` của Body gửi sang Brain: cùng header (`X-API-Token`, `X-User-Id`, `X-Store-Id`), cùng thứ tự (`/chat` rồi hỏi `/api/v1/task/{id}`), cùng cách gửi file. Nó dùng ĐÚNG tên biến của Body, nên cùng một khối `.env.local` chạy được cho cả hai bên. Khác `kiem_server_that` (Brain tự đứng được) và `chay_that_dau_cuoi` (Brain trên GPU): file này kiểm CHỖ NỐI, nơi demo hay hỏng mà giao diện chỉ hiện "AI không trả lời".
+
+```bash
+python offline_training/kiem_tich_hop_body.py --tu-bat                       # máy dev, không GPU: bật Brain LOCAL với token tạm rồi kiểm
+BRAIN_URL=https://xxx BRAIN_API_TOKEN=... BRAIN_KB_WORKSPACE=... \
+    python offline_training/kiem_tich_hop_body.py --can-model --json kq.json    # Brain thật; chat phải do model sinh
+python offline_training/kiem_tich_hop_body.py --tu-bat --voi-brain-ts       # thêm: chạy CHÍNH brain.ts của Body (Node >= 22.18)
+```
+
+Mười một bước (mười bắt buộc, riêng `kho_tri_thuc` chỉ cảnh báo): `/health` sạch, ba trường Body đọc có mặt, xác thực (không token và sai token bị chặn, đúng token vào), VAT 2.200.000, báo giá 1.139.000, báo cáo lãi lỗ khớp tính tay, hai nhánh thiếu giá vốn trả đúng nhãn, nạp `ton_kho_mau.xlsx` (đúng bảy mã có lỗi, không cờ oan), so với `ton_kho_mau_ban_sau.xlsx` ra đúng ba chỗ sửa hồi tố, kho tri thức, và chat. Hai tệp mẫu do công cụ tự sinh vào thư mục tạm. Dữ liệu hoàn toàn hư cấu (R2).
+
+Cờ `--voi-brain-ts` thêm bước thứ mười hai: tải `brain.ts` từ repo Body (hoặc `--brain-ts-file` cho nhánh chưa gộp) và chạy NGUYÊN VĂN bằng Node, chỉ cho phép đọc hai nơi cần thiết (`--permission`; không ghi, không tạo tiến trình con). Bước Python chứng minh Brain trả đúng; bước này chứng minh BODY ĐỌC ĐƯỢC câu trả lời đó (tên trường, kiểu lỗi `unauthorized`, vòng hỏi task).
+
+Mã thoát: `0` mọi bước bắt buộc đạt; `1` có bước trượt; `2` không nối được Brain. **Chat `mock` (Brain LOCAL) không phải đạt**: với `--can-model` là trượt. Chat chậm hơn 60 giây là cảnh báo, vì Body mặc định chờ 60 giây: hâm nóng Brain bằng `bat_lai_brain.py` hoặc đặt `BRAIN_CHAT_TIMEOUT_MS`.
+
+Chạy **cả chuỗi Body + database + Brain trên một máy** (không Neon, không GPU, dữ liệu hư cấu): `offline_training/demo_mot_may/` có `cai_demo.ps1`, `bat_demo.ps1` (tự gieo dữ liệu và chạy hai bộ kiểm) và `README.md` kèm kịch bản.
+
+Phần giải thích đầy đủ (kiến trúc buổi demo, bảng biến hai bên, kịch bản, cách lùi) nằm ở `docs/ky-thuat/DEMO_NOI_BRAIN_BODY.md` của repo `anser-brain-docs`. Giới hạn: bước này đo hành vi lúc chạy từ phía gọi, KHÔNG so lược đồ đầu vào (việc của `doi_chieu_hop_dong_body.py`, chạy trước khi gộp vào `main`) và không đo chất lượng câu trả lời của model.
