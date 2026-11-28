@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; if [ ! -f \"$F\" ]; then exit 0; fi; PY=$(command -v py || command -v python3 || command -v python) && \"$PY\" \"$F\"",
+            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; [ -f \"$F\" ] || exit 0; PY=$(command -v py || command -v python3 || command -v python) || { echo \"CHẶN (cổng cứng): không có Python để chạy hook.\" >&2; exit 2; }; \"$PY\" \"$F\"; R=$?; if [ $R -ne 0 ] && [ $R -ne 2 ]; then echo \"CHẶN (cổng cứng): hook thoát mã $R, chặn để không bỏ sót.\" >&2; exit 2; fi; exit $R",
             "timeout": 180,
             "statusMessage": "Cổng cứng ANSER"
           }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; if [ ! -f \"$F\" ]; then exit 0; fi; PY=$(command -v py || command -v python3 || command -v python) && \"$PY\" \"$F\"",
+            "command": "F=\"$CLAUDE_PROJECT_DIR/.claude/hooks/cong_cung.py\"; [ -f \"$F\" ] || exit 0; PY=$(command -v py || command -v python3 || command -v python) || { echo \"CHẶN (cổng cứng): không có Python để chạy hook.\" >&2; exit 2; }; \"$PY\" \"$F\"; R=$?; if [ $R -ne 0 ] && [ $R -ne 2 ]; then echo \"CHẶN (cổng cứng): hook thoát mã $R, chặn để không bỏ sót.\" >&2; exit 2; fi; exit $R",
             "timeout": 180,
             "statusMessage": "Cổng cứng ANSER"
           }

@@ -38,6 +38,68 @@ def test_khong_in_noi_dung_o_bat_ky_truong_nao(tmp_path, capsys):
         assert "ValueError" in ra and "bịa số" in ra and bc.KHAC in ra
 
 
+# Nhãn LẠ nhưng ĐÚNG KHUÔN (ASCII liền, chữ thường ngắn, tên lớp lỗi): từng lọt nguyên văn vì bộ lọc chỉ nhìn khuôn chữ (wikiepeidia, PR #268).
+_LA = ("SyntheticClient42", "synthetic buyer", "SyntheticBuyerError", "vat,SyntheticTool7")
+
+
+def test_nhan_la_dung_khuon_van_bi_gop_vao_khac_o_ca_json_lan_markdown(tmp_path, capsys):
+    dong = [_dong(route=_LA[0], router_method=_LA[0], tool_plan=_LA[3], blocked_reason=f"{_LA[1]}: 5", error=f"{_LA[2]}: x", ok=False),
+            _dong(route=_LA[1], router_method=_LA[1], tool_plan=_LA[0], blocked_reason=_LA[1], error=_LA[1])]
+    p = _ghi(tmp_path, dong)
+    for them in (["--json"], []):
+        assert bc.main([str(p), *them]) == 0
+        ra = capsys.readouterr().out
+        for cam in ("Synthetic", "synthetic"):
+            assert cam not in ra, (them, cam, ra)
+        assert bc.KHAC in ra
+    r = bc.bao_cao(bc.doc([p])[0])
+    assert set(r["theo_nhanh"]) == {bc.KHAC} and r["theo_nhanh"][bc.KHAC]["luot"] == 2, "hai nhánh lạ gộp chung một nhóm, đếm đủ"
+    assert r["ly_do_chan"] == {bc.KHAC: 2} and r["loai_loi"] == {bc.KHAC: 2}
+    assert r["cach_dinh_tuyen"] == {bc.KHAC: 2} and r["ke_hoach_tool"] == {bc.KHAC: 2}
+
+
+def test_nhan_hop_le_van_duoc_in_nguyen_van(tmp_path):
+    dong = [_dong(route="REPORT", router_method="keyword", tool_plan="vat,quote", blocked_reason="bịa số: 3.400.000", error="ValueError: x"),
+            _dong(route="LOGISTICS", router_method="embedding", tool_plan="carrier_selection", blocked_reason="suy biến: chữ Hán", error="BackendTimeout: x")]
+    r = bc.bao_cao(bc.doc([_ghi(tmp_path, dong)])[0])
+    assert set(r["theo_nhanh"]) == {"REPORT", "LOGISTICS"}
+    assert r["ly_do_chan"] == {"bịa số": 1, "suy biến": 1}
+    assert r["loai_loi"] == {"ValueError": 1, "BackendTimeout": 1}
+    assert r["cach_dinh_tuyen"] == {"keyword": 1, "embedding": 1}
+    assert r["ke_hoach_tool"] == {"vat,quote": 1, "carrier_selection": 1}
+
+
+def _mau_p95(tmp_path, ms_moi_token_x100: int):
+    """30 lượt, mỗi lượt 25 token; `model_ms` chọn để ms/token ra đúng (x100)/100. Đủ ngưỡng mẫu tối thiểu (30)."""
+    ms = ms_moi_token_x100 * 25 / 100
+    return _ghi(tmp_path, [_dong(completion_tokens=25, model_ms=ms, latency_ms=int(ms) + 1) for _ in range(30)])
+
+
+def test_p95_sat_nguong_khong_bi_lam_tron_truoc_khi_so(tmp_path, capsys):
+    """30 mẫu 60,04 ms/token: `/health` báo "chưa đạt" ở ngưỡng 60. Báo cáo làm tròn xuống 60,0 rồi báo không có gì vượt; nay cùng một kết luận."""
+    from src.core import nguong_p95
+
+    p = _mau_p95(tmp_path, 6004)
+    assert bc.main([str(p), "--json"]) == 0
+    r = json.loads(capsys.readouterr().out)
+    c = r["chung"]
+    assert c["p95_ms_moi_token"] == 60.0, "hiển thị làm tròn một chữ số"
+    assert c["p95_ms_moi_token_chi_tiet"] == 60.04
+    assert c["muc_p95"] == nguong_p95.CHUA_DAT
+    assert any("vượt ngưỡng 60" in x and "60.04" in x for x in r["dang_xem"]), r["dang_xem"]
+
+
+def test_p95_ket_luan_cua_bao_cao_trung_voi_ket_luan_cua_health(tmp_path):
+    """Một định nghĩa với /health: cùng mẫu thì cùng `muc`, ở ba phía của ngưỡng."""
+    from src.core import nguong_p95
+
+    for x100, mong in ((5990, nguong_p95.DAT), (6000, nguong_p95.DAT), (6004, nguong_p95.CHUA_DAT)):
+        p = _mau_p95(tmp_path, x100)
+        dong = bc.doc([p])[0]
+        mau = [d["model_ms"] / d["completion_tokens"] for d in dong]
+        assert bc.tom_tat_nhom(dong)["muc_p95"] == nguong_p95.ket_luan(mau, [d["latency_ms"] for d in dong], len(dong))["muc"] == mong, x100
+
+
 def test_truong_cua_turnmetric_duoc_doc_dung_ten():
     """Đổi tên trường ở `TurnMetric` mà không đổi ở đây thì báo cáo lặng lẽ ra "không biết"."""
     ten = set(TurnMetric.__dataclass_fields__)

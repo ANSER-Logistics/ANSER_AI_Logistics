@@ -84,6 +84,16 @@ def _redact(value: Any) -> Any:
     return value
 
 
+# Tập nhãn HỢP LỆ của các trường nhãn trong nhật ký. `offline_training/bao_cao_metrics.py` chỉ in nhãn thuộc các tập này, còn lại gộp "(khác)": một nhãn ngắn trông vô hại như
+# "SyntheticClient42" hay "synthetic buyer" vẫn có thể là tên khách (R2), nên khuôn chữ không đủ, phải đúng giá trị do MÃ đặt. Các tập này chép từ nơi SINH nhãn (router, tool,
+# chốt chặn), và `tests/contracts/test_nhan_metrics_khop_noi_ghi.py` khoá chúng với đúng những nơi đó: thêm nhánh hay tool mới mà quên ở đây thì test đỏ, thay vì nhãn mới bị gộp im lặng.
+NHANH_HOP_LE = frozenset({"DATA_INTERNAL", "EXPLAIN", "GENERAL", "LOGISTICS", "REPORT", "RETRIEVAL", "TECHNICAL"})
+CACH_DINH_TUYEN_HOP_LE = frozenset({"below_threshold", "embedding", "empty", "keyword", "keyword_only_degraded", "narrow_margin"})
+TEN_TOOL_HOP_LE = frozenset({"carrier_selection", "forecast_reorder", "inventory_audit", "partner_audit", "quote", "report", "vat", "vat_catalog_audit"})
+# Phần đứng trước dấu ":" của `blocked_reason` ("bịa số: ...", "suy biến: chữ Hán").
+LY_DO_CHAN_HOP_LE = frozenset({"bịa số", "lộ nội bộ", "ngược dấu", "rỗng", "tự suy ra tỷ lệ", "suy biến"})
+
+
 @dataclass
 class TurnMetric:
     """Một lượt Brain xử lý. Đặt tên trường khớp cột bảng `ai_metrics_log`."""

@@ -9,8 +9,17 @@ Chặn (mã thoát 2, Claude Code huỷ lời gọi và đưa lý do cho model):
 Mẫu bí mật KHÔNG viết lại ở đây (R4): dùng `quet` và `scan_secrets` của `offline_training/quet_secret_pre_commit.py`. Không bao giờ in giá trị tìm thấy,
 chỉ tên tệp và số chỗ khớp (đầu ra hook đi vào nhật ký trò chuyện).
 
-Cổng bí mật hỏng (không import được, git lỗi) thì CHẶN: cổng an toàn không được im lặng cho qua. Thiếu `ruff` thì chỉ cảnh báo.
-Đây là lớp sớm hơn pre-commit và CI, không thay chúng: chỉ áp cho Claude Code, không áp cho người gõ lệnh hay công cụ khác.
+Cổng hỏng thì CHẶN, không im lặng cho qua: không import được bộ quét, git lỗi, không đọc được đầu vào JSON, lỗi bất ngờ trong chính hook. Thiếu `ruff` thì chỉ cảnh báo.
+Đầu ra của hook đi vào nhật ký trò chuyện, nên lỗi `ruff` chỉ nêu tên tệp, vị trí và mã lỗi, KHÔNG chép dòng mã (dòng mã có thể chứa bí mật vừa gõ).
+
+GIỚI HẠN (đọc trước khi tin rằng hook "che hết"):
+  - Chỉ là lớp cho CÔNG CỤ GHI TỆP của Claude Code (Write/Edit/NotebookEdit). Ghi bằng shell (`echo ... > src/data/x`, `cp`, `Set-Content` vào `.env`) vẫn đi qua: chặn mọi cách ghi
+    của shell bằng regex lệnh là không làm đúng được. Lớp thật cho việc đọc là `permissions.deny` trong `.claude/settings.json`; lớp thật cho việc commit là pre-commit và CI.
+  - `git push` thường chỉ quét commit chưa đẩy của nhánh hiện tại; các dạng đẩy nhánh khác (`--all`, `--mirror`, `--tags`, `origin nhánh-khác`, `HEAD:ref`) quét mọi nhánh cục bộ.
+  - Không thay pre-commit và CI, và chỉ áp cho Claude Code, không áp cho người gõ lệnh hay công cụ khác.
+  - Claude Code chỉ chặn khi hook thoát mã 2; mã khác (kể cả traceback, mã 1) là lỗi KHÔNG chặn. Nên lệnh đăng ký trong settings.json tự đổi thành 2 khi không có Python hoặc hook thoát mã lạ.
+    Ngoại lệ có chủ ý: THIẾU HẲN tệp hook thì cho qua (nhánh cũ chưa có hook không bị khoá mọi lệnh; tệp bị xoá hiện ngay trong diff và `test_settings_...`). Hook hỏng liên tục thì
+    cũng khoá cả Write/Edit: lối thoát là sửa tay ngoài Claude Code.
 """
 
 from __future__ import annotations
@@ -70,6 +79,51 @@ def _thu_muc_repo(lenh: str, cwd: Path) -> Path:
     p = Path(os.path.expandvars(os.path.expanduser(d)))
     p = p if p.is_absolute() else cwd / p
     return p if p.is_dir() else cwd
+
+
+_CO_PUSH_RONG = ("--all", "--mirror", "--tags", "--follow-tags")
+
+
+def _push_nhieu_nhanh(lenh: str, repo: Path) -> bool:
+    """`git push` có thể đẩy commit ngoài `HEAD` không? Dạng thường (không tham số, hoặc chỉ tên remote, hoặc `remote <nhánh hiện tại>`) thì không."""
+    for m in _LENH_GIT.finditer(lenh):
+        if m.group(1) != "push":
+            continue
+        phan = re.split(r"[;&|\n]", lenh[m.end():], maxsplit=1)[0]
+        mon = [t.strip("\"'") for t in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", phan)]
+        if any(t in _CO_PUSH_RONG for t in mon):
+            return True
+        vi_tri = [t for t in mon if not t.startswith("-")]
+        if len(vi_tri) >= 2:
+            try:
+                hien_tai = _git(repo, "rev-parse", "--abbrev-ref", "HEAD").strip()
+            except RuntimeError:
+                return True
+            if vi_tri[1] not in (hien_tai, "HEAD"):
+                return True
+    return False
+
+
+def _tom_tat_ruff(dau_ra: str, goc: Path) -> str:
+    """Từ `ruff check --output-format=json`: chỉ tệp, dòng:cột và mã lỗi, không bao giờ chép thông điệp hay dòng mã."""
+    try:
+        loi = json.loads(dau_ra)
+    except ValueError:
+        return "không đọc được kết quả của ruff"
+    ra = []
+    for d in loi if isinstance(loi, list) else []:
+        if not isinstance(d, dict):
+            continue
+        ten = str(d.get("filename") or "?")
+        try:
+            ten = Path(ten).resolve().relative_to(goc).as_posix()
+        except (ValueError, OSError):
+            ten = Path(ten).name
+        vt = d.get("location") or {}
+        ra.append(f"{ten}:{vt.get('row', '?')}:{vt.get('column', '?')} {d.get('code') or 'lỗi cú pháp'}")
+    if not ra:
+        return "ruff báo lỗi nhưng không có chi tiết"
+    return "; ".join(ra[:15]) + (f" (+{len(ra) - 15} chỗ nữa)" if len(ra) > 15 else "")
 
 
 def _git(repo: Path, *tham_so: str) -> str:
@@ -132,17 +186,20 @@ def kiem_commit(repo: Path) -> None:
                    "fixture của test thì thêm vào BO_QUA của offline_training/quet_secret_pre_commit.py. Không in giá trị ra.")
     py = [t for t in tep if t.endswith(".py")]
     if py and goc_git == GOC:
-        r = subprocess.run([sys.executable, "-m", "ruff", "check", *py], cwd=goc_git, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=90)
+        r = subprocess.run([sys.executable, "-m", "ruff", "check", "--output-format=json", "--no-cache", *py], cwd=goc_git, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=90)
         if r.returncode == 1 and "No module named" not in r.stderr:
-            raise Chan("ruff check đỏ trên tệp đang đổi, sửa trước khi commit:\n" + r.stdout[-1500:])
+            raise Chan("ruff check đỏ trên tệp đang đổi (chỉ nêu vị trí và mã lỗi, không chép dòng mã; chạy `python -m ruff check <tệp>` để xem): "
+                       + _tom_tat_ruff(r.stdout, goc_git))
         if r.returncode != 0:
             print("cổng cứng: không chạy được ruff, bỏ qua bước này (CI vẫn kiểm).", file=sys.stderr)
 
 
-def kiem_push(repo: Path) -> None:
+def kiem_push(repo: Path, nhieu_nhanh: bool = False) -> None:
     goc_git = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
-    log = _git(goc_git, "log", "HEAD", "--not", "--remotes", "-p", "--no-color", "--format=@@COMMIT %h")
+    # Dạng đẩy có thể mang commit ngoài `HEAD` thì quét mọi nhánh cục bộ chưa có trên remote nào (Dgsonn, PR #268).
+    goc_quet = ["HEAD", "--branches"] if nhieu_nhanh else ["HEAD"]
+    log = _git(goc_git, "log", *goc_quet, "--not", "--remotes", "-p", "--no-color", "--format=@@COMMIT %h")
     if not log.strip():
         return
     q = _bo_quet()
@@ -179,7 +236,7 @@ def kiem(du_lieu: dict) -> None:
         if "commit" in viec:
             kiem_commit(repo)
         if "push" in viec:
-            kiem_push(repo)
+            kiem_push(repo, _push_nhieu_nhanh(lenh, repo))
     except Chan:
         raise
     except Exception as e:  # cổng an toàn hỏng thì chặn, nói rõ loại lỗi (không in nội dung)
@@ -196,12 +253,16 @@ def main() -> int:
     try:
         du_lieu = json.load(sys.stdin)
     except ValueError:
-        print("cổng cứng: không đọc được đầu vào hook.", file=sys.stderr)
-        return 0
+        # Cổng hỏng thì CHẶN (như docstring): không đọc được đầu vào nghĩa là không biết lời gọi là gì, nên không thể nói là an toàn.
+        print("CHẶN (cổng cứng): không đọc được đầu vào của hook (không phải JSON), chặn để không bỏ sót.", file=sys.stderr)
+        return 2
     try:
-        kiem(du_lieu)
+        kiem(du_lieu if isinstance(du_lieu, dict) else {})
     except Chan as e:
         print(f"CHẶN (cổng cứng): {e}", file=sys.stderr)
+        return 2
+    except Exception as e:  # lỗi bất ngờ trong chính hook: Claude Code coi mã thoát 1 là KHÔNG chặn, nên tự đổi thành 2
+        print(f"CHẶN (cổng cứng): lỗi bất ngờ trong hook ({type(e).__name__}); chặn để không bỏ sót.", file=sys.stderr)
         return 2
     return 0
 
