@@ -55,9 +55,13 @@ Cái mất: một chặng mạng nội bộ (~1ms), không đáng kể so với 
 ## 3. Dựng lên
 
 ```bash
-# Chép model đã quantize từ Drive xuống máy thuê
+# Chép model đã quantize từ Drive xuống máy thuê. Pilot một GPU (#273): text là anser-v5
+# (KHÔNG phải v3: compose phục vụ tên `anser-v5`, chạy trọng số v3 dưới tên đó thì /health vẫn
+# xanh mà bóc yêu cầu chỉ 62/98 thay vì 91/98, #176). Đường dẫn Drive theo nơi Thành lưu (#176).
 mkdir -p deploy/models
-rclone copy drive:ANSER_AI_Logistics/anser-v3-awq deploy/models/anser-v3-awq
+rclone copy drive:ANSER_AI_Logistics/anser-v5-awq deploy/models/anser-v5-awq   # TEXT_MODEL_DIR=anser-v5-awq
+# Vision 7B GPTQ W4A16 tự lượng tử hoá (#189): thư mục sạch và MANIFEST.sha256 ở #271 (RUNBOOK §8).
+# Đặt vào deploy/models/<thư mục> rồi VISION_MODEL_ID=/models/<thư mục> trong .env.
 
 # Workflow n8n THẬT của Body -> deploy/n8n-body/ (chỉ đọc repo Body, #20).
 # Thiếu bước này Brain vẫn chạy, nhưng sinh workflow theo catalog dự phòng.

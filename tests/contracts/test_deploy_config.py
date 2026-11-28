@@ -45,6 +45,11 @@ DOC_QUA_FSTRING = {
     "ANSER_VISION_MAX_CONCURRENT",
     "ANSER_VISION_MAX_QUEUE",
     "ANSER_VISION_WAIT_TIMEOUT_S",
+    # `gioi_han_toc_do.doc_cau_hinh` đọc qua bảng TEN_BIEN rồi `env.get(ten)` (#218).
+    "RATE_LIMIT_GPU_PER_MIN",
+    "RATE_LIMIT_GPU_BURST",
+    "RATE_LIMIT_TOOLS_PER_MIN",
+    "RATE_LIMIT_TOOLS_BURST",
 }
 
 # Biến do thư viện/hệ điều hành đọc, không phải code mình.
