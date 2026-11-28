@@ -70,6 +70,16 @@ from src.core.utils import hom_nay_vn
     ("tháng này doanh số thế nào", "month"),
     # Không nhắc kỳ nào -> hôm nay, và đó là mặc định hợp lý cho câu tra cứu.
     ("còn bao nhiêu thùng nước ngọt", "today"),
+    # Từ đầu THÁNG/TUẦN tới nay là kỳ truy vấn được (`_period_filter` cắt từ đầu tháng/tuần). PR #269 từng từ chối nhầm cả ba câu này (wikiepeidia).
+    ("doanh số từ đầu tháng này đến nay", "month"),
+    ("doanh số từ đầu tuần này đến nay", "week"),
+    ("doanh số từ đầu tháng đến nay", "month"),
+    # Câu TRA HÀNG có "<số> <đơn vị thời gian>" không phải câu hỏi doanh số: đi như cũ (Dgsonn, PR #269).
+    ("dầu nhớt nào bảo hành 12 tháng", "today"),
+    ("còn hàng loại hạn dùng 6 tháng không", "today"),
+    ("giao trong 2 ngày được không", "today"),
+    ("hàng mấy ngày nữa về", "today"),
+    ("hàng nhập những ngày gần đây", "today"),
 ])
 def test_doc_dung_ky_truy_van_duoc(cau, mong_doi):
     ky = parse_period(cau)
@@ -93,6 +103,23 @@ def test_ky_chua_truy_van_duoc_thi_noi_ro(cau, nhan):
     assert not ky.ho_tro
     assert ky.nhan == nhan
     assert ky.period == "", "chưa hỗ trợ thì không được trả về kỳ nào để truy vấn"
+
+
+@pytest.mark.parametrize("chu,so", [
+    ("năm ngày qua", "5 ngày qua"), ("hai tuần", "2 tuần"), ("ba tháng gần nhất", "3 tháng gần nhất"), ("mười hai ngày qua", "12 ngày qua"),
+    ("hai mươi lăm ngày qua", "25 ngày qua"),
+])
+def test_so_viet_bang_chu_va_bang_chu_so_cho_cung_ket_qua(chu, so):
+    """Một cách viết bị báo "chưa hỗ trợ", cách kia rơi về hôm nay là trả doanh số SAI KỲ (wikiepeidia, PR #269)."""
+    a, b = parse_period(f"doanh số {chu}"), parse_period(f"doanh số {so}")
+    assert a == b and not a.ho_tro and a.nhan == "khoảng ngày"
+
+
+def test_nam_la_so_chi_khi_dung_truoc_don_vi_thoi_gian():
+    """"năm nay", "năm ngoái" là NĂM (luật riêng, vẫn chưa hỗ trợ); "năm" chỉ là số khi liền trước ngày/tuần/tháng/quý."""
+    assert parse_period("doanh số năm nay").nhan == "năm"
+    assert parse_period("doanh số năm ngoái").nhan == "năm"
+    assert parse_period("doanh số năm ngày qua").nhan == "khoảng ngày"
 
 
 def test_thang_truoc_khong_bi_doc_thanh_thang_nay():

@@ -123,10 +123,27 @@ _KY_CHUA_CO = (
     ("năm", re.compile(r"năm (nay|ngoái|trước|vừa rồi|qua)|cả năm", re.I)),
 )
 
+# Khoảng ngày tự do ("14 ngày qua", "hai tuần", "30 ngày gần nhất") và "từ đầu năm/quý" (#261, 24/11/2026). Trước đó các câu này không khớp luật nào nên rơi về
+# "hôm nay": người dùng hỏi 14 ngày mà nhận con số của MỘT ngày, trôi chảy và sai, không có triệu chứng nào (lỗi mà cả khối này sinh ra để tránh).
+#
+# CHỈ áp khi câu HỎI DOANH SỐ. Hai luật này bắt "<số> <đơn vị thời gian>" nên cũng trúng "bảo hành 12 tháng", "hạn dùng 6 tháng", "giao trong 2 ngày", "mấy ngày nữa về"
+# (Dgsonn và wikiepeidia tái hiện ở PR #269): những câu tra hàng đó phải đi như cũ, không được nhận câu "chưa lấy được doanh số".
+_HOI_DOANH_SO = re.compile(r"doanh\s*(?:số|thu)|\bbán\b|lợi nhuận|\blãi\b|\blời\b", re.I)
+# Số viết bằng chữ: "năm ngày qua" và "5 ngày qua" PHẢI cho cùng một kết quả, nếu không một cách viết nhận số của kỳ khác. "năm" cũng là "năm nay/năm ngoái": luật bên dưới
+# chỉ coi nó là số khi liền ngay sau là ngày/tuần/tháng/quý, còn "năm nay" đã có luật riêng ở `_KY_CHUA_CO`.
+_SO_VIET = r"(?:một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|mươi|lăm|rưỡi)"
+_KY_CHUA_CO_KHI_HOI_DOANH_SO = (
+    ("khoảng ngày", re.compile(
+        rf"\b(?:\d+|{_SO_VIET}(?:\s+{_SO_VIET}){{0,2}}|mấy|vài)\s*(?:ngày|tuần|tháng|quý)\b"
+        r"|(?:ngày|tuần|tháng)\s+(?:gần đây|gần nhất|vừa qua)\b", re.I)),
+    # "từ đầu THÁNG/TUẦN" KHÔNG ở đây: `_period_filter` đã cắt từ đầu tháng/tuần tới nay, nên đó là kỳ truy vấn được (xem `_KY_CO`).
+    ("từ đầu kỳ", re.compile(r"từ đầu\s*(?:năm|quý)|đầu (?:năm|quý) đến nay|(?:năm|quý) tới nay", re.I)),
+)
+
 _KY_CO = (
     ("today", "hôm nay", re.compile(r"hôm nay|bữa nay|ngày hôm nay", re.I)),
-    ("week", "tuần này", re.compile(r"tuần (này|nay)", re.I)),
-    ("month", "tháng này", re.compile(r"tháng (này|nay)", re.I)),
+    ("week", "tuần này", re.compile(r"tuần (?:này|nay)|từ đầu\s*tuần|đầu tuần (?:đến|tới) nay", re.I)),
+    ("month", "tháng này", re.compile(r"tháng (?:này|nay)|từ đầu\s*tháng|đầu tháng (?:đến|tới) nay", re.I)),
 )
 
 
@@ -152,6 +169,10 @@ def parse_period(question: str) -> KyHoi:
     for nhan, mau in _KY_CHUA_CO:
         if mau.search(q):
             return KyHoi("", nhan, False)
+    if _HOI_DOANH_SO.search(q):
+        for nhan, mau in _KY_CHUA_CO_KHI_HOI_DOANH_SO:
+            if mau.search(q):
+                return KyHoi("", nhan, False)
     for period, nhan, mau in _KY_CO:
         if mau.search(q):
             return KyHoi(period, nhan, True)
