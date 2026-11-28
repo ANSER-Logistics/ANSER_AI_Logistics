@@ -30,6 +30,21 @@ def test_hai_server_khong_vuot_gpu_va_dung_co_p2() -> None:
     assert json.loads(vision[vision.index("--limit-mm-per-prompt") + 1]) == {"image": 2}
 
 
+@pytest.mark.parametrize("mib, che_do", [(23034, "day_du"), (40960, "day_du"), (15360, "chi_chu"), (8192, None), (0, None)])
+def test_chon_che_do_theo_gpu(mib: int, che_do: str | None) -> None:
+    assert dc.che_do_gpu(mib) == che_do
+
+
+def test_gpu_nho_chi_bat_text_ep_awq_va_brain_khai_khong_doc_anh() -> None:
+    may = dc.cac_may_chu({}, chi_chu=True)
+    assert [m.ten for m in may] == ["anser-v5"]
+    lenh = dc.lenh_vllm(may[0], Path("/content/models/x"))
+    assert "--quantization=awq" in lenh and "--dtype=half" in lenh and "--disable-log-requests" in lenh
+    env = dc.env_brain({"VLLM_VISION_BASE_URL": "http://127.0.0.1:8002"}, TOKEN, Path("/content/ANSER_AI"), may)
+    assert "VLLM_VISION_BASE_URL" not in env
+    assert chon_backend(env["ENV"], env["VLLM_BASE_URL"], env.get("VLLM_VISION_BASE_URL", "")) == ("server", "none")
+
+
 def test_bien_moi_truong_doi_cau_hinh_khong_sua_ma() -> None:
     may = dc.cac_may_chu({"TEXT_GPU_FRACTION": "0.5", "DEMO_TEXT_MODEL": "anser-v3-awq"})
     assert may[0].phan_gpu == "0.5" and may[0].nguon == "anser-v3-awq"

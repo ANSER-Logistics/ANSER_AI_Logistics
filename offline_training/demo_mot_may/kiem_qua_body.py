@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import tempfile
 import time
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -49,11 +51,25 @@ def ghi(ten: str, dat: bool | str, chi_tiet: str) -> None:
     KET.append((tt, ten, chi_tiet))
 
 
-def kiem_phan_can_model(b: Body) -> None:
+def brain_doc_duoc_anh(url: str) -> bool:
+    """False chỉ khi Brain nói rõ không có mô hình đọc ảnh (`vision_backend: none`, chế độ GPU nhỏ của demo_colab). Không hỏi được thì coi là có: bước đọc ảnh sẽ tự trượt."""
+    if not url:
+        return True
+    req = urllib.request.Request(url.rstrip("/") + "/health", headers={"ngrok-skip-browser-warning": "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 (địa chỉ Brain do người chạy đặt)
+            return json.loads(r.read()).get("vision_backend") != "none"
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
+def kiem_phan_can_model(b: Body, co_anh: bool = True) -> None:
     """Những thứ chỉ chạy khi Brain có model thật (offline_training/demo_colab.py): đọc ảnh hoá đơn cước, nạp tài liệu, hỏi chat về tài liệu đó, rồi xoá để nạp trực tiếp khi demo."""
     tong = int(HOA_DON_CUOC["total"])
+    if not co_anh:
+        ghi("doc_hoa_don", "BỎ QUA", "Brain không có mô hình đọc ảnh (GPU nhỏ): đừng demo đọc hoá đơn")
     with tempfile.TemporaryDirectory() as tam:
-        for ten, lech, duyet in (("doc_hoa_don_dung", 0, False), ("doc_hoa_don_sai_tong", LECH_HOA_DON, True)):
+        for ten, lech, duyet in (("doc_hoa_don_dung", 0, False), ("doc_hoa_don_sai_tong", LECH_HOA_DON, True)) if co_anh else ():
             f = ghi_anh_hoa_don(Path(tam) / f"{ten}.png", lech)
             t0 = time.perf_counter()
             ma, r = b.goi("POST", "/api/ai/freight-invoice", files={"file": (f.name, f.read_bytes())}, han=300)
@@ -170,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         ghi("nap_tai_lieu", ma >= 400 and song, f"nạp tài liệu → http={ma} (phải bị từ chối: kho tri thức tắt có chủ ý), Brain còn sống: {song}")
 
     if a.co_model:
-        kiem_phan_can_model(b)
+        kiem_phan_can_model(b, brain_doc_duoc_anh(os.environ.get("BRAIN_URL", "")))
 
     for tt, ten, ct in KET:
         print(f"  {tt:6} {ten:24} {ct}")

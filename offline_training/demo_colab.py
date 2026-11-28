@@ -15,6 +15,7 @@ GỒM GÌ (cấu hình đã đo: PR #277, RUNBOOK §8.6 và §9)
   vLLM 0.11.2 vision: q25vl7b-w4a16-tu-luong-tu (Drive) cổng 8002, 44% GPU, ngữ cảnh 8192
   Brain (ENV=SERVER, không nạp model; kho tri thức bge-m3 + ViRanker trên CPU) cổng 8000, chỉ nghe 127.0.0.1
   Đường hầm: ngrok nếu có NGROK_AUTHTOKEN trong Colab Secrets, không thì cloudflared (bản ghim, đối chiếu SHA-256).
+  GPU nhỏ (T4 15 GB, khi L4/A100 hết): chế độ CHỈ CHỮ — một server text (nhân awq, float16, 90% GPU, ngữ cảnh 8192), không đọc ảnh. Cấu hình này CHƯA đo chất lượng.
 
 GIỚI HẠN PHẢI BIẾT
   - Colab dành cho tính toán tương tác; FAQ cấm "web service offerings not related to interactive compute" và "connecting to remote proxies" (đọc 28/11/2026). Chạy để thử và demo do chính bạn điều khiển,
@@ -50,6 +51,7 @@ if not (REPO / "src").is_dir():       # chạy từ bản clone khác (hoặc te
     sys.path.insert(0, str(REPO))
 
 from offline_training.kiem_tich_hop_body import (  # noqa: E402
+    BO_QUA,
     DAT,
     TRUOT,
     Brain,
@@ -72,7 +74,8 @@ DRIVE = Path(os.getenv("ANSER_DRIVE_DIR", "/content/drive/MyDrive/ANSER_AI_Logis
 THU_MUC_MODEL = Path(os.getenv("ANSER_MODELS_DIR", "/content/models"))
 RA = Path(os.getenv("ANSER_DEMO_KQ", "/content/demo_kq"))
 BAN_VLLM = "0.11.2"
-GPU_TOI_THIEU_MIB = 22_000
+GPU_TOI_THIEU_MIB = 22_000      # đủ cho cả text lẫn vision (L4 22,5 GB, A100)
+GPU_CHI_CHU_MIB = 14_000        # T4 15 GB: chỉ text, không đọc ảnh
 CONG_BRAIN = 8000
 FILE_TOKENIZER = ("tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt", "special_tokens_map.json", "added_tokens.json")
 REPO_TOKENIZER_TEXT = "Qwen/Qwen3-8B"
@@ -92,10 +95,21 @@ class MayChu:
     them: tuple[str, ...] = ()
 
 
-def cac_may_chu(env: Mapping[str, str]) -> list[MayChu]:
-    """Hai server, tên biến như compose (R5): đổi cấu hình bằng env, không sửa mã."""
+def che_do_gpu(mib: int) -> Optional[str]:
+    """`day_du` (text + vision), `chi_chu` (GPU nhỏ: chỉ text), hoặc None nếu không đủ cho cả text."""
+    if mib >= GPU_TOI_THIEU_MIB:
+        return "day_du"
+    return "chi_chu" if mib >= GPU_CHI_CHU_MIB else None
+
+
+def cac_may_chu(env: Mapping[str, str], chi_chu: bool = False) -> list[MayChu]:
+    """Server cần bật (text đứng đầu), tên biến như compose (R5): đổi cấu hình bằng env, không sửa mã."""
+    nguon = env.get("DEMO_TEXT_MODEL", "anser-v5-awq")
+    if chi_chu:
+        # T4 (Turing): không có bfloat16 và nhân awq_marlin, nên ép nhân `awq` kèm float16 (ghi ở ô "dùng model" của notebook train và compose). CHƯA ĐO chất lượng trên cấu hình này.
+        return [MayChu("anser-v5", nguon, 8001, env.get("TEXT_GPU_FRACTION", "0.90"), env.get("TEXT_MAX_MODEL_LEN", "8192"), ("--quantization=awq", "--dtype=half"))]
     return [
-        MayChu("anser-v5", env.get("DEMO_TEXT_MODEL", "anser-v5-awq"), 8001, env.get("TEXT_GPU_FRACTION", "0.43"), env.get("TEXT_MAX_MODEL_LEN", "14336")),
+        MayChu("anser-v5", nguon, 8001, env.get("TEXT_GPU_FRACTION", "0.43"), env.get("TEXT_MAX_MODEL_LEN", "14336")),
         MayChu("anser-vision", env.get("DEMO_VISION_MODEL", "q25vl7b-w4a16-tu-luong-tu"), 8002, env.get("VISION_GPU_FRACTION", "0.44"), env.get("VISION_MAX_MODEL_LEN", "8192"),
                ("--limit-mm-per-prompt", '{"image":2}')),
     ]
@@ -109,17 +123,20 @@ def lenh_vllm(m: MayChu, thu_muc: Path) -> list[str]:
 
 def env_brain(nen: Mapping[str, str], token: str, repo: Path, may_chu: list[MayChu]) -> dict[str, str]:
     """Brain không nạp model (ENV=SERVER), gọi hai server trên 127.0.0.1 (qua được `kiem_url_noi_bo`, R2). Không DATABASE_URL: phiên demo không có lịch sử chat phía Brain."""
-    env = {k: v for k, v in nen.items() if k not in ("DATABASE_URL", "VLLM_N8N_BASE_URL", "REDIS_URL", "BODY_CALLBACK_URL")}
-    text, vision = may_chu
+    bo = ("DATABASE_URL", "VLLM_N8N_BASE_URL", "REDIS_URL", "BODY_CALLBACK_URL", "VLLM_VISION_BASE_URL", "VLLM_VISION_MODEL")
+    env = {k: v for k, v in nen.items() if k not in bo}
+    text = may_chu[0]
     env.update({
         "ENV": "SERVER",
         "VLLM_BASE_URL": f"http://127.0.0.1:{text.cong}", "VLLM_MODEL": text.ten,
-        "VLLM_VISION_BASE_URL": f"http://127.0.0.1:{vision.cong}", "VLLM_VISION_MODEL": vision.ten,
         "API_AUTH_TOKEN": token, "API_HMAC_MODE": "off",
         "KB_WORKSPACE_ID": "default",       # khớp mặc định BRAIN_KB_WORKSPACE của Body
         "PYTHONPATH": str(repo), "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1",
         "AI_METRICS_PATH": str(RA / "ai_metrics.jsonl"),
     })
+    if len(may_chu) > 1:        # không có server vision thì ENV=SERVER khai `vision_backend: none` (tắt có tuyên bố)
+        vision = may_chu[1]
+        env.update({"VLLM_VISION_BASE_URL": f"http://127.0.0.1:{vision.cong}", "VLLM_VISION_MODEL": vision.ten})
     return env
 
 
@@ -133,17 +150,8 @@ def thong_tin_gpu() -> tuple[str, int]:
 
 
 def kiem_dau_vao(may_chu: list[MayChu]) -> list[str]:
-    loi = []
-    try:
-        ten, mib = thong_tin_gpu()
-        if mib < GPU_TOI_THIEU_MIB:
-            loi.append(f"GPU {ten} chỉ {mib} MiB, cần từ {GPU_TOI_THIEU_MIB}: Runtime > Change runtime type > L4 hoặc A100.")
-    except (OSError, subprocess.CalledProcessError):
-        loi.append("Không có GPU: Runtime > Change runtime type > L4 hoặc A100.")
-    for m in may_chu:
-        if not (DRIVE / m.nguon / "config.json").is_file():
-            loi.append(f"Không thấy {DRIVE / m.nguon}/config.json — đã mount Drive (dòng đầu của ô) và đúng tài khoản chưa?")
-    return loi
+    return [f"Không thấy {DRIVE / m.nguon}/config.json — đã mount Drive (dòng đầu của ô) và đúng tài khoản chưa?"
+            for m in may_chu if not (DRIVE / m.nguon / "config.json").is_file()]
 
 
 def chay_lenh(lenh: list[str], cho_phep_loi: bool = False, **kw: Any) -> None:
@@ -211,7 +219,6 @@ def chuan_bi_model(may_chu: list[MayChu]) -> dict[str, Path]:
     from huggingface_hub import snapshot_download
 
     ra: dict[str, Path] = {}
-    text, vision = may_chu
     for m in may_chu:
         dich = THU_MUC_MODEL / m.nguon
         t0 = time.time()
@@ -221,11 +228,12 @@ def chuan_bi_model(may_chu: list[MayChu]) -> dict[str, Path]:
         if not cfg.get("quantization_config"):
             raise RuntimeError(f"{m.nguon}/config.json thiếu quantization_config: nạp như bản đầy đủ sẽ hết VRAM")
         ra[m.ten] = dich
-    loi = kiem_manifest(ra[vision.ten])
-    if loi:
-        raise RuntimeError(f"trọng số vision lệch MANIFEST: {', '.join(loi)}")
+    for vision in may_chu[1:]:
+        loi = kiem_manifest(ra[vision.ten])
+        if loi:
+            raise RuntimeError(f"trọng số vision lệch MANIFEST: {', '.join(loi)}")
     goc = Path(snapshot_download(REPO_TOKENIZER_TEXT, allow_patterns=list(FILE_TOKENIZER)))
-    va_tokenizer(ra[text.ten], goc)
+    va_tokenizer(ra[may_chu[0].ten], goc)
     return ra
 
 
@@ -329,7 +337,7 @@ def cham_tim_tai_lieu(ma: int, r: Any, phai_co: str) -> tuple[str, str]:
     return DAT, f"{len(doan)} đoạn, đoạn đầu từ {doan[0].get('source')}"
 
 
-def tu_thu_model(b: Brain, thu_muc: Path, han: float = 900.0) -> list[dict[str, Any]]:
+def tu_thu_model(b: Brain, thu_muc: Path, han: float = 900.0, co_anh: bool = True) -> list[dict[str, Any]]:
     ra: list[dict[str, Any]] = []
 
     def buoc(ten: str, f: Any) -> None:
@@ -340,12 +348,15 @@ def tu_thu_model(b: Brain, thu_muc: Path, han: float = 900.0) -> list[dict[str, 
             tt, ct = TRUOT, f"ngoại lệ {type(e).__name__}: {str(e)[:160]}"
         ra.append({"ten": ten, "trang_thai": tt, "bat_buoc": True, "chi_tiet": ct, "giay": round(time.perf_counter() - t0, 2)})
 
-    dung = ghi_anh_hoa_don(thu_muc / "hoa_don_cuoc_mau.png")
-    sai = ghi_anh_hoa_don(thu_muc / "hoa_don_cuoc_mau_sai_tong.png", LECH_HOA_DON)
-    tong = int(HOA_DON_CUOC["total"])
     buoc("chat_tinh_vat", lambda: cham_tra_loi(chat_cho_xong(b, han, CAU_HOI_VAT)[0], DAP_AN_VAT))
-    for ten, anh, so, duyet in (("doc_hoa_don_dung", dung, tong, False), ("doc_hoa_don_sai_tong", sai, tong + LECH_HOA_DON, True)):
-        buoc(ten, lambda a=anh, s=so, d=duyet: cham_doc_hoa_don(*b.goi("POST", "/ocr/freight", multipart=(a.name, a.read_bytes()), han=han), s, d))
+    if co_anh:
+        dung = ghi_anh_hoa_don(thu_muc / "hoa_don_cuoc_mau.png")
+        sai = ghi_anh_hoa_don(thu_muc / "hoa_don_cuoc_mau_sai_tong.png", LECH_HOA_DON)
+        tong = int(HOA_DON_CUOC["total"])
+        for ten, anh, so, duyet in (("doc_hoa_don_dung", dung, tong, False), ("doc_hoa_don_sai_tong", sai, tong + LECH_HOA_DON, True)):
+            buoc(ten, lambda a=anh, s=so, d=duyet: cham_doc_hoa_don(*b.goi("POST", "/ocr/freight", multipart=(a.name, a.read_bytes()), han=han), s, d))
+    else:
+        ra.append({"ten": "doc_hoa_don", "trang_thai": BO_QUA, "bat_buoc": False, "chi_tiet": "GPU nhỏ: không có mô hình đọc ảnh, đừng demo đọc hoá đơn", "giay": 0.0})
     ws = {"workspace_id": "default"}
 
     def nap() -> tuple[str, str]:
@@ -464,21 +475,32 @@ def giu_phien(b: Brain, procs: Mapping[str, subprocess.Popen], nhip: int = 60) -
 def main() -> None:
     t_dau = time.time()
     RA.mkdir(parents=True, exist_ok=True)
-    may_chu = cac_may_chu(os.environ)
     commit = subprocess.run(["git", "-C", str(REPO), "log", "-1", "--format=%h"], capture_output=True, text=True).stdout.strip()
     tt: dict[str, Any] = {"commit": commit, "bat_dau": datetime.now().isoformat(timespec="seconds"), "vllm": BAN_VLLM}
+    try:
+        ten_gpu, mib = thong_tin_gpu()
+    except (OSError, subprocess.CalledProcessError):
+        ten_gpu, mib = "không có", 0
+    che_do = che_do_gpu(mib)
+    if che_do is None:
+        print(f"KHÔNG BẮT ĐẦU ĐƯỢC: GPU {ten_gpu} {mib} MiB, cần từ {GPU_CHI_CHU_MIB}. Runtime > Change runtime type > L4, A100 hoặc T4.")
+        return
+    chi_chu = che_do == "chi_chu"
+    may_chu = cac_may_chu(os.environ, chi_chu)
     loi = kiem_dau_vao(may_chu)
     if loi:
         print("KHÔNG BẮT ĐẦU ĐƯỢC:\n  - " + "\n  - ".join(loi))
         return
-    tt["gpu"] = "%s %d MiB" % thong_tin_gpu()
+    tt.update({"gpu": f"{ten_gpu} {mib} MiB", "che_do": che_do})
+    if chi_chu:
+        print("GPU NHỎ: chạy chế độ CHỈ CHỮ (chat, kho tri thức). KHÔNG đọc ảnh hoá đơn; cấu hình này chưa được đo chất lượng.")
     procs: dict[str, subprocess.Popen] = {}
     try:
         print(f"[1/6] Cài thư viện (vLLM {BAN_VLLM}, 3-8 phút) — GPU {tt['gpu']}, commit {commit}")
         cai_thu_vien()
         print("[2/6] Chép trọng số từ Drive và kiểm")
         thu_muc = chuan_bi_model(may_chu)
-        print("[3/6] Bật hai server vLLM (mỗi cái 2-4 phút)")
+        print(f"[3/6] Bật {len(may_chu)} server vLLM (mỗi cái 2-5 phút)")
         don_cu()
         for m in may_chu:
             procs[m.ten] = bat(m.ten, lenh_vllm(m, thu_muc[m.ten]))
@@ -491,7 +513,7 @@ def main() -> None:
         cho_health("brain", CONG_BRAIN, procs["brain"], 600)
         b = Brain(f"http://127.0.0.1:{CONG_BRAIN}", token, han=120.0)
         print("[5/6] Tự thử (lần đầu tải model nhúng của kho tri thức, vài phút)")
-        hang = chay_kiem(b, "default", can_model=True, bo_chat=False, han_chat_s=900.0) + tu_thu_model(b, RA / "mau")
+        hang = chay_kiem(b, "default", can_model=True, bo_chat=False, han_chat_s=900.0) + tu_thu_model(b, RA / "mau", co_anh=not chi_chu)
         ma_kl, kl = ket_luan(hang)
         in_bang(hang, kl)
         tt.update({"hang": hang, "ket_luan": kl, "ma": ma_kl})
