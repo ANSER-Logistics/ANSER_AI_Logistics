@@ -564,4 +564,6 @@ Cờ `--voi-brain-ts` thêm bước thứ mười hai: tải `brain.ts` từ rep
 
 Mã thoát: `0` mọi bước bắt buộc đạt; `1` có bước trượt; `2` không nối được Brain. **Chat `mock` (Brain LOCAL) không phải đạt**: với `--can-model` là trượt. Chat chậm hơn 60 giây là cảnh báo, vì Body mặc định chờ 60 giây: hâm nóng Brain bằng `bat_lai_brain.py` hoặc đặt `BRAIN_CHAT_TIMEOUT_MS`.
 
+Chạy **cả chuỗi Body + database + Brain trên một máy** (không Neon, không GPU, dữ liệu hư cấu): `offline_training/demo_mot_may/` có `cai_demo.ps1`, `bat_demo.ps1` (tự gieo dữ liệu và chạy hai bộ kiểm) và `README.md` kèm kịch bản.
+
 Phần giải thích đầy đủ (kiến trúc buổi demo, bảng biến hai bên, kịch bản, cách lùi) nằm ở `docs/ky-thuat/DEMO_NOI_BRAIN_BODY.md` của repo `anser-brain-docs`. Giới hạn: bước này đo hành vi lúc chạy từ phía gọi, KHÔNG so lược đồ đầu vào (việc của `doi_chieu_hop_dong_body.py`, chạy trước khi gộp vào `main`) và không đo chất lượng câu trả lời của model.
