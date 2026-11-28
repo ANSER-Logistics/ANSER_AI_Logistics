@@ -207,7 +207,7 @@ def test_ky_chua_truy_van_duoc_thi_khong_dua_so_hom_nay_vao(
 
 @pytest.mark.parametrize("cau", [
     "tổng tiền bán được trong 14 ngày qua", "doanh thu 30 ngày gần nhất", "bán được bao nhiêu từ đầu năm", "bán được trong hai tuần",
-    "7 ngày qua bán được gì", "doanh số năm nay",
+    "7 ngày qua bán được gì", "doanh số năm nay", "doanh số trong năm ngày qua", "doanh thu hai mươi lăm ngày qua",
 ])
 def test_khoang_ngay_tu_do_khong_bi_doc_thanh_hom_nay(moi_truong, monkeypatch, saas_gia, cau):
     """#261 (T2 của lượt chạy thật 24/11): "14 ngày qua" từng rơi về "hôm nay" và nhận số của MỘT ngày; v5 còn bịa lý do thiếu dữ liệu."""
@@ -221,14 +221,84 @@ def test_khoang_ngay_tu_do_khong_bi_doc_thanh_hom_nay(moi_truong, monkeypatch, s
     assert "bảo mật" not in tra_loi and "chỉ truy vấn được" in tra_loi
 
 
-@pytest.mark.parametrize("cau", ["hôm nay bán được bao nhiêu", "tuần này doanh số thế nào", "còn bao nhiêu thùng dầu 15W40", "hàng nhập gần đây"])
+@pytest.mark.parametrize("cau", [
+    "hôm nay bán được bao nhiêu", "tuần này doanh số thế nào", "còn bao nhiêu thùng dầu 15W40", "hàng nhập gần đây",
+    "doanh số từ đầu tháng này đến nay", "doanh số từ đầu tuần này đến nay",
+    # Câu TRA HÀNG có "<số> <đơn vị thời gian>" (Dgsonn và wikiepeidia, PR #269): trước PR này vẫn tra hàng, và phải vẫn tra hàng.
+    "dầu nhớt nào bảo hành 12 tháng", "còn hàng loại hạn dùng 6 tháng không", "giao trong 2 ngày được không", "hàng mấy ngày nữa về",
+    "hàng nhập những ngày gần đây",
+])
 def test_cau_co_ky_ho_tro_hoac_khong_nhac_ky_van_di_nhu_cu(moi_truong, monkeypatch, saas_gia, cau):
     from src.api import dependencies as deps
 
+    tra = []
+    goc = saas_gia.lookup_product
+    monkeypatch.setattr(saas_gia, "lookup_product", lambda q, workspace_id=1: (tra.append(q), goc(q, workspace_id))[1])
     monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
     moi_truong.category = "DATA_INTERNAL"
     _hoi(cau)
     assert len(saas_gia.periods) == 1 and len(moi_truong.contexts) == 1
+    assert tra == [cau], "câu không hỏi doanh số kỳ chưa hỗ trợ thì phải tra hàng"
+
+
+_HANG_15W40 = '[{"id": 1, "name": "Dầu động cơ CF-4 15W40 phuy 200L", "price": "4.200.000 VND", "stock": 15}]'
+
+
+def test_cau_kep_hang_va_doanh_so_ky_chua_ho_tro_van_tra_ra_hang(moi_truong, monkeypatch, saas_gia):
+    """
+    "Còn bao nhiêu thùng 15W40, tháng trước bán bao nhiêu": doanh số kỳ chưa hỗ trợ thì mã nói thiếu, nhưng phần HÀNG vẫn tra được và không được mất.
+    Dòng hàng do MÃ dựng từ kết quả tra kho, model không được gọi (không có chỗ bịa số hay lý do).
+    """
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(saas_gia, "lookup_product", lambda q, workspace_id=1: _HANG_15W40)
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    moi_truong.answer = "Doanh số bị giới hạn bởi chính sách bảo mật thông tin."
+    tra_loi = _hoi("còn bao nhiêu thùng dầu 15W40, tháng trước bán bao nhiêu")
+    assert saas_gia.periods == [] and moi_truong.contexts == []
+    assert "chỉ truy vấn được" in tra_loi and "bảo mật" not in tra_loi
+    assert "Dầu động cơ CF-4 15W40 phuy 200L: tồn 15, giá 4.200.000 VND" in tra_loi
+
+
+@pytest.mark.parametrize("ket_qua_tra", [
+    "Không tìm thấy sản phẩm 'x' trong kho.",       # câu tiếng Việt, không phải JSON
+    "[]",                                            # tra được nhưng không khớp hàng nào
+    '{"loi": "khong phai danh sach"}',
+])
+def test_ky_chua_ho_tro_ma_khong_co_hang_khop_thi_chi_con_cau_noi_thieu(moi_truong, monkeypatch, saas_gia, ket_qua_tra):
+    from src.api import dependencies as deps
+
+    monkeypatch.setattr(saas_gia, "lookup_product", lambda q, workspace_id=1: ket_qua_tra)
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    tra_loi = _hoi("còn bao nhiêu thùng dầu 15W40, tháng trước bán bao nhiêu")
+    assert "chỉ truy vấn được" in tra_loi and "Về hàng bạn nhắc" not in tra_loi and moi_truong.contexts == []
+
+
+def test_ky_chua_ho_tro_ma_tra_hang_hong_thi_van_tra_loi_bang_cau_noi_thieu(moi_truong, monkeypatch, saas_gia):
+    from src.api import dependencies as deps
+
+    def hong(*a, **k):
+        raise RuntimeError("mất kết nối")
+
+    monkeypatch.setattr(saas_gia, "lookup_product", hong)
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    tra_loi = _hoi("còn bao nhiêu thùng dầu 15W40, tháng trước bán bao nhiêu")
+    assert "chỉ truy vấn được" in tra_loi and "Về hàng bạn nhắc" not in tra_loi
+
+
+def test_cau_chi_hoi_doanh_so_ky_chua_ho_tro_khong_tra_hang(moi_truong, monkeypatch, saas_gia):
+    """Không nhắc mặt hàng nào (doanh số, bán, tháng trước đều là từ chức năng) thì không có gì để tra: không gọi `lookup_product` cho vui."""
+    from src.api import dependencies as deps
+
+    tra = []
+    monkeypatch.setattr(saas_gia, "lookup_product", lambda q, workspace_id=1: (tra.append(q), _HANG_15W40)[1])
+    monkeypatch.setattr(deps.runtime, "kb", None, raising=False)
+    moi_truong.category = "DATA_INTERNAL"
+    tra_loi = _hoi("tháng trước bán được bao nhiêu")
+    assert tra == [] and "Về hàng bạn nhắc" not in tra_loi
 
 
 def test_db_hong_thi_ma_noi_khong_lay_duoc_khong_de_model_viet_ly_do(moi_truong, monkeypatch, saas_gia):

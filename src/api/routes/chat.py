@@ -77,6 +77,32 @@ _DATA_KHONG_LAY_DUOC_MSG = (
     "Tôi chưa lấy được dữ liệu bán hàng lúc này (chưa kết nối được tới cơ sở dữ liệu cửa hàng). "
     "Tôi không tự đoán số, bạn thử lại sau hoặc xem trực tiếp trên màn hình báo cáo."
 )
+
+
+async def _dong_hang_khop(saas, user_msg: str, store_id, request_id: str) -> str:
+    """
+    Câu hỏi KÉP ("còn bao nhiêu thùng 15W40, tháng trước bán bao nhiêu"): kỳ doanh số chưa hỗ trợ thì câu trả lời do MÃ dựng, nhưng phần HÀNG vẫn tra được và
+    không được mất (PR #269, Dgsonn). Dòng hàng cũng do MÃ dựng từ kết quả tra kho, không qua model: không có chỗ nào để model bịa số hay lý do (R1).
+    Câu không nhắc mặt hàng nào, tra hỏng, hay kết quả không phải danh sách thì trả "" (chỉ còn câu nói rõ kỳ chưa hỗ trợ).
+    """
+    from src.core.saas_api import tu_khoa_tim_hang
+
+    if not tu_khoa_tim_hang(user_msg):
+        return ""
+    try:
+        hang = json.loads(await chay_ngoai_loop(saas.lookup_product, user_msg, workspace_id=store_id))
+    except Exception:
+        logger.warning("Tra hàng cho câu có kỳ chưa hỗ trợ thất bại: %s", loai_loi(), extra={"request_id": request_id})
+        return ""
+    if not isinstance(hang, list):
+        return ""
+    dong = [
+        f"- {h.get('name')}: tồn {'chưa rõ' if h.get('stock') == 'N/A' else h.get('stock')}, giá {'chưa rõ' if h.get('price') == 'N/A' else h.get('price')}"
+        for h in hang[:5] if isinstance(h, dict) and h.get("name")
+    ]
+    return ("Về hàng bạn nhắc, theo kho hiện tại:\n" + "\n".join(dong)) if dong else ""
+
+
 _WORKFLOW_FAILED_MSG = (
     "Tôi chưa dựng được quy trình hợp lệ cho yêu cầu này. "
     "Bạn mô tả rõ hơn giúp tôi 3 điểm: chạy vào lúc nào, "
@@ -1017,6 +1043,9 @@ async def chat_endpoint(
                 # KHÔNG đưa số hôm nay vào đây, và KHÔNG để model viết lời giải thích: thiếu số thì mã nói thiếu (R1, #261). Có số sai kỳ thì model trả
                 # lời trôi chảy và sai; được dặn "nói chưa lấy được" thì có lúc nó bịa lý do.
                 tra_loi_ma = _DATA_KY_CHUA_HO_TRO_MSG.format(nhan=ky.nhan)
+                dong_hang = await _dong_hang_khop(saas, user_msg, store_id, request_id)
+                if dong_hang:
+                    tra_loi_ma += "\n\n" + dong_hang
                 metric.asked_back = True
             else:
                 try:
