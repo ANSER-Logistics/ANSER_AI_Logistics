@@ -626,6 +626,7 @@ File này là nguồn sự thật cho **mọi** agent (Codex đọc nó trực t
 | [`GEMINI.md`](GEMINI.md) | Gemini CLI | Import AGENTS.md (Gemini mặc định đọc `GEMINI.md`, không đọc `AGENTS.md`) |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot | Bản rút gọn R1–R5 + quy tắc code (Copilot không import được file khác) |
 | [`.claude/settings.json`](.claude/settings.json), [`.geminiignore`](.geminiignore) | Claude Code, Gemini CLI | **Chặn đọc** ảnh, PDF upload và nhật ký hỏi đáp ở gốc `src/data/`, và `.env` (R2, ở tầng công cụ chứ không bằng lời dặn). `tests/contracts/test_cau_hinh_ai_chan_du_lieu_khach.py` giữ hai file và `.graphifyignore` khớp nhau |
+| [`.claude/hooks/cong_cung.py`](.claude/hooks/cong_cung.py) (đăng ký ở `.claude/settings.json`) | Claude Code | **Cổng cứng** (hook `PreToolUse`, mã thoát 2 là chặn): ghi vào `src/data/` hay `.env` (R2, R2b); `git commit` khi tệp đang đổi có chuỗi giống bí mật hoặc `ruff` đỏ; `git push` khi commit chưa lên remote có thêm dòng giống bí mật, kể cả đã xoá ở commit sau (R2b). Dùng lại `scan_secrets`, không in giá trị tìm thấy; cổng hỏng thì chặn. Chỉ áp cho Claude Code, không thay pre-commit và CI. `tests/contracts/test_cong_cung.py` chạy hook như Claude Code chạy |
 | [`.claude/skills/`](.claude/skills/) | Claude Code | Skill dự án |
 | [`.agents/skills/`](.agents/skills/) | Codex, Gemini CLI | **Bản sao giống hệt** `.claude/skills/` — `tests/contracts/test_skill_dong_bo.py` chặn lệch và kiểm frontmatter |
 
