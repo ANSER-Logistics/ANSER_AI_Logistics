@@ -71,7 +71,9 @@ async def upload_document(
     Nạp một tài liệu nội bộ vào kho tri thức của MỘT khách hàng.
 
     File KHÔNG ghi ra đĩa: bóc chữ trong bộ nhớ rồi thả. Hợp đồng và bảng giá của
-    khách không nằm lại trên máy Brain, nhất là khi Brain chạy GPU thuê (P2).
+    khách không nằm lại trên máy Brain, nhất là khi Brain chạy GPU thuê (P2). Đúng
+    nhờ `giu_tep_trong_ram.giu_trong_ram()` lúc khởi động; thiếu nó thì Starlette
+    ghi tệp > 1 MiB ra tệp tạm trước khi handler chạy (#219).
 
     Nạp lại cùng `file_name` mà nội dung đổi thì đoạn cũ bị XOÁ SẠCH trước khi ghi
     mới — không để bảng giá năm ngoái sống sót bên cạnh bảng giá mới.

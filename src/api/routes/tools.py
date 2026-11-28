@@ -66,7 +66,9 @@ async def _doc_file(request: Request, file: UploadFile) -> bytes:
     Kiểm `content-length` trước để từ chối sớm, rồi kiểm lại độ dài thật vì
     header đó do client gửi và hoàn toàn có thể nói dối. File KHÔNG ghi ra đĩa:
     sổ sách của khách không nằm lại trên máy Brain (P2 — Brain có thể đang chạy
-    trên GPU thuê).
+    trên GPU thuê). Lời hứa này đúng nhờ `giu_tep_trong_ram.giu_trong_ram()` lúc
+    khởi động: thiếu nó thì Starlette ghi tệp > 1 MiB ra tệp tạm TRƯỚC khi hàm
+    này chạy (#219).
     """
     if int(request.headers.get("content-length") or "0") > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File quá lớn")
