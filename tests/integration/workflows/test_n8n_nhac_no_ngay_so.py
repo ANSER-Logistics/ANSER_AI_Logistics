@@ -42,8 +42,11 @@ def _chay(rows: list[dict]) -> dict:
     return json.loads(r.stdout)[0]["json"]
 
 
-def _no(ma="RC-1", ten="Khách A", han="2026-07-01", tien="1000000", tra="", st="open"):
-    return {"quote_id": ma, "customer_name": ten, "due_date": han, "amount": tien, "paid_amount": tra, "status": st}
+def _no(ma="RC-1", ten="Khách A", han="2026-07-01", tien="1000000", tra="", st="open", id_=None):
+    d = {"quote_id": ma, "customer_name": ten, "due_date": han, "amount": tien, "paid_amount": tra, "status": st}
+    if id_ is not None:
+        d["id"] = id_            # sheet Receivables thật có CẢ `id` (khoá của dòng) và `quote_id` (báo giá nguồn)
+    return d
 
 
 def _mo_ta(ra: dict) -> str:
@@ -120,3 +123,43 @@ def test_if_node_doc_has_report_de_dong_chi_co_loi_van_gui_di():
     wf = json.loads(WF.read_text(encoding="utf-8"))
     if_node = next(n for n in wf["nodes"] if n["type"] == "n8n-nodes-base.if")
     assert if_node["parameters"]["conditions"]["boolean"][0]["value1"] == "={{ $json.has_report }}"
+
+
+# --- review của wikiepeidia trên PR #276 -------------------------------------------------------------------------------------
+
+def test_bao_cao_dai_van_giu_muc_loi_va_cat_theo_dong_khong_cat_giua_chung():
+    """75 dòng quá hạn + 1 dòng sai ngày: `slice(0, 3800)` trên cả khối từng làm mất đúng mục lỗi, tiêu đề báo một lỗi mà không ai biết sửa dòng nào."""
+    dong = [_no(f"QT-{i}", f"Khách số {i} có cái tên khá dài để báo cáo đầy", han="2026-07-01", tien=f"{1_000_000 + i}", id_=f"RC-{i}") for i in range(75)]
+    dong.append(_no("QT-LOI", "Khách Sai Ngày", han="31/12/2000", id_="RC-LOI"))
+    ra = _chay(dong)
+    mo_ta = _mo_ta(ra)
+    assert len(mo_ta) <= 4096, len(mo_ta)
+    assert "1 dòng không đọc được" in mo_ta and "Khách Sai Ngày" in mo_ta and "RC-LOI" in mo_ta, "mục lỗi phải còn nguyên"
+    assert "khách nữa" in mo_ta, "danh sách bị rút gọn thì phải nói còn bao nhiêu khách"
+    con_lai = int(mo_ta.split("… và ")[1].split(" khách nữa")[0])
+    hien = mo_ta.count("• **")
+    assert hien + con_lai == 75, "dòng nào không hiện thì phải được đếm vào '… và N khách nữa'"
+    assert "tổng" in json.loads(ra["discord_body"])["embeds"][0]["title"] and "75 khách" in json.loads(ra["discord_body"])["embeds"][0]["title"]
+
+
+def test_nhieu_dong_loi_hien_toi_da_hai_muoi_va_noi_ro_con_bao_nhieu():
+    ra = _chay([_no(f"QT-{i}", f"Khách lỗi {i}", han="31/12/2000", id_=f"RC-{i}") for i in range(60)])
+    mo_ta = _mo_ta(ra)
+    assert "60 dòng không đọc được" in mo_ta and "(+40 dòng nữa)" in mo_ta and len(mo_ta) <= 4096
+    assert mo_ta.count("Khách lỗi") == 20
+
+
+def test_dong_loi_hien_ma_khoan_phai_thu_va_ma_bao_gia_khi_co_ca_hai():
+    """`id=RC-1, quote_id=QT-1` từng chỉ in `QT-1`: người vận hành không tra được dòng cần sửa trong sheet Receivables."""
+    mo_ta = _mo_ta(_chay([_no("QT-1", "Khách Hai Mã", han="31/12/2000", id_="RC-1")]))
+    assert "mã RC-1" in mo_ta and "báo giá QT-1" in mo_ta
+
+
+def test_dong_loi_khong_co_cot_id_van_hien_ma_bao_gia():
+    assert "mã QT-9" in _mo_ta(_chay([_no("QT-9", "Khách Cũ", han="31/12/2000")]))
+
+
+def test_ten_khach_qua_dai_o_dong_qua_han_khong_lam_mat_muc_loi():
+    ra = _chay([_no("QT-1", "K" * 5000, han="2026-07-01", id_="RC-1"), _no("QT-2", "Khách Sai", han="31/12/2000", id_="RC-2")])
+    mo_ta = _mo_ta(ra)
+    assert len(mo_ta) <= 4096 and "RC-2" in mo_ta and "Khách Sai" in mo_ta
