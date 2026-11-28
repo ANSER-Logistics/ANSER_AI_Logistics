@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from offline_training import demo_colab as dc
-from offline_training.kiem_tich_hop_body import DAT, TRUOT, Brain
+from offline_training.kiem_tich_hop_body import CANH_BAO, DAT, TRUOT, Brain
 from sample_data.make_sample_data import HOA_DON_CUOC, LECH_HOA_DON, QUY_CHE
 from src.core.engine import chon_backend
 from src.core.serving import kiem_url_noi_bo
@@ -43,6 +43,29 @@ def test_gpu_nho_chi_bat_text_ep_awq_va_brain_khai_khong_doc_anh() -> None:
     env = dc.env_brain({"VLLM_VISION_BASE_URL": "http://127.0.0.1:8002"}, TOKEN, Path("/content/ANSER_AI"), may)
     assert "VLLM_VISION_BASE_URL" not in env
     assert chon_backend(env["ENV"], env["VLLM_BASE_URL"], env.get("VLLM_VISION_BASE_URL", "")) == ("server", "none")
+
+
+def test_gpu_to_bi_bo_trong_ngan_sach_l4() -> None:
+    may = dc.cac_may_chu({})
+    a100 = dc.theo_ngan_sach(may, 40_960, dc.NGAN_SACH_L4_MIB)
+    for goc, thu in zip(may, a100):
+        assert float(thu.phan_gpu) * 40_960 == pytest.approx(float(goc.phan_gpu) * dc.NGAN_SACH_L4_MIB, abs=5)
+        assert (thu.ngu_canh, thu.them) == (goc.ngu_canh, goc.them)
+    assert dc.theo_ngan_sach(may, 23_034, dc.NGAN_SACH_L4_MIB) == may      # đúng L4: không đổi
+    assert dc.theo_ngan_sach(may, 15_360, dc.NGAN_SACH_L4_MIB) == may      # GPU nhỏ hơn: không đổi
+    assert dc.theo_ngan_sach(may, 40_960, 0) == may                        # tắt
+
+
+def test_dinh_vram_va_tran_92_phan_tram(tmp_path: Path) -> None:
+    tep = tmp_path / "vram.log"
+    assert dc.dinh_vram(tep) is None
+    tep.write_text("1200\n20500\n20480\n", encoding="utf-8")
+    assert dc.dinh_vram(tep) == 20500
+    assert dc.cham_vram(20500, 23_034)[0] == DAT
+    assert dc.cham_vram(22000, 23_034)[0] == CANH_BAO
+    assert dc.cham_vram(None, 23_034)[0] == CANH_BAO
+    tep.write_text("N/A\n", encoding="utf-8")
+    assert dc.dinh_vram(tep) is None
 
 
 def test_bien_moi_truong_doi_cau_hinh_khong_sua_ma() -> None:

@@ -41,7 +41,7 @@ Máy này **không nạp model nào** (hết bộ nhớ). Brain, hai mô hình v
    ```
 
    Ô cài vLLM, chép trọng số từ Drive (`anser-v5-awq`, `q25vl7b-w4a16-tu-luong-tu`), bật hai server và Brain, **tự thử** (chat, đọc hai ảnh hoá đơn, nạp và hỏi tài liệu), mở đường hầm (ngrok nếu có `NGROK_AUTHTOKEN` trong Colab Secrets, không thì cloudflared) rồi giữ phiên sống. Lần đầu khoảng 15 đến 25 phút. Kết quả và log ghi vào `MyDrive/ANSER_AI_Logistics/demo_colab_<ngày>_<commit>/` (không có token).
-   L4 và A100 hết (Colab tự đổi sang **T4**, 15 GB) thì ô chạy chế độ **chỉ chữ**: chat và hỏi tài liệu, **không đọc ảnh hoá đơn** (chưa đo chất lượng trên cấu hình này).
+   L4 và A100 hết (Colab tự đổi sang **T4**, 15 GB) thì ô chạy chế độ **chỉ chữ**: chat và hỏi tài liệu, **không đọc ảnh hoá đơn** (chưa đo chất lượng trên cấu hình này). Chạy trên **A100** thì hai mô hình vẫn bị bó trong lượng VRAM của một **L4 24 GB** (trần của production) và ô báo đỉnh VRAM so với 92% mức đó (dòng `vua_gpu_dich`).
 2. Ô in hai dòng `BRAIN_URL=…`, `BRAIN_API_TOKEN=…`. Dán vào tệp mới `<gốc demo>\brain_colab.env` (ngoài repo, đừng gửi cho ai; đổi mỗi lần chạy lại ô).
 3. Máy này:
 

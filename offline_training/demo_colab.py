@@ -16,6 +16,7 @@ GỒM GÌ (cấu hình đã đo: PR #277, RUNBOOK §8.6 và §9)
   Brain (ENV=SERVER, không nạp model; kho tri thức bge-m3 + ViRanker trên CPU) cổng 8000, chỉ nghe 127.0.0.1
   Đường hầm: ngrok nếu có NGROK_AUTHTOKEN trong Colab Secrets, không thì cloudflared (bản ghim, đối chiếu SHA-256).
   GPU nhỏ (T4 15 GB, khi L4/A100 hết): chế độ CHỈ CHỮ — một server text (nhân awq, float16, 90% GPU, ngữ cảnh 8192), không đọc ảnh. Cấu hình này CHƯA đo chất lượng.
+  GPU lớn (A100): hai server bị bó trong ngân sách VRAM của một L4 (production tối đa L4 24 GB) và đo đỉnh VRAM so với 92% ngân sách đó; DEMO_NGAN_SACH_VRAM_MIB=0 để dùng cả GPU.
 
 GIỚI HẠN PHẢI BIẾT
   - Colab dành cho tính toán tương tác; FAQ cấm "web service offerings not related to interactive compute" và "connecting to remote proxies" (đọc 28/11/2026). Chạy để thử và demo do chính bạn điều khiển,
@@ -38,7 +39,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Optional
@@ -52,6 +53,7 @@ if not (REPO / "src").is_dir():       # chạy từ bản clone khác (hoặc te
 
 from offline_training.kiem_tich_hop_body import (  # noqa: E402
     BO_QUA,
+    CANH_BAO,
     DAT,
     TRUOT,
     Brain,
@@ -76,6 +78,8 @@ RA = Path(os.getenv("ANSER_DEMO_KQ", "/content/demo_kq"))
 BAN_VLLM = "0.11.2"
 GPU_TOI_THIEU_MIB = 22_000      # đủ cho cả text lẫn vision (L4 22,5 GB, A100)
 GPU_CHI_CHU_MIB = 14_000        # T4 15 GB: chỉ text, không đọc ảnh
+NGAN_SACH_L4_MIB = 23_034       # tổng VRAM một L4 đo được (bat_lai_brain.py). Production tối đa là GPU này (chủ dự án, 28/11)
+TRAN_SU_DUNG = 0.92             # cổng đồng host: đỉnh dùng không quá 92% VRAM (RUNBOOK §8.6, #124)
 CONG_BRAIN = 8000
 FILE_TOKENIZER = ("tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt", "special_tokens_map.json", "added_tokens.json")
 REPO_TOKENIZER_TEXT = "Qwen/Qwen3-8B"
@@ -113,6 +117,31 @@ def cac_may_chu(env: Mapping[str, str], chi_chu: bool = False) -> list[MayChu]:
         MayChu("anser-vision", env.get("DEMO_VISION_MODEL", "q25vl7b-w4a16-tu-luong-tu"), 8002, env.get("VISION_GPU_FRACTION", "0.44"), env.get("VISION_MAX_MODEL_LEN", "8192"),
                ("--limit-mm-per-prompt", '{"image":2}')),
     ]
+
+
+def theo_ngan_sach(may_chu: list[MayChu], mib: int, ngan_sach: int) -> list[MayChu]:
+    """GPU to hơn đích production (A100) thì thu các tỉ lệ để mỗi server chiếm đúng số MiB như trên đích: chạy được ở đây mới là bằng chứng vừa một L4. `ngan_sach` 0 = tắt."""
+    if ngan_sach <= 0 or mib <= ngan_sach:
+        return may_chu
+    return [replace(m, phan_gpu=f"{float(m.phan_gpu) * ngan_sach / mib:.4f}") for m in may_chu]
+
+
+def dinh_vram(tep: Path) -> Optional[int]:
+    """Đỉnh MiB đang dùng từ tệp `nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -l 1`. Không có mẫu nào thì None (chưa đo, không phải 0)."""
+    try:
+        mau = [int(d) for d in tep.read_text(encoding="utf-8").split() if d.isdigit()]
+    except OSError:
+        return None
+    return max(mau) if mau else None
+
+
+def cham_vram(dinh: Optional[int], ngan_sach: int) -> tuple[str, str]:
+    """Đỉnh VRAM lúc tự thử so với trần 92% của GPU đích. Vượt hay không đo được là CẢNH BÁO: không chặn demo, nhưng không được kết luận là vừa L4."""
+    if dinh is None:
+        return CANH_BAO, "không đo được VRAM"
+    tran = int(ngan_sach * TRAN_SU_DUNG)
+    ghi = f"đỉnh {dinh} MiB, trần {tran} MiB (92% của {ngan_sach} MiB)"
+    return (DAT, f"{ghi}: vừa GPU đích") if dinh <= tran else (CANH_BAO, f"{ghi}: VƯỢT, chưa kết luận được là chạy vừa GPU đích")
 
 
 def lenh_vllm(m: MayChu, thu_muc: Path) -> list[str]:
@@ -249,7 +278,7 @@ def duoi_log(p: Path, n: int = 3000) -> str:
 
 def don_cu() -> None:
     """Tắt server của lần chạy trước. vLLM sinh tiến trình engine riêng, nên giết cả PID mà nvidia-smi còn thấy giữ VRAM (bat_lai_brain.py, phiên 23/08)."""
-    for mau in ("uvicorn src.api.main:app", "vllm serve", "cloudflared tunnel"):
+    for mau in ("uvicorn src.api.main:app", "vllm serve", "cloudflared tunnel", "nvidia-smi --query-gpu=memory.used"):
         subprocess.run(["pkill", "-f", mau])
     for _ in range(30):
         r = subprocess.run(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"], capture_output=True, text=True)
@@ -486,14 +515,17 @@ def main() -> None:
         print(f"KHÔNG BẮT ĐẦU ĐƯỢC: GPU {ten_gpu} {mib} MiB, cần từ {GPU_CHI_CHU_MIB}. Runtime > Change runtime type > L4, A100 hoặc T4.")
         return
     chi_chu = che_do == "chi_chu"
-    may_chu = cac_may_chu(os.environ, chi_chu)
+    ngan_sach = int(os.getenv("DEMO_NGAN_SACH_VRAM_MIB", str(NGAN_SACH_L4_MIB)))
+    may_chu = theo_ngan_sach(cac_may_chu(os.environ, chi_chu), mib, ngan_sach)
     loi = kiem_dau_vao(may_chu)
     if loi:
         print("KHÔNG BẮT ĐẦU ĐƯỢC:\n  - " + "\n  - ".join(loi))
         return
-    tt.update({"gpu": f"{ten_gpu} {mib} MiB", "che_do": che_do})
+    tt.update({"gpu": f"{ten_gpu} {mib} MiB", "che_do": che_do, "ngan_sach_vram_mib": ngan_sach, "phan_gpu": {m.ten: m.phan_gpu for m in may_chu}})
     if chi_chu:
         print("GPU NHỎ: chạy chế độ CHỈ CHỮ (chat, kho tri thức). KHÔNG đọc ảnh hoá đơn; cấu hình này chưa được đo chất lượng.")
+    elif 0 < ngan_sach < mib:
+        print(f"GPU {mib} MiB lớn hơn đích production: bó hai mô hình trong ngân sách {ngan_sach} MiB (một L4). Dùng cả GPU thì đặt DEMO_NGAN_SACH_VRAM_MIB=0.")
     procs: dict[str, subprocess.Popen] = {}
     try:
         print(f"[1/6] Cài thư viện (vLLM {BAN_VLLM}, 3-8 phút) — GPU {tt['gpu']}, commit {commit}")
@@ -502,6 +534,7 @@ def main() -> None:
         thu_muc = chuan_bi_model(may_chu)
         print(f"[3/6] Bật {len(may_chu)} server vLLM (mỗi cái 2-5 phút)")
         don_cu()
+        procs["vram"] = bat("vram", ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits", "-l", "1"])    # lấy mẫu suốt phiên
         for m in may_chu:
             procs[m.ten] = bat(m.ten, lenh_vllm(m, thu_muc[m.ten]))
             print(f"      {m.ten} sẵn sàng sau {cho_health(m.ten, m.cong, procs[m.ten], 1200):.0f}s")
@@ -514,6 +547,11 @@ def main() -> None:
         b = Brain(f"http://127.0.0.1:{CONG_BRAIN}", token, han=120.0)
         print("[5/6] Tự thử (lần đầu tải model nhúng của kho tri thức, vài phút)")
         hang = chay_kiem(b, "default", can_model=True, bo_chat=False, han_chat_s=900.0) + tu_thu_model(b, RA / "mau", co_anh=not chi_chu)
+        if not chi_chu and ngan_sach > 0:
+            dinh = dinh_vram(RA / "vram.log")
+            tt["vram_dinh_mib"] = dinh
+            tt_vram, ct_vram = cham_vram(dinh, ngan_sach)
+            hang.append({"ten": "vua_gpu_dich", "trang_thai": tt_vram, "bat_buoc": False, "chi_tiet": ct_vram, "giay": 0.0})
         ma_kl, kl = ket_luan(hang)
         in_bang(hang, kl)
         tt.update({"hang": hang, "ket_luan": kl, "ma": ma_kl})
