@@ -245,6 +245,124 @@ def bang_doi_tac(vai_tro: str) -> list[list[object]]:
 
 
 # ---------------------------------------------------------------------------
+# Chứng từ cho phần CẦN MÔ HÌNH: ảnh hoá đơn cước (mô hình đọc chữ, mã tính lại) và một quy chế nội bộ (kho tri thức)
+# ---------------------------------------------------------------------------
+# Tên, mã số thuế, biển số, số tiền đều HƯ CẤU. Bản "sai" chỉ khác dòng tổng cộng in lệch 100.000đ: mô hình đọc đúng chữ trên giấy, còn việc phát hiện lệch là của mã (R1).
+
+HOA_DON_CUOC: dict[str, Any] = {
+    "carrier_name": "CÔNG TY TNHH VẬN TẢI HƯ CẤU SAO MAI",
+    "carrier_tax_code": "0990016006",
+    "invoice_no": "0000123",
+    "invoice_date": "20/11/2026",
+    "origin": "Bình Dương",
+    "destination": "Cần Thơ",
+    "vehicle_type": "Xe tải 8 tấn",
+    "plate_number": "61C-000.00",
+    "khoan": [("Cước vận chuyển một chuyến", 1, 4_500_000), ("Phụ phí bốc xếp", 1, 300_000)],
+    "vat_rate": 8,
+    "subtotal": 4_800_000,
+    "vat_amount": 384_000,
+    "total": 5_184_000,
+}
+LECH_HOA_DON = 100_000      # bản lỗi in tổng cộng 5.284.000
+
+TEN_QUY_CHE = "quy_che_cong_no_mau.txt"
+CAU_HOI_QUY_CHE = "Theo quy chế bán hàng trả chậm, đại lý cấp 1 được trả chậm tối đa bao nhiêu ngày?"
+DAP_AN_QUY_CHE = "45"
+QUY_CHE = """QUY CHẾ BÁN HÀNG TRẢ CHẬM (tài liệu HƯ CẤU để chạy thử)
+Công ty TNHH Dầu nhớt Mẫu Phương Nam. Áp dụng từ ngày 01/01/2026.
+
+Điều 1. Thời hạn trả chậm
+Đại lý cấp 1 được trả chậm tối đa 45 ngày kể từ ngày giao hàng. Đại lý cấp 2 được trả chậm tối đa 30 ngày. Khách mua lẻ thanh toán ngay khi nhận hàng.
+
+Điều 2. Hạn mức công nợ
+Hạn mức của mỗi đại lý cấp 1 là 200.000.000 đồng. Hạn mức của mỗi đại lý cấp 2 là 80.000.000 đồng.
+
+Điều 3. Chiết khấu thanh toán sớm
+Khách thanh toán trong 7 ngày kể từ ngày giao hàng được chiết khấu 1,5% trên giá trị hoá đơn.
+
+Điều 4. Công nợ quá hạn
+Công nợ quá hạn trên 15 ngày thì tạm ngừng giao hàng cho đến khi thu đủ phần quá hạn.
+"""
+
+# Font có đủ dấu tiếng Việt: Windows, Ubuntu (Colab, CI), rồi bản DejaVu đi kèm matplotlib.
+_FONT_UNG_VIEN = ("C:/Windows/Fonts/arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                  "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf")
+
+
+def tim_font() -> str | None:
+    for f in _FONT_UNG_VIEN:
+        if Path(f).is_file():
+            return f
+    import importlib.util
+
+    mpl = importlib.util.find_spec("matplotlib")
+    if mpl and mpl.origin:
+        f2 = Path(mpl.origin).parent / "mpl-data" / "fonts" / "ttf" / "DejaVuSans.ttf"
+        if f2.is_file():
+            return str(f2)
+    return None
+
+
+def _tien(v: int) -> str:
+    return f"{v:,}".replace(",", ".")
+
+
+def ghi_anh_hoa_don(path: Path, lech: int = 0) -> Path:
+    """Vẽ hoá đơn cước thành ảnh PNG như một tờ in rõ nét. `lech` cộng vào dòng TỔNG CỘNG (bản lỗi)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    font = tim_font()
+    if font is None:
+        raise RuntimeError("không tìm thấy font có dấu tiếng Việt để vẽ ảnh hoá đơn")
+    h = HOA_DON_CUOC
+    anh = Image.new("RGB", (1240, 1000), "white")
+    ve = ImageDraw.Draw(anh)
+    to, thuong, nho = (ImageFont.truetype(font, c) for c in (40, 30, 26))
+
+    def chu(x: int, y: int, s: str, f: Any = thuong) -> None:
+        ve.text((x, y), s, fill="black", font=f)
+
+    chu(60, 40, h["carrier_name"], to)
+    chu(60, 100, f"Mã số thuế: {h['carrier_tax_code']}")
+    chu(60, 160, "HOÁ ĐƠN GIÁ TRỊ GIA TĂNG - CƯỚC VẬN CHUYỂN", to)
+    chu(60, 225, f"Số: {h['invoice_no']}        Ngày: {h['invoice_date']}")
+    chu(60, 275, f"Tuyến: {h['origin']} - {h['destination']}")
+    chu(60, 320, f"Phương tiện: {h['vehicle_type']}        Biển số: {h['plate_number']}")
+    cot = (60, 140, 690, 830, 1010, 1180)
+    y = 390
+    ve.line([(cot[0], y), (cot[-1], y)], fill="black", width=2)
+    for x, s in zip(cot, ("STT", "Nội dung", "Số lượng", "Đơn giá", "Thành tiền")):
+        chu(x + 8, y + 10, s, nho)
+    y += 56
+    for i, (ten, sl, gia) in enumerate(h["khoan"], 1):
+        ve.line([(cot[0], y), (cot[-1], y)], fill="black", width=1)
+        for x, s in zip(cot, (str(i), ten, str(sl), _tien(gia), _tien(sl * gia))):
+            chu(x + 8, y + 12, s, nho)
+        y += 60
+    ve.line([(cot[0], y), (cot[-1], y)], fill="black", width=2)
+    for x in cot:
+        ve.line([(x, 390), (x, y)], fill="black", width=1)
+    chu(620, y + 40, "Cộng tiền hàng:")
+    chu(1010, y + 40, _tien(h["subtotal"]))
+    chu(620, y + 95, f"Thuế suất GTGT: {h['vat_rate']}%")
+    chu(620, y + 150, "Tiền thuế GTGT:")
+    chu(1010, y + 150, _tien(h["vat_amount"]))
+    chu(620, y + 215, "TỔNG CỘNG:", to)
+    chu(990, y + 215, _tien(h["total"] + lech), to)
+    chu(60, y + 330, "Chứng từ hư cấu dùng để chạy thử, không có giá trị pháp lý.", nho)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    anh.save(path)
+    return path
+
+
+def ghi_quy_che(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(QUY_CHE, encoding="utf-8")
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Ghi file
 # ---------------------------------------------------------------------------
 
@@ -331,6 +449,14 @@ def main() -> None:
     for ten, vai_tro in (("khach_hang_mau.xlsx", "khách hàng"), ("nha_cung_cap_mau.xlsx", "nhà cung cấp")):
         f = ghi_doi_tac(Path(__file__).parent / ten, vai_tro)
         print(f"Đã ghi: {f}  ({len(DOI_TAC[vai_tro])} {vai_tro}, {len(LOI_DOI_TAC[vai_tro])} điểm cần xem gieo sẵn)")
+    q = ghi_quy_che(Path(__file__).parent / TEN_QUY_CHE)
+    print(f"Đã ghi: {q}  (nạp ở trang Tài liệu rồi hỏi: {CAU_HOI_QUY_CHE} Đáp án: {DAP_AN_QUY_CHE})")
+    try:
+        for ten, lech in (("hoa_don_cuoc_mau.png", 0), ("hoa_don_cuoc_mau_sai_tong.png", LECH_HOA_DON)):
+            a = ghi_anh_hoa_don(Path(__file__).parent / ten, lech)
+            print(f"Đã ghi: {a}  (tổng cộng in trên tờ: {_tien(HOA_DON_CUOC['total'] + lech)}; tính đúng: {_tien(HOA_DON_CUOC['total'])})")
+    except (ImportError, RuntimeError) as e:
+        print(f"Bỏ qua ảnh hoá đơn mẫu: {e}")
     print("\nTải file này lên mục Tồn kho bên Body để chạy thử bộ soi lỗi sổ sách.")
 
 

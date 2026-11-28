@@ -11,18 +11,28 @@ import json
 import sys
 import tempfile
 import time
+import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from offline_training.demo_colab import cham_doc_hoa_don  # noqa: E402
 from offline_training.demo_mot_may.body_api import Body, thu_muc_demo  # noqa: E402
+from offline_training.kiem_tich_hop_body import DAT  # noqa: E402
 from sample_data.make_sample_data import (  # noqa: E402
+    CAU_HOI_QUY_CHE,
+    DAP_AN_QUY_CHE,
     DOI_TAC,
     DONG,
     DONG_BAN_SAU,
+    HOA_DON_CUOC,
     KY_DEN_SAU,
+    LECH_HOA_DON,
     LOI_DOI_TAC,
     LOI_GIEO,
     LOI_HOI_TO,
+    QUY_CHE,
+    TEN_QUY_CHE,
+    ghi_anh_hoa_don,
     ghi_doi_tac,
     ghi_xlsx,
 )
@@ -37,11 +47,38 @@ def ghi(ten: str, dat: bool | str, chi_tiet: str) -> None:
     KET.append((tt, ten, chi_tiet))
 
 
+def kiem_phan_can_model(b: Body) -> None:
+    """Những thứ chỉ chạy khi Brain có model thật (offline_training/demo_colab.py): đọc ảnh hoá đơn cước, nạp tài liệu, hỏi chat về tài liệu đó, rồi xoá để nạp trực tiếp khi demo."""
+    tong = int(HOA_DON_CUOC["total"])
+    with tempfile.TemporaryDirectory() as tam:
+        for ten, lech, duyet in (("doc_hoa_don_dung", 0, False), ("doc_hoa_don_sai_tong", LECH_HOA_DON, True)):
+            f = ghi_anh_hoa_don(Path(tam) / f"{ten}.png", lech)
+            t0 = time.perf_counter()
+            ma, r = b.goi("POST", "/api/ai/freight-invoice", files={"file": (f.name, f.read_bytes())}, han=300)
+            tt, ct = cham_doc_hoa_don(ma, r, tong + lech, duyet)
+            ghi(ten, tt == DAT, f"{ct} sau {time.perf_counter() - t0:.1f}s")
+    ma, r = b.goi("POST", "/api/ai/documents", files={"file": (TEN_QUY_CHE, QUY_CHE.encode("utf-8"))}, han=600)
+    ghi("nap_tai_lieu", ma == 200 and isinstance(r, dict) and bool(r.get("chunks")), f"http={ma} {str(r)[:150]}")
+    ma, r = b.goi("GET", "/api/ai/documents", han=60)
+    co = ma == 200 and any(d.get("source") == TEN_QUY_CHE for d in (r.get("documents") or []))
+    ghi("liet_ke_tai_lieu", co, f"http={ma}, thấy {TEN_QUY_CHE}: {co}")
+    t0 = time.perf_counter()
+    ma, r = b.goi("POST", "/api/ai/chat", {"message": CAU_HOI_QUY_CHE}, han=300)
+    tra_loi = r.get("reply", "") if isinstance(r, dict) else str(r)
+    ghi("chat_hoi_tai_lieu", ma == 200 and DAP_AN_QUY_CHE in tra_loi and "mock_response" not in tra_loi,
+        f"http={ma} {tra_loi[:160]!r} sau {time.perf_counter() - t0:.1f}s")
+    ma, r = b.goi("DELETE", "/api/ai/documents?" + urllib.parse.urlencode({"source": TEN_QUY_CHE}), han=60)
+    ghi("xoa_tai_lieu", ma == 200, f"http={ma} (kho trống lại để nạp trực tiếp khi demo)")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="http://127.0.0.1:3100")
-    ap.add_argument("--thu-tai-lieu", action="store_true",
-                    help="gửi một tài liệu hư cấu vào kho tri thức: phải bị từ chối và Brain vẫn sống. CHỈ dùng khi kho tri thức đã tắt (bat_demo.ps1 tắt); bật kho thì lệnh này nạp tài liệu thật.")
+    che_do = ap.add_mutually_exclusive_group()
+    che_do.add_argument("--thu-tai-lieu", action="store_true",
+                        help="gửi một tài liệu hư cấu vào kho tri thức: phải bị từ chối và Brain vẫn sống. CHỈ dùng khi kho tri thức đã tắt (bat_demo.ps1 tắt); bật kho thì lệnh này nạp tài liệu thật.")
+    che_do.add_argument("--co-model", action="store_true",
+                        help="Brain có model thật (Colab): chat không được là mock; đọc ảnh hoá đơn, nạp rồi hỏi tài liệu phải đạt")
     a = ap.parse_args(argv)
     b = Body(a.url)
 
@@ -109,10 +146,10 @@ def main(argv: list[str] | None = None) -> int:
         ghi(f"trang{trang.replace('/', '_')}", ma == 200, f"{trang} → {ma}")
 
     t0 = time.perf_counter()
-    ma, r = b.goi("POST", "/api/ai/chat", {"message": "Xin chào, bạn giúp được gì cho kho của tôi?"}, han=120)
+    ma, r = b.goi("POST", "/api/ai/chat", {"message": "Xin chào, bạn giúp được gì cho kho của tôi?"}, han=300)
     tra_loi = r.get("reply", "") if isinstance(r, dict) else str(r)
     if ma == 200 and "mock_response" in tra_loi:
-        ghi("khung_chat", "MOCK", f"khách sẽ thấy nguyên văn: {tra_loi[:70]} (đừng mở khung chat; Body#41)")
+        ghi("khung_chat", "TRƯỢT" if a.co_model else "MOCK", f"khách sẽ thấy nguyên văn: {tra_loi[:70]} (đừng mở khung chat; Body#41)")
     else:
         ghi("khung_chat", ma == 200 and bool(tra_loi), f"http={ma} {tra_loi[:100]!r} sau {time.perf_counter() - t0:.1f}s")
 
@@ -121,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
         _, h = b.goi("GET", "/api/ai/health", han=30)
         song = isinstance(h, dict) and h.get("ok") is True
         ghi("nap_tai_lieu", ma >= 400 and song, f"nạp tài liệu → http={ma} (phải bị từ chối: kho tri thức tắt có chủ ý), Brain còn sống: {song}")
+
+    if a.co_model:
+        kiem_phan_can_model(b)
 
     for tt, ten, ct in KET:
         print(f"  {tt:6} {ten:24} {ct}")

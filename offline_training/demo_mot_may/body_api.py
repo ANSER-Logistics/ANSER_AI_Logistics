@@ -11,6 +11,13 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
+# Route đọc ảnh hoá đơn của Body từ chối kiểu không phải ảnh; tệp khác gửi như trình duyệt gửi tệp lạ.
+_KIEU_ANH = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+
+
+def kieu_noi_dung(ten_tep: str) -> str:
+    return _KIEU_ANH.get(Path(ten_tep).suffix.lower(), "application/octet-stream")
+
 
 def thu_muc_demo() -> Path:
     """Gốc của bộ demo cục bộ (Body clone, database, log): biến `ANSER_DEMO`, mặc định `~/anser-demo`. Nằm NGOÀI mọi repo."""
@@ -31,7 +38,7 @@ class Body:
         if files:
             bien = "----anserdemo" + uuid.uuid4().hex
             phan = [
-                f'--{bien}\r\nContent-Disposition: form-data; name="{ten}"; filename="{ten_tep}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode() + nd + b"\r\n"
+                f'--{bien}\r\nContent-Disposition: form-data; name="{ten}"; filename="{ten_tep}"\r\nContent-Type: {kieu_noi_dung(ten_tep)}\r\n\r\n'.encode() + nd + b"\r\n"
                 for ten, (ten_tep, nd) in files.items()
             ]
             byte = b"".join(phan) + f"--{bien}--\r\n".encode()

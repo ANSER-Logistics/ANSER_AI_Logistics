@@ -28,6 +28,32 @@ powershell -ExecutionPolicy Bypass -File offline_training\demo_mot_may\tat_demo.
 
 Gốc demo mặc định `~\anser-demo` (đổi bằng `-Goc` hay biến `ANSER_DEMO`). Làm lại dữ liệu từ đầu: tắt demo, xoá `<gốc demo>\pgdata`, bật lại.
 
+## Có model thật: Brain và mô hình trên Google Colab Pro
+
+Máy này **không nạp model nào** (hết bộ nhớ). Brain, hai mô hình và kho tri thức chạy trên Colab; máy này chỉ chạy Body và database.
+
+1. Colab: notebook mới, **Runtime → Change runtime type → GPU L4** (hoặc A100), một ô:
+
+   ```python
+   from google.colab import drive; drive.mount("/content/drive")
+   !rm -rf /content/ANSER_AI && git clone -q --depth 1 -b feat/tich-hop-body https://github.com/ANSER-Logistics/ANSER_AI_Logistics.git /content/ANSER_AI
+   %run -i /content/ANSER_AI/offline_training/demo_colab.py
+   ```
+
+   Ô cài vLLM, chép trọng số từ Drive (`anser-v5-awq`, `q25vl7b-w4a16-tu-luong-tu`), bật hai server và Brain, **tự thử** (chat, đọc hai ảnh hoá đơn, nạp và hỏi tài liệu), mở đường hầm (ngrok nếu có `NGROK_AUTHTOKEN` trong Colab Secrets, không thì cloudflared) rồi giữ phiên sống. Lần đầu khoảng 15 đến 25 phút. Kết quả và log ghi vào `MyDrive/ANSER_AI_Logistics/demo_colab_<ngày>_<commit>/` (không có token).
+2. Ô in hai dòng `BRAIN_URL=…`, `BRAIN_API_TOKEN=…`. Dán vào tệp mới `<gốc demo>\brain_colab.env` (ngoài repo, đừng gửi cho ai; đổi mỗi lần chạy lại ô).
+3. Máy này:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File offline_training\demo_mot_may\tat_demo.ps1 -Goc <gốc demo>
+   powershell -ExecutionPolicy Bypass -File offline_training\demo_mot_may\bat_demo.ps1 -Goc <gốc demo> -BrainColab <gốc demo>\brain_colab.env
+   ```
+
+   Hai bộ kiểm cuối chạy chế độ có model (`--can-model`, `--co-model`): chat phải do model trả lời, ảnh hoá đơn và tài liệu phải đạt.
+4. Xong demo: bấm dừng ô Colab (đóng hầm, tắt server, khỏi tốn compute unit).
+
+**Giới hạn của cách này.** Colab dành cho tính toán tương tác; [FAQ](https://research.google.com/colaboratory/faq.html) cấm "web service offerings not related to interactive compute" và "connecting to remote proxies" (đọc 28/11/2026). Chỉ dùng để thử và demo do chính mình điều khiển, không đưa địa chỉ cho khách, tắt khi xong; Colab có thể ngắt phiên bất cứ lúc nào (khi đó bật lại demo không có `-BrainColab` để còn phần tính bằng mã). **Chỉ dữ liệu hư cấu**: câu hỏi, ảnh và tài liệu đi qua đường hầm của bên thứ ba. Phục vụ khách thật vẫn là máy có GPU riêng (`deploy/`).
+
 ## Buổi demo
 
 - Đăng nhập bằng nút **"Người dùng demo"**. Body chỉ cho **10 lần đăng nhập trong 15 phút** (tính cả lần đúng mật khẩu): đừng đăng nhập đi đăng nhập lại; lỡ bị khoá thì tắt bật lại.
@@ -36,12 +62,13 @@ Gốc demo mặc định `~\anser-demo` (đổi bằng `-Goc` hay biến `ANSER_
 - So hai bản: *Cảnh báo sổ sách* → ô cũ chọn `ton_kho_mau.xlsx`, ô mới chọn `ton_kho_mau_ban_sau.xlsx` → **So hai bản**: 3 chỗ số liệu đã đổi, 21.600.000đ.
 - Dòng tiền: *Dòng tiền* → ô trái chọn `khach_hang_mau.xlsx` → **Soi ngay**, rồi chọn `nha_cung_cap_mau.xlsx` → **Soi ngay**; ô phải chọn `ton_kho_mau.xlsx` → **Nạp tồn kho**. Khách đang nợ 520.000.000đ, nợ nhà cung cấp 150.000.000đ, hàng trong kho và số ngày giá vốn; 7 điểm cần xem (khách tập trung, số dư âm, mã số thuế sai hay thiếu, trùng mã số thuế).
 - Lãi gộp: *Báo cáo* → chọn **Tháng** → **Tính lãi gộp**. Lãi gộp chỉ tính trên phần doanh thu **có giá vốn**, nên `doanh thu − giá vốn` có thể khác `lãi gộp`; giải thích đúng câu đó, đừng để khách tự trừ.
-- **Đừng mở khung chat** (nút tròn góc phải): không có mô hình, khung chat hiện câu giả.
-- **Đừng nạp tài liệu hay ảnh hoá đơn** ở trang *Tài liệu* (kho tri thức tắt trong demo: nạp chỉ báo lỗi; không có mô hình đọc ảnh), và đừng bấm **Chạy** ở trang *Tự động hoá* (không có n8n).
+- **Có `-BrainColab`:** *Tài liệu* → nạp `file_mau\quy_che_cong_no_mau.txt` → mở khung chat (nút tròn góc phải) hỏi "Theo quy chế bán hàng trả chậm, đại lý cấp 1 được trả chậm tối đa bao nhiêu ngày?" (đáp án **45**); *Tài liệu* → đọc ảnh `file_mau\hoa_don_cuoc_mau.png` (tổng 5.184.000, không cần xem lại) rồi `file_mau\hoa_don_cuoc_mau_sai_tong.png` (in 5.284.000, hệ thống đòi người xem vì tính lại ra 5.184.000).
+- **Không có `-BrainColab`:** đừng mở khung chat (câu giả), đừng nạp tài liệu hay ảnh hoá đơn (kho tri thức tắt, không có mô hình đọc ảnh).
+- Đừng bấm **Chạy** ở trang *Tự động hoá* (không có n8n).
 - Chưa demo soát thuế suất (*Cảnh báo sổ sách* → "Thuế suất từng mã hàng"): quy tắc cho nhóm dầu nhớt chưa được kế toán duyệt.
 
 ## Giới hạn
 
 - Chỉ Windows (script PowerShell). Phần Node và Python chạy được trên Linux nhưng chưa viết script bật cho Linux.
 - PostgreSQL cục bộ khác Neon ở độ trễ mạng; demo này không kiểm được hành vi Neon.
-- Chat, đọc ảnh hoá đơn và hỏi tài liệu cần mô hình hoặc kho tri thức: không có trong demo này.
+- Chat, đọc ảnh hoá đơn và hỏi tài liệu chỉ có khi Brain chạy trên Colab (mục "Có model thật").

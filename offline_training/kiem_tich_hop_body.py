@@ -356,12 +356,14 @@ class Brain:
         return dau
 
     def goi(self, method: str, duong: str, than: Any = None, *, dinh_danh: bool = False, token: Optional[str] = None,
-            han: Optional[float] = None, multipart: Optional[tuple[str, bytes]] = None) -> tuple[int, Any]:
+            han: Optional[float] = None, multipart: Optional[tuple[str, bytes]] = None, truong: Optional[dict[str, str]] = None) -> tuple[int, Any]:
         byte: Optional[bytes]
         if multipart is not None:
             ten, noi_dung = multipart
             bien = "----kiemtichhop" + uuid.uuid4().hex
-            byte = (f"--{bien}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{ten}\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() \
+            # `truong`: trường form đi kèm tệp (như `workspace_id` của kho tri thức), giống `uploadKnowledgeDocument` của Body.
+            phan = "".join(f"--{bien}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n" for k, v in (truong or {}).items())
+            byte = (phan + f"--{bien}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{ten}\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() \
                 + noi_dung + f"\r\n--{bien}--\r\n".encode()
             dau = self._dau(False, dinh_danh, token)
             dau["Content-Type"] = f"multipart/form-data; boundary={bien}"     # ở đây phải đặt (urllib không tự sinh); fetch của Body tự sinh
@@ -379,10 +381,10 @@ class Brain:
             return 0, f"{type(e).__name__}: {e}"[:200]
 
 
-def chat_cho_xong(b: Brain, han_s: float) -> tuple[Any, float]:
+def chat_cho_xong(b: Brain, han_s: float, cau: str = CAU_CHAT) -> tuple[Any, float]:
     """Y như `askBrain`: POST /chat lấy task_id rồi hỏi /api/v1/task/{id} cách nhau 1–2 giây. Trả (task cuối, số giây)."""
     t0 = time.perf_counter()
-    ma, acc = b.goi("POST", "/chat", {"user_id": USER_ID, "store_id": STORE_ID, "message": CAU_CHAT}, dinh_danh=True, han=han_s)
+    ma, acc = b.goi("POST", "/chat", {"user_id": USER_ID, "store_id": STORE_ID, "message": cau}, dinh_danh=True, han=han_s)
     if ma != 200 or not isinstance(acc, dict) or not acc.get("task_id"):
         return {"status": "failed", "error": f"/chat http={ma} {acc!r}"[:160]}, time.perf_counter() - t0
     task: Any = None
