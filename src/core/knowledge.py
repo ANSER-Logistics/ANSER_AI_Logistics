@@ -55,7 +55,7 @@ from datetime import date
 from typing import Any, Optional, Protocol
 
 from src.core.chunking import chunk_document, looks_tabular
-from src.core.config import kb_embedder_id, kb_reranker_id
+from src.core.config import kb_embedder_id, kb_reranker_id, kb_reranker_max_length
 from src.core.utils import hom_nay_vn, loai_loi
 
 logger = logging.getLogger("projecta.knowledge")
@@ -313,6 +313,8 @@ class KnowledgeBase:
         # 22,5GB không đủ chỗ. Truy vấn RAG thưa, đổi độ trễ lấy VRAM là hời.
         self.device = device or os.getenv("KB_DEVICE", "cpu")
         self._bm25_cache: dict[str, Any] = {}
+        # Đọc và kiểm NGAY (không nạp model): giá trị hỏng thì dựng đối tượng đã lỗi, không đợi tới lần tìm đầu tiên.
+        self._reranker_max_length = kb_reranker_max_length()
 
         # KHÔNG nạp tài liệu ở đây. Bản cũ gọi `ingest_folder()` trong __init__,
         # tức dựng đối tượng là quét đĩa + nhúng toàn bộ kho -> chặn startup.
@@ -344,8 +346,10 @@ class KnowledgeBase:
         if self._reranker is None:
             from sentence_transformers import CrossEncoder
             ten = kb_reranker_id()
-            logger.info("Nạp reranker %s trên %s", ten, self.device)
-            self._reranker = CrossEncoder(ten, device=self.device)
+            logger.info("Nạp reranker %s trên %s (max_length=%s)", ten, self.device, self._reranker_max_length or "mặc định")
+            # `max_length` chỉ truyền khi đã đặt: bỏ trống thì đúng như trước, không phụ thuộc phiên bản sentence-transformers nhận tham số này hay không.
+            kwargs: dict[str, Any] = {"max_length": self._reranker_max_length} if self._reranker_max_length else {}
+            self._reranker = CrossEncoder(ten, device=self.device, **kwargs)
         return self._reranker
 
     @property

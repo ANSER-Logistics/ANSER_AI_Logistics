@@ -1,0 +1,67 @@
+name: PR meta
+
+# Tự gắn hai trường PR hay bị bỏ trống (AGENTS.md §5.4: đo 18/11/2026, 15/15 PR không có
+# assignee, 14/15 không có label): assignee = tác giả, label theo tiền tố tiêu đề.
+#
+# Chỉ điền khi TRỐNG, không bao giờ ghi đè thứ người đã gắn. Quyết định theo trạng thái
+# HIỆN TẠI của PR, đọc ngay trước khi ghi, không theo dữ liệu của sự kiện: job có thể xếp
+# hàng hay chạy lại sau khi người đã sửa nhãn (review của Minh trên #282). Mỗi trường
+# được kiểm riêng và chỉ thêm (POST), không thay thế. Các trường Project
+# (Priority, Effort, Status) KHÔNG làm ở đây: GITHUB_TOKEN không ghi được org Project,
+# cần một token riêng, và đó là quyết định của chủ dự án.
+#
+# Dùng `pull_request` (không phải `pull_request_target`), không checkout mã, tiêu đề
+# và tên tác giả đi qua `env`, không nội suy thẳng vào lệnh shell.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  gan-meta:
+    runs-on: ubuntu-latest
+    # PR từ fork không có quyền ghi: bỏ qua thay vì đỏ.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+    steps:
+      - name: Gắn assignee và label khi còn trống
+        run: |
+          # Đọc trạng thái hiện tại. Không đọc được thì KHÔNG ghi gì (tránh ghi theo dữ liệu cũ).
+          if ! HIEN_TAI=$(gh api "repos/$REPO/issues/$PR" --jq '"\(.assignees|length) \(.labels|length)"') \
+             || ! TITLE=$(gh api "repos/$REPO/issues/$PR" --jq .title); then
+            echo "::warning::Không đọc được trạng thái PR, bỏ qua."
+            exit 0
+          fi
+          set -- $HIEN_TAI
+          N_ASSIGNEES=$1
+          N_LABELS=$2
+
+          if [ "$N_ASSIGNEES" = "0" ]; then
+            gh api -X POST "repos/$REPO/issues/$PR/assignees" -f "assignees[]=$AUTHOR" >/dev/null \
+              && echo "assignee: $AUTHOR" \
+              || echo "::warning::Không gắn được assignee $AUTHOR"
+          else
+            echo "assignee đã có ($N_ASSIGNEES)"
+          fi
+
+          if [ "$N_LABELS" = "0" ]; then
+            case "$TITLE" in
+              fix*)  NHAN=bug ;;
+              docs*) NHAN=documentation ;;
+              *)     NHAN=enhancement ;;
+            esac
+            gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$NHAN" >/dev/null \
+              && echo "label: $NHAN" \
+              || echo "::warning::Không gắn được label $NHAN"
+          else
+            echo "label đã có ($N_LABELS)"
+          fi
