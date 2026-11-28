@@ -178,10 +178,8 @@ def bang() -> list[list[object]]:
         ["Tên kho", "Mã hàng", "Tên hàng", "ĐVT",
          "Đầu kỳ", "", "", "Nhập kho", "", "", "Xuất kho", "", "", "Cuối kỳ", "", ""]
     )
-    rows.append(
-        ["", "", "", ""]
-        + ["Số lượng", "Giá trị", "Đơn giá BQ"] * 4
-    )
+    # `[*..., *...]` thay cho `list + list`: phép cộng suy ra `list[str]`, mypy không nhận vào `list[list[object]]` (lộ ra khi `kiem_tich_hop_body.py` import file này).
+    rows.append([*["", "", "", ""], *["Số lượng", "Giá trị", "Đơn giá BQ"] * 4])
 
     for d in DONG:
         ck_q, ck_v = d.ck_qty(), d.ck_value()

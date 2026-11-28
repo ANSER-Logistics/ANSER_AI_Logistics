@@ -27,7 +27,7 @@ BAO_CAO_TOT = {
 CO_DOANH_THU = {"explain": {"cogs_coverage_pct": 0.0, "confidence": "thấp", "formula": "f", "period_count": 1}, "warnings": ["Chỉ 0% doanh thu có giá vốn"]}
 CHI_CO_CHI_PHI = {"explain": {"cogs_coverage_pct": None, "confidence": "không có dữ liệu", "formula": "f", "period_count": 1}, "warnings": ["x"]}
 
-TON_KHO_TOT = {"import": {"rows_parsed": 11},
+TON_KHO_TOT = {"import": {"rows_parsed": k.SO_DONG_TON_KHO},
                "audit": {"findings": [{"code": c} for c in sorted(k.MA_TON_KHO_CO_LOI)] + [{"code": "DN-TL-200"}]},
                "audit_skipped_reason": None}
 
@@ -135,7 +135,7 @@ def test_ton_kho_bay_ma_co_loi_khong_hon_khong_kem():
     oan["audit"]["findings"].append({"code": "DN-SG-18"})
     assert _trang_thai(k.kiem_ton_kho(oan)) == k.TRUOT                                    # gắn cờ oan một mã sạch
     doc_thieu = copy.deepcopy(TON_KHO_TOT)
-    doc_thieu["import"]["rows_parsed"] = 10
+    doc_thieu["import"]["rows_parsed"] = k.SO_DONG_TON_KHO - 1
     assert _trang_thai(k.kiem_ton_kho(doc_thieu)) == k.TRUOT
     bo_qua_kiem = {**TON_KHO_TOT, "audit": None, "audit_skipped_reason": "đọc file không chắc chắn"}
     assert _trang_thai(k.kiem_ton_kho(bo_qua_kiem)) == k.TRUOT                            # audit=null KHÔNG phải "không có lỗi"
@@ -188,16 +188,20 @@ def test_dinh_danh_la_uuid_nhu_body_va_khong_doi_giua_cac_lan_chay():
     assert str(uuid.UUID(k.USER_ID)) == k.USER_ID and str(uuid.UUID(k.STORE_ID)) == k.STORE_ID and k.USER_ID != k.STORE_ID
 
 
-def test_du_lieu_mau_ton_kho_co_that():
-    """Lượt kiểm chạy trên tệp này; mất nó là bước `ton_kho_nap_file` trượt vì lý do không liên quan tới Brain."""
-    assert k.FILE_TON_KHO.exists()
+def test_tep_mau_ton_kho_do_cong_cu_tu_sinh_va_khop_so_lieu_trong_tai_lieu(tmp_path):
+    """Tệp .xlsx không được commit (gitignore): công cụ tự sinh. Tài liệu demo nói "11 mã, bảy mã có lỗi"; đổi bộ sinh là phải sửa tài liệu."""
+    from sample_data.make_sample_data import ghi_xlsx
+
+    f = ghi_xlsx(tmp_path / "ton_kho_mau.xlsx")
+    assert f.exists() and f.stat().st_size > 0
+    assert (k.SO_DONG_TON_KHO, len(k.MA_TON_KHO_CO_LOI)) == (11, 7)
 
 
 # --- chạy chính brain.ts của Body --------------------------------------------------------------------------------------------
 KET_TS_TOT = {
     "health": {"ok": True, "degraded": False, "auth_enabled": True, "engine_ready": True, "vision_ready": True},
     "report": {"ok": True, "so_ky": 2, "lai_gop_10": 3_600_000, "phu_gia_von": 81.5, "tin_cay": "trung bình"},
-    "ton_kho": {"ok": True, "so_dong": 11, "so_phat_hien": 8, "ma": sorted(k.MA_TON_KHO_CO_LOI), "ly_do_bo_qua": None},
+    "ton_kho": {"ok": True, "so_dong": k.SO_DONG_TON_KHO, "so_phat_hien": 8, "ma": sorted(k.MA_TON_KHO_CO_LOI), "ly_do_bo_qua": None},
     "token_sai": {"ok": True, "kind_nhan_duoc": "unauthorized", "status": 401},
     "chat": {"ok": True, "giay": 3.0, "tra_loi": "Chào bạn, mình giúp được việc kho.", "do_dai": 34},
 }
@@ -218,7 +222,6 @@ def test_brain_ts_tot_va_tung_cho_hong():
         {("health", "auth_enabled"): False},                       # Brain mở toang dù đã đưa token
         {("report", "lai_gop_10"): 8_600_000},
         {("report", "phu_gia_von"): 100.0},
-        {("ton_kho", "so_phat_hien"): 7},
         {("ton_kho", "ma"): ["DN-TL-200"]},
         {("token_sai", "kind_nhan_duoc"): "server_error"},         # Body không nhận ra 401: sẽ hiện lỗi chung thay vì "token sai"
         {("token_sai", "kind_nhan_duoc"): "KHONG_LOI"},            # token sai mà vẫn vào được

@@ -51,6 +51,7 @@ from offline_training.kiem_server_that import (  # noqa: E402  (một định ng
     VAT_VAO,
     cong_trong,
 )
+from sample_data.make_sample_data import DONG, LOI_GIEO, ghi_xlsx  # noqa: E402
 
 DAT, TRUOT, MOCK, CANH_BAO, BO_QUA = "dat", "truot", "mock", "canh_bao", "bo_qua"
 
@@ -60,8 +61,10 @@ STORE_ID = str(uuid.uuid5(uuid.NAMESPACE_DNS, "kiem-tich-hop-body.kho"))
 KHOA_TAM = "kiem-tich-hop-" + "t" * 32      # token DÙNG MỘT LẦN cho tiến trình `--tu-bat`; không phải bí mật của ai
 HAN_MAC_DINH_BODY_S = 60                    # `TIMEOUT_MS.chat` mặc định của brain.ts khi không đặt BRAIN_CHAT_TIMEOUT_MS
 
-MA_TON_KHO_CO_LOI = {"DN-TL-200", "KM-4T-08", "DN-BR-18", "LC-COOL-200", "DN-CAT-20", "DN-GL5-18", "MO-EP2-15"}
-FILE_TON_KHO = ROOT / "sample_data" / "ton_kho_mau.xlsx"
+# Một định nghĩa (R4): mã có lỗi và số dòng lấy từ chính bộ sinh dữ liệu mẫu, không chép tay. Tệp .xlsx không được commit (gitignore),
+# nên công cụ TỰ SINH vào thư mục tạm thay vì đòi người chạy sinh trước.
+MA_TON_KHO_CO_LOI = set(LOI_GIEO)           # bảy mã gieo lỗi có chủ đích; thêm hay bớt một mã ở bộ sinh thì phép kiểm đổi theo
+SO_DONG_TON_KHO = len(DONG)
 
 # Báo cáo mẫu, hư cấu, tính tay được:
 #   09/2026: doanh thu 10.000.000, giá vốn 7.000.000 → lãi gộp 3.000.000.
@@ -192,13 +195,13 @@ def kiem_ton_kho(r: Any) -> Chi:
         return TRUOT, f"audit=null, lý do: {r.get('audit_skipped_reason')!r}"
     ma = {str(f.get("code")) for f in audit.get("findings", []) if isinstance(f, dict)}
     sai: list[str] = []
-    if dong != 11:
-        sai.append(f"đọc {dong} dòng (phải 11)")
+    if dong != SO_DONG_TON_KHO:
+        sai.append(f"đọc {dong} dòng (phải {SO_DONG_TON_KHO})")
     if ma != MA_TON_KHO_CO_LOI:
         sai.append(f"thiếu mã {sorted(MA_TON_KHO_CO_LOI - ma)}" if MA_TON_KHO_CO_LOI - ma else "")
         sai.append(f"gắn cờ oan {sorted(ma - MA_TON_KHO_CO_LOI)}" if ma - MA_TON_KHO_CO_LOI else "")
     sai = [s for s in sai if s]
-    return (TRUOT, "; ".join(sai)) if sai else (DAT, f"11 dòng, {len(audit.get('findings', []))} phát hiện trên đúng 7 mã gieo sẵn, không gắn cờ mã nào khác")
+    return (TRUOT, "; ".join(sai)) if sai else (DAT, f"{SO_DONG_TON_KHO} dòng, {len(audit.get('findings', []))} phát hiện trên đúng {len(MA_TON_KHO_CO_LOI)} mã gieo sẵn, không gắn cờ mã nào khác")
 
 
 def kiem_kho_tri_thuc(ma: int, r: Any, kb_ready: Any) -> Chi:
@@ -253,7 +256,7 @@ def kiem_brain_ts(ket: Any, can_model: bool, co_token: bool) -> Chi:
         mau.append((TRUOT, f"checkBrainHealth: ok={h.get('ok')} degraded={h.get('degraded')} auth_enabled={h.get('auth_enabled')} {h.get('loi', '')}".strip()))
     if not bc.get("ok") or bc.get("so_ky") != 2 or bc.get("lai_gop_10") != 3_600_000 or bc.get("phu_gia_von") != 81.5:
         mau.append((TRUOT, f"buildReport: ok={bc.get('ok')} so_ky={bc.get('so_ky')} lai_gop_10={bc.get('lai_gop_10')} phu={bc.get('phu_gia_von')} {bc.get('loi', '')}".strip()))
-    if not tk.get("ok") or tk.get("so_dong") != 11 or set(tk.get("ma") or []) != MA_TON_KHO_CO_LOI or tk.get("so_phat_hien") != 8:
+    if not tk.get("ok") or tk.get("so_dong") != SO_DONG_TON_KHO or set(tk.get("ma") or []) != MA_TON_KHO_CO_LOI:
         mau.append((TRUOT, f"importInventoryFile: ok={tk.get('ok')} so_dong={tk.get('so_dong')} so_phat_hien={tk.get('so_phat_hien')} "
                            f"bo_qua={tk.get('ly_do_bo_qua')!r} {tk.get('loi', '')}".strip()))
     if co_token and (not ts.get("ok") or ts.get("kind_nhan_duoc") != "unauthorized"):
@@ -269,7 +272,7 @@ def kiem_brain_ts(ket: Any, can_model: bool, co_token: bool) -> Chi:
     return DAT, "health, báo cáo, nạp tồn kho, lỗi token sai và chat đều đọc được qua mã thật của Body"
 
 
-def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float) -> Any:
+def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float, file_ton_kho: Path) -> Any:
     """Tải (hoặc đọc) brain.ts, đặt cạnh runner trong thư mục tạm riêng, chạy bằng Node với quyền chỉ ĐỌC hai nơi cần thiết."""
     import shutil
 
@@ -295,7 +298,7 @@ def chay_brain_ts(url: str, token: str, brain_ts: str, han_chat_s: float) -> Any
         if token:
             moi_truong["BRAIN_API_TOKEN"] = token
         # Mã tải về là dữ liệu từ ngoài: Node 22.13+ có `--permission` — chỉ cho ĐỌC thư mục tạm và tệp mẫu; không ghi, không tạo tiến trình con.
-        lenh = [node, "--no-warnings", "--permission", f"--allow-fs-read={thu_muc}", f"--allow-fs-read={FILE_TON_KHO}", str(runner), str(FILE_TON_KHO)]
+        lenh = [node, "--no-warnings", "--permission", f"--allow-fs-read={thu_muc}", f"--allow-fs-read={file_ton_kho}", str(runner), str(file_ton_kho)]
         r = subprocess.run(lenh, cwd=thu_muc, env=moi_truong, capture_output=True, text=True, encoding="utf-8", timeout=han_chat_s + 120)
     dong = [x for x in r.stdout.strip().splitlines() if x.startswith("{")]
     if r.returncode != 0 or not dong:
@@ -360,6 +363,13 @@ def chat_cho_xong(b: Brain, han_s: float) -> tuple[Any, float]:
 
 def chay_kiem(b: Brain, workspace: str, *, can_model: bool, bo_chat: bool, han_chat_s: float,
               voi_brain_ts: bool = False, brain_ts_file: str = "") -> list[dict[str, Any]]:
+    with tempfile.TemporaryDirectory(prefix="anser_mau_") as tam:
+        return _chay_kiem(b, workspace, ghi_xlsx(Path(tam) / "ton_kho_mau.xlsx"), can_model=can_model, bo_chat=bo_chat,
+                          han_chat_s=han_chat_s, voi_brain_ts=voi_brain_ts, brain_ts_file=brain_ts_file)
+
+
+def _chay_kiem(b: Brain, workspace: str, file_ton_kho: Path, *, can_model: bool, bo_chat: bool, han_chat_s: float,
+               voi_brain_ts: bool, brain_ts_file: str) -> list[dict[str, Any]]:
     ra: list[dict[str, Any]] = []
 
     def buoc(ten: str, bat_buoc: bool, f: Callable[[], Chi]) -> None:
@@ -392,9 +402,7 @@ def chay_kiem(b: Brain, workspace: str, *, can_model: bool, bo_chat: bool, han_c
         b.goi("POST", "/tools/report", BAO_CAO_KHONG_GIA_VON)[1], b.goi("POST", "/tools/report", BAO_CAO_CHI_CO_CHI_PHI)[1]))
 
     def ton_kho() -> Chi:
-        if not FILE_TON_KHO.exists():
-            return TRUOT, f"thiếu {FILE_TON_KHO.relative_to(ROOT)} (chạy python sample_data/make_sample_data.py)"
-        ma, r = b.goi("POST", "/tools/inventory-import", multipart=(FILE_TON_KHO.name, FILE_TON_KHO.read_bytes()), han=60.0)
+        ma, r = b.goi("POST", "/tools/inventory-import", multipart=(file_ton_kho.name, file_ton_kho.read_bytes()), han=60.0)
         return kiem_ton_kho(r) if ma == 200 else (TRUOT, f"http={ma} {r!r}"[:160])
 
     buoc("ton_kho_nap_file", True, ton_kho)
@@ -415,7 +423,7 @@ def chay_kiem(b: Brain, workspace: str, *, can_model: bool, bo_chat: bool, han_c
     if voi_brain_ts:
         # Bắt buộc khi người chạy đã xin: yêu cầu mà không chạy được thì phải TRƯỢT to, không được lặng lẽ bỏ qua (`noi_duoc_brain` ở trên đã cắt sớm nếu Brain chết).
         buoc("brain_ts_cua_body", True, lambda: kiem_brain_ts(
-            chay_brain_ts(b.url, b.token, brain_ts_file, han_chat_s), can_model, bool(b.token)))
+            chay_brain_ts(b.url, b.token, brain_ts_file, han_chat_s, file_ton_kho), can_model, bool(b.token)))
     return ra
 
 
